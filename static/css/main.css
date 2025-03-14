@@ -1,0 +1,32 @@
+/* 
+ * Main CSS file for 창플 AI 챗봇
+ * Created: March 2025
+ */
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Noto Sans KR", sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Layout */
+
+/* Header */
+
+/* Main content */
+
+/* Chat interface */
+
+/* Footer */
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  /* Mobile styles */
+}
