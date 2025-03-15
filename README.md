@@ -11,6 +11,7 @@ and the content should contain belows.
 ## install of dependents:
 ```bash
 pip install -r requirements.txt
+playwright install
 ```
 
 ## after new pip install:

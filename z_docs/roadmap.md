@@ -9,7 +9,7 @@
 - **타겟 사이트**: 네이버 카페(https://cafe.naver.com/cjdckddus)
 
 ## 기술 스택
-- **백엔드**: Python, Django, Langchain
+- **백엔드**: Python, Django, Django REST framework, Langchain
 - **크롤링**: Playwright (로그인 기능 포함)
 - **벡터 DB**: Pinecone
 - **프론트엔드**: React
@@ -32,6 +32,7 @@
   - Docker 컨테이너 설정
 - **기술 스택 설정**
   - Django 프로젝트 초기화
+  - Django REST framework 설치 및 설정
   - React 프로젝트 초기화
   - PostgreSQL 데이터베이스 설정
   - Redis 설정
@@ -39,7 +40,7 @@
   - Nginx 설정
 - **아키텍처 설계**
   - 시스템 아키텍처 다이어그램 작성
-  - API 엔드포인트 정의
+  - REST API 엔드포인트 정의 및 문서화
   - 데이터 모델 설계
   - Docker 컴포즈 파일 구성
 
@@ -69,9 +70,10 @@
 ### Phase 3: AI 챗봇 백엔드 개발 (3월 17일 - 3월 19일)
 - **3월 17일: 기본 백엔드 구조**
   - Django 백엔드 API 구현
+  - Django REST framework 시리얼라이저 및 뷰셋 구현
   - PostgreSQL 데이터 모델 구현
-  - 사용자 인증 시스템 구현
-  - 기본 API 엔드포인트 개발
+  - 사용자 인증 시스템 구현 (JWT 기반)
+  - REST API 엔드포인트 개발 및 문서화
   
 - **3월 18일: Langchain & OpenAI 통합**
   - Langchain 프레임워크 설정
@@ -175,6 +177,7 @@
 - 프롬프트 엔지니어링 및 최적화
 - 사용자별 일일 채팅 제한 관리
 - 토큰 사용량 최적화 전략
+- REST API를 통한 챗봇 엔진 접근 제어
 
 ### 웹 인터페이스
 - React 기반 SPA 구현
@@ -182,12 +185,22 @@
 - 반응형 웹 디자인
 - 실시간 채팅 인터페이스
 - 사용자 인증 및 프로필 관리
+- REST API와의 효율적인 통신
 
 ### 배포 및 인프라
 - Docker 컨테이너화
 - Nginx 웹 서버 설정
 - 클라우드 서비스 배포 (AWS/Google/Naver/Oracle 중 선택)
 - 멀티 컨테이너 구성 (웹서버, 백엔드, 크롤러, DB 등)
+
+### API 및 백엔드 시스템
+- Django REST framework를 활용한 RESTful API 구현
+- API 버전 관리 및 문서화 (Swagger/OpenAPI)
+- 시리얼라이저를 통한 데이터 검증 및 변환
+- 뷰셋 및 라우터를 활용한 CRUD 엔드포인트 자동화
+- 권한 및 인증 시스템 (JWT 기반)
+- API 성능 최적화 (페이지네이션, 필터링, 캐싱)
+- API 테스트 자동화
 
 ### 사용자 인증 시스템
 - 자체 계정 시스템 구현
@@ -198,6 +211,8 @@
   - OAuth 2.0 인증 흐름
   - 사용자 프로필 정보 활용
 - 세션 관리 및 보안
+- JWT 기반 인증 시스템 구현
+- REST framework 권한 클래스 활용
 
 ### 결제 시스템
 - Toss Payment API 연동
