@@ -10,6 +10,7 @@ This module contains a web scraper for collecting data from Naver Cafe.
 - Tracking of deleted/inaccessible posts to avoid repeated attempts
 - Support for category filtering
 - Customizable crawling ranges with start and end IDs
+- Scheduled scraping with Redis and RQ
 
 ## Category Management
 
@@ -72,7 +73,7 @@ This approach separates the data loading from the migrations, making it easier t
 
 ### Using the Management Command
 
-The easiest way to run the scraper is using the management command:
+The easiest way to run the scraper manually is using the management command:
 
 ```bash
 python manage.py run_crawler
@@ -123,6 +124,67 @@ asyncio.run(main(
 ))
 ```
 
+## Scheduled Scraping
+
+The scraper can be scheduled to run automatically using Redis and RQ:
+
+### Prerequisites
+
+1. Install Redis on your server or use a hosted Redis service
+2. Ensure the Redis service is running
+3. Configure the Redis connection in `settings.py` if needed
+
+### Setting Up Scheduled Scraping
+
+To schedule the crawler to run daily at a specific time (all times are in UTC):
+
+```bash
+# Schedule to run daily at 3:00 AM UTC
+python manage.py schedule_crawler start --hour=3 --minute=0
+
+# Schedule to run daily at 12:30 PM UTC
+python manage.py schedule_crawler start --hour=12 --minute=30
+```
+
+### Managing Scheduled Jobs
+
+You can view and manage scheduled jobs using the following commands:
+
+```bash
+# List all scheduled jobs
+python manage.py schedule_crawler list
+
+# Cancel all scheduled jobs
+python manage.py schedule_crawler cancel
+
+# Schedule a custom job with specific parameters
+python manage.py schedule_crawler custom --start-id=51000 --end-id=51200
+
+# Run a custom job immediately (doesn't wait for scheduler)
+python manage.py schedule_crawler custom --start-id=51000 --end-id=51200 --now
+
+# Check the current status of the queue
+python manage.py schedule_crawler status
+```
+
+### Running the Worker
+
+For the scheduled jobs to run, you need to have at least one RQ worker running:
+
+```bash
+python manage.py rqworker default
+```
+
+For production use, consider using a process manager like Supervisor to keep the worker running.
+
+### RQ Dashboard
+
+Django RQ provides a dashboard to monitor jobs. Access it at:
+
+```
+http://your-server/django-rq/
+```
+
 ## Optimizations
 
 The scraper includes several optimizations to improve efficiency:
@@ -152,3 +214,97 @@ The crawler automatically tracks deleted posts and posts with errors:
 Future crawling runs will skip these posts unless their status entries are manually deleted in the admin panel.
 
 The scraper will only collect posts from categories that are marked as active in the database. 
+
+## Relationship Map
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Django Application                             │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                ┌─────────────────────────────────────────┐
+                │                                         │
+                ▼                                         ▼
+┌────────────────────────────┐            ┌───────────────────────────────┐
+│   Management Commands      │            │      Scraper Services         │
+│                            │            │                               │
+│ schedule_crawler.py        │◄───────┐   │ scheduler.py                  │
+│  - daily                   │        │   │  - schedule_daily_crawler()   │
+│  - custom                  │        │   │  - schedule_custom_crawler()  │
+│  - status                  │        │   │  - get_scheduler()            │
+│  - list                    │        │   │  - list_scheduled_jobs()      │
+│  - cancel                  │        │   │                               │
+└────────────┬───────────────┘        │   │ crawler.py                    │
+             │                        │   │  - NaverCafeScraper           │
+             └────────────────────────┼───┼─► - scrape_posts()            │
+                                      │   │  - scrape_post()              │
+                                      │   └───────────────┬───────────────┘
+                                      │                   │
+                                      │                   │
+                                      │                   ▼
+┌─────────────────────────────────────┴─┐       ┌─────────────────────────┐
+│                                        │       │   Database Models       │
+│      Redis + RQ Infrastructure         │       │                         │
+│                                        │       │ - Post                  │
+│ ┌────────────────┐  ┌────────────────┐ │       │ - PostStatus           │
+│ │   RQ Queues    │  │  RQ Scheduler  │ │       │ - Other models...      │
+│ │                │◄─┤                │ │       └────────────┬────────────┘
+│ │ - default      │  │ - Schedule jobs│ │                    │
+│ │ - failed       │  │ - Cron jobs    │ │                    │
+│ └───────┬────────┘  └────────────────┘ │                    │
+│         │                              │                    │
+└─────────┼──────────────────────────────┘                    │
+          │                                                   │
+          ▼                                                   ▼
+┌─────────────────────┐                           ┌─────────────────────────┐
+│    Worker Processes │                           │                         │
+│                     │                           │      Naver Cafe         │
+│ - rqworker          │◄────Scrapes data─────────┼─────► (External site)    │
+│ - rqscheduler       │                           │                         │
+└─────────────────────┘                           └─────────────────────────┘
+```
+
+## Data Flow
+
+1. **User Interaction**: Users interact via Django management commands (`schedule_crawler.py`), which can schedule jobs, check status, list jobs, or cancel them.
+
+2. **Job Scheduling**:
+   - `schedule_crawler.py` calls functions in `scheduler.py`
+   - `scheduler.py` uses RQ Scheduler to schedule jobs for future execution
+   - Scheduled jobs are stored in Redis
+
+3. **Job Execution Flow**:
+   - `rqscheduler` worker monitors scheduled jobs
+   - When a job is due, it's moved to the RQ queue
+   - `rqworker` processes pick up jobs from the queue
+   - Workers execute `run_scheduled_crawler` in `tasks.py`
+   - The task creates a `NaverCafeScraper` instance and calls its methods
+   - The scraper retrieves data from Naver Cafe
+   - Scraped data is saved to Django models
+
+4. **Core Components**:
+   - **NaverCafeScraper**: Handles the web scraping logic
+   - **Redis**: Stores job queues and scheduled jobs
+   - **RQ Workers**: Process jobs from queues
+   - **RQ Scheduler**: Moves scheduled jobs to the queue at the right time
+   - **Django Models**: Store scraped data
+
+This architecture separates concerns between scheduling, job management, scraping logic, and data storage, allowing for a maintainable and scalable system.
+
+## Running Workers
+
+To ensure scheduled jobs execute properly, you need to run both:
+
+1. **RQ Worker** - processes jobs from the queue:
+   ```
+   python manage.py rqworker default
+   ```
+
+2. **RQ Scheduler Worker** - moves scheduled jobs to the queue when due:
+   ```
+   python manage.py rqscheduler
+   ```
+
+Both processes must be running simultaneously for the scheduled scraping to work correctly.
+
+For more detailed information about the scraper functionality, see the [scraper module README](scraper/README.md).

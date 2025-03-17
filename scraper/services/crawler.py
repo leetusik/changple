@@ -940,12 +940,12 @@ class NaverCafeScraper:
                 allowed_categories=allowed_categories,
             )
 
-            # Save data to database
-            if post_data and post_data[5]:  # Check if post_id_list is not empty
-                saved_count = await self._save_posts_to_db(post_data)
-                logger.info(f"Crawler finished, saved {saved_count} new posts")
+            # Check if there's any remaining data to save
+            # No need to save data again since it's already saved in batches during scraping
+            if post_data and any(post_data):
+                logger.info("Crawler finished processing all posts")
             else:
-                logger.warning("No data collected or post_id_list is empty")
+                logger.info("No data collected")
 
         except Exception as e:
             logger.error(f"Error during main execution: {e}")

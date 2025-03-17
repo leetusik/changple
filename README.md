@@ -1,20 +1,4 @@
-# changple
+# Naver Cafe Scraper System Architecture
 
-## python version: 3.12.6
+This document provides a visual representation of how the different components of the Naver Cafe Scraper system interact.
 
-## ./env file:
-you should make .env file on your changple folder.
-and the content should contain belows.
-@@@:@@@@
-@@@:@@@
-
-## install of dependents:
-```bash
-pip install -r requirements.txt
-playwright install
-```
-
-## after new pip install:
-```bash
-pip freeze > requirements.txt
-```
