@@ -25,6 +25,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Enable debug logging",
         )
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=100,
+            help="Number of posts to collect before saving to database (default: 100)",
+        )
 
     def handle(self, *args, **options):
         # Configure logging based on verbosity
@@ -44,6 +50,8 @@ class Command(BaseCommand):
             params["start_id"] = options["start_id"]
         if options["end_id"] is not None:
             params["end_id"] = options["end_id"]
+        if options["batch_size"] is not None:
+            params["batch_size"] = options["batch_size"]
 
         # Run the crawler
         self.stdout.write(self.style.SUCCESS("Starting Naver Cafe crawler..."))
