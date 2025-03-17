@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 @job
-def run_scheduled_crawler(start_id: Optional[int] = None, end_id: Optional[int] = None):
+def run_scheduled_crawler(
+    start_id: Optional[int] = None, end_id: Optional[int] = None, batch_size: int = 100
+):
     """
     RQ job to run the crawler with the given parameters.
     This will be scheduled to run at specific intervals.
@@ -33,12 +35,13 @@ def run_scheduled_crawler(start_id: Optional[int] = None, end_id: Optional[int] 
     Args:
         start_id: Starting post ID (optional)
         end_id: Ending post ID (optional)
+        batch_size: Number of posts to collect before saving to database (default: 100)
     """
     # Get the current job ID safely
     current_job = get_current_job()
     job_id = current_job.id if current_job else "unknown"
 
-    range_info = f"from {start_id or 'last post'} to {end_id or 'latest'}"
+    range_info = f"from {start_id or 'last post'} to {end_id or 'latest'} with batch size {batch_size}"
 
     logger.info(f"===== JOB {job_id} START =====")
     logger.info(f"Starting scheduled crawler job. Range: {range_info}")
@@ -50,7 +53,7 @@ def run_scheduled_crawler(start_id: Optional[int] = None, end_id: Optional[int] 
         asyncio.set_event_loop(loop)
 
         # Run the crawler
-        loop.run_until_complete(crawler_main(start_id, end_id))
+        loop.run_until_complete(crawler_main(start_id, end_id, batch_size))
         loop.close()
 
         logger.info(f"Scheduled crawler job completed successfully")

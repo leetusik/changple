@@ -61,6 +61,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Run the custom crawler job immediately (don't schedule)",
         )
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=100,
+            help="Number of posts to collect before saving to database (default: 100)",
+        )
 
     def handle(self, *args, **options):
         action = options["action"]
@@ -69,7 +75,8 @@ class Command(BaseCommand):
             if action == "start":
                 hour = options["hour"]
                 minute = options["minute"]
-                job = schedule_crawler(hour=hour, minute=minute)
+                batch_size = options.get("batch_size", 100)
+                job = schedule_crawler(hour=hour, minute=minute, batch_size=batch_size)
 
                 # Find when the first run will happen from the job metadata
                 first_run = "unknown"
@@ -80,6 +87,7 @@ class Command(BaseCommand):
                     self.style.SUCCESS(
                         f"Successfully scheduled daily crawler job (ID: {job.id})\n"
                         f"- Will run at {hour:02d}:{minute:02d} UTC every day\n"
+                        f"- Using batch size: {batch_size}\n"
                         f"- First execution scheduled for: {first_run} UTC"
                     )
                 )
@@ -89,12 +97,14 @@ class Command(BaseCommand):
                 end_id = options.get("end_id")
                 interval = options.get("interval")
                 immediate = options.get("now", False)
+                batch_size = options.get("batch_size")
 
                 job = schedule_custom_crawler(
                     start_id=start_id,
                     end_id=end_id,
                     interval=interval,
                     immediate=immediate,
+                    batch_size=batch_size,
                 )
 
                 if immediate:
@@ -102,6 +112,7 @@ class Command(BaseCommand):
                         self.style.SUCCESS(
                             f"Custom crawler job enqueued for immediate execution (ID: {job.id})\n"
                             f"- Crawling posts from ID {start_id or 'last'} to {end_id or 'latest'}\n"
+                            f"- Using batch size: {batch_size}\n"
                             f"- Check worker output for progress"
                         )
                     )
@@ -118,6 +129,7 @@ class Command(BaseCommand):
                         self.style.SUCCESS(
                             f"Custom crawler job scheduled (ID: {job.id}){interval_text}\n"
                             f"- Will crawl posts from ID {start_id or 'last'} to {end_id or 'latest'}\n"
+                            f"- Using batch size: {batch_size}\n"
                             f"- Scheduled to run at: {run_time} UTC"
                         )
                     )

@@ -653,6 +653,7 @@ class NaverCafeScraper:
         start_post_id: int,
         end_post_id: Optional[int] = None,
         allowed_categories: Optional[List[str]] = None,
+        batch_size: int = 100,
     ) -> Tuple[
         List[str], List[str], List[str], List[str], List[str], List[int], List[str]
     ]:
@@ -663,6 +664,7 @@ class NaverCafeScraper:
             start_post_id: Starting post ID to scrape
             end_post_id: Ending post ID to scrape (inclusive, optional)
             allowed_categories: List of categories to collect (if None, collect all)
+            batch_size: Number of posts to collect before saving to database (default: 100)
 
         Returns:
             tuple: Lists containing the scraped data
@@ -683,10 +685,8 @@ class NaverCafeScraper:
         posts_saved_batch = 0
         total_saved = 0
 
-        # Batch size for saving to database
-        batch_size = 100
-
         logger.info(f"Starting crawl from post_id: {current_post_id}")
+        logger.info(f"Using batch size: {batch_size}")
         if end_post_id:
             logger.info(f"Will stop at post_id: {end_post_id}")
         if allowed_categories:
@@ -879,7 +879,10 @@ class NaverCafeScraper:
         return saved_count
 
     async def run(
-        self, start_id: Optional[int] = None, end_id: Optional[int] = None
+        self,
+        start_id: Optional[int] = None,
+        end_id: Optional[int] = None,
+        batch_size: int = 100,
     ) -> None:
         """
         Run the scraper
@@ -887,6 +890,7 @@ class NaverCafeScraper:
         Args:
             start_id: Starting post ID to scrape (overrides the last post in database)
             end_id: Ending post ID to scrape (inclusive)
+            batch_size: Number of posts to collect before saving to database (default: 100)
         """
         try:
             # Setup browser
@@ -938,6 +942,7 @@ class NaverCafeScraper:
                 start_post_id,
                 end_post_id=end_post_id,
                 allowed_categories=allowed_categories,
+                batch_size=batch_size,
             )
 
             # Check if there's any remaining data to save
@@ -1016,16 +1021,17 @@ class NaverCafeScraper:
             return []
 
 
-async def main(start_id=None, end_id=None):
+async def main(start_id=None, end_id=None, batch_size=100):
     """
     Main function to run the crawler
 
     Args:
         start_id: Starting post ID to crawl from (overrides the last post in database)
         end_id: Ending post ID to crawl to (inclusive)
+        batch_size: Number of posts to collect before saving to database (default: 100)
     """
     scraper = NaverCafeScraper(cafe_url="https://cafe.naver.com/cjdckddus/")
-    await scraper.run(start_id, end_id)
+    await scraper.run(start_id, end_id, batch_size)
 
 
 if __name__ == "__main__":

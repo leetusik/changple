@@ -12,7 +12,7 @@
 - **백엔드**: Python, Django, Django REST framework, Langchain
 - **크롤링**: Playwright (로그인 기능 포함)
 - **벡터 DB**: Pinecone
-- **프론트엔드**: React
+- **프론트엔드**: HTML, CSS, JavaScript
 - **스케줄링**: RQ (Redis Queue)
 - **캐싱 & 메시지 큐**: Redis
 - **데이터베이스**: PostgreSQL
@@ -33,7 +33,7 @@
 - **기술 스택 설정**
   - Django 프로젝트 초기화
   - Django REST framework 설치 및 설정
-  - React 프로젝트 초기화
+  - 프론트엔드 기본 디렉토리 구조 설정 (HTML, CSS, JavaScript)
   - PostgreSQL 데이터베이스 설정
   - Redis 설정
   - Python 가상 환경 및 패키지 설정
@@ -89,13 +89,13 @@
 
 ### Phase 4: 프론트엔드 개발 (3월 20일 - 3월 21일)
 - **3월 20일: 기본 UI 개발**
-  - React 컴포넌트 구조 설계
+  - HTML 템플릿 구조 설계
   - 기본 페이지 레이아웃 구현
-  - 반응형 디자인 적용
+  - CSS를 활용한 반응형 디자인 적용
   - 챗봇 인터페이스 디자인
   
 - **3월 21일: 고급 기능 및 통합**
-  - 실시간 채팅 인터페이스 구현
+  - JavaScript를 활용한 실시간 채팅 인터페이스 구현
   - 사용자 프로필 및 설정 페이지
   - API 연동 및 상태 관리 구현
   - 에러 처리 및 로딩 상태 UI 구현
@@ -180,7 +180,7 @@
 - REST API를 통한 챗봇 엔진 접근 제어
 
 ### 웹 인터페이스
-- React 기반 SPA 구현
+- HTML, CSS, JavaScript 기반 구현
 - 모던 UI/UX 디자인
 - 반응형 웹 디자인
 - 실시간 채팅 인터페이스
@@ -247,3 +247,150 @@
 ---
 
 이 로드맵은 초안이며, 논의 후 상세화될 예정입니다.
+
+
+## expected file tree
+.
+├── README.md
+├── config
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── docker-compose.yml
+├── Dockerfile
+├── manage.py
+├── requirements.txt
+├── nginx
+│   ├── Dockerfile
+│   └── nginx.conf
+├── scraper
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   ├── apps.py
+│   ├── management
+│   │   ├── __init__.py
+│   │   └── commands
+│   │       ├── __init__.py
+│   │       ├── load_categories.py
+│   │       ├── run_crawler.py
+│   │       └── schedule_crawler.py
+│   ├── migrations
+│   ├── models.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── crawler.py
+│   │   └── scheduler.py
+│   ├── tasks.py
+│   └── tests.py
+├── chatbot
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   ├── apps.py
+│   ├── migrations
+│   ├── models.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── langchain_service.py
+│   │   ├── openai_service.py
+│   │   └── pinecone_service.py
+│   ├── tasks.py
+│   └── tests.py
+├── users
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   ├── apps.py
+│   ├── migrations
+│   ├── models.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── auth_service.py
+│   │   └── social_auth_service.py
+│   └── tests.py
+├── payments
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   ├── apps.py
+│   ├── migrations
+│   ├── models.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   └── toss_payment_service.py
+│   └── tests.py
+├── static
+│   ├── css
+│   │   ├── main.css
+│   │   ├── auth.css
+│   │   ├── chat.css
+│   │   └── payment.css
+│   ├── img
+│   │   ├── logo.png
+│   │   └── icons
+│   │       ├── user.png
+│   │       └── chat.png
+│   └── js
+│       ├── main.js
+│       ├── auth
+│       │   ├── login.js
+│       │   ├── register.js
+│       │   ├── social-login.js
+│       │   └── profile.js
+│       ├── chat
+│       │   ├── chat-interface.js
+│       │   └── chat-input.js
+│       ├── common
+│       │   ├── header.js
+│       │   └── sidebar.js
+│       ├── payment
+│       │   ├── payment-form.js
+│       │   └── payment-history.js
+│       └── services
+│           ├── api.js
+│           ├── auth.js
+│           ├── chat.js
+│           └── payment.js
+├── templates
+│   ├── base.html
+│   ├── index.html
+│   ├── auth
+│   │   ├── login.html
+│   │   ├── register.html
+│   │   └── profile.html
+│   ├── chat
+│   │   └── chat.html
+│   └── payment
+│       ├── payment.html
+│       └── history.html
+├── logs
+│   ├── naver_cafe_scraper.log
+│   ├── scheduled_scraper.log
+│   └── error.log
+└── z_docs
+    ├── (주)창플_견적서.png
+    ├── (주)창플 AI 챗봇 개발 계약서.pdf
+    ├── api_docs.md
+    ├── git_guide.md
+    ├── hello.md
+    ├── roadmap.md
+    └── deployment_guide.md
