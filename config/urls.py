@@ -33,16 +33,11 @@ urlpatterns = [
         "", TemplateView.as_view(template_name="index.html"), name="home"
     ),  # Home page
     path(
-        "mypage/",
-        login_required(TemplateView.as_view(template_name="mypage.html")),
-        name="mypage",
-    ),  # My page, login required
-    path(
-        "login-error/",
-        TemplateView.as_view(template_name="login_error.html"),
-        name="login_error",
-    ),  # Login error page
+        "profile/",
+        login_required(TemplateView.as_view(template_name="auth/profile.html")),
+        name="profile",
+    ),  # Profile page, login required
     # Add Naver auth URLs at the root level
-    path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback_root"),
-    path("naver/login/", NaverLoginView.as_view(), name="naver_login_root"),
+    path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
+    path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
 ]

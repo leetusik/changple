@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}창플 - 결제{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+        <h2 class="mb-4">서비스 결제</h2>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">구독 플랜 선택</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">기본 플랜</h5>
+                                <h2 class="my-3">₩10,000</h2>
+                                <p class="card-text">월 100회 질문</p>
+                                <button class="btn btn-outline-primary btn-block mt-3" data-plan="basic">선택</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 border-primary">
+                            <div class="card-header bg-primary text-white text-center">
+                                <span class="badge bg-warning">인기</span>
+                                <h5 class="mb-0">프리미엄 플랜</h5>
+                            </div>
+                            <div class="card-body text-center">
+                                <h2 class="my-3">₩25,000</h2>
+                                <p class="card-text">월 300회 질문</p>
+                                <button class="btn btn-primary btn-block mt-3" data-plan="premium">선택</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">비즈니스 플랜</h5>
+                                <h2 class="my-3">₩50,000</h2>
+                                <p class="card-text">무제한 질문</p>
+                                <button class="btn btn-outline-primary btn-block mt-3" data-plan="business">선택</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="payment-form-container" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5>결제 정보</h5>
+                </div>
+                <div class="card-body">
+                    <form id="payment-form">
+                        <!-- Payment form fields will be inserted here by Toss Payments -->
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

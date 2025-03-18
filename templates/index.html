@@ -9,18 +9,18 @@
         
         {% if user.is_authenticated %}
             <div class="alert alert-success" role="alert">
-                안녕하세요, {{ user.first_name|default:user.username }}님!
+                안녕하세요, {{ user.name|default:user.username }}님!
             </div>
             <p>이미 로그인되어 있습니다.</p>
             <div class="mt-3">
-                <a href="{% url 'mypage' %}" class="btn btn-primary">마이페이지</a>
+                <a href="{% url 'profile' %}" class="btn btn-primary">마이페이지</a>
                 <a href="{% url 'logout' %}" class="btn btn-outline-secondary">로그아웃</a>
             </div>
         {% else %}
             <p class="mb-4">소셜 계정으로 로그인하세요.</p>
             
             <div class="d-grid gap-2 col-md-8 mx-auto">
-                <a href="{% url 'naver_login_root' %}" class="naver-login-btn">
+                <a href="{% url 'naver_login' %}" class="naver-login-btn">
                     <img src="https://static.nid.naver.com/oauth/button_g.PNG" width="20" height="20" alt="Naver">
                     네이버 아이디로 로그인
                 </a>
