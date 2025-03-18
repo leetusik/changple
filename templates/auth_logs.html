@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}인증 로그{% endblock %}
+
+{% block content %}
+<div class="row mt-3">
+    <div class="col-12">
+        <h2>인증 로그</h2>
+        <p>가장 최근 로그 내용 (최대 100줄)</p>
+        
+        <div class="card">
+            <div class="card-body">
+                <pre class="log-container" style="max-height: 500px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; font-family: monospace; font-size: 12px;">{% for line in logs %}{{ line }}{% endfor %}</pre>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <a href="{% url 'home' %}" class="btn btn-primary">홈으로</a>
+            <a href="{{ request.path }}" class="btn btn-secondary">새로고침</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
