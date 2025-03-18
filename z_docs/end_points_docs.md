@@ -34,9 +34,8 @@
             
             ```json
             {
-              "start_date": "2020-01-01",
-              "end_date": "2025-03-18",
-              "limit": 100
+              "start_post_id": "1",
+              "num_document": 100
             }
             ```
             
