@@ -91,57 +91,39 @@ class PineconeService:
             print(f"Pinecone 초기화 오류: {e}")
             raise
     
-    def process_cafe_data(self, start_date=None, end_date=None, limit=None):
+    def process_cafe_data(self, start_post_id=None, num_document=None):
         """
         NaverCafeData 모델에서 데이터를 가져와 Pinecone에 저장합니다.
         
         Args:
-            start_date: 조회 시작 날짜 (e.g. "2025-01-01", datetime 객체)
-            end_date: 조회 종료 날짜 (e.g. "2025-01-31", datetime 객체)
-            limit: 최대 처리할 문서 수, 없으면 전체 문서 처리 (e.g. 1000)
+            start_post_id: 조회 시작할 post_id (이 값보다 크거나 같은 post_id부터 조회)
+            num_document: 처리할 문서 수, 없으면 전체 문서 처리 (e.g. 1000)
         
         Returns:
-            int: 처리된 문서 청크 수
+            int: 생성된 총 청크 수
         """
         try:
             # 쿼리 구성
             query = NaverCafeData.objects.all()
             
-            if start_date:
-                if isinstance(start_date, str):
-                    # 문자열인 경우 datetime으로 변환 후 timezone 정보 추가
-                    start_datetime = timezone.make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
-                elif timezone.is_naive(start_date):
-                    # naive datetime인 경우 timezone 정보 추가
-                    start_datetime = timezone.make_aware(start_date)
-                else:
-                    # 이미 timezone 정보가 있는 경우 그대로 사용
-                    start_datetime = start_date
-                
-                query = query.filter(published_date__gte=start_datetime)
+            if start_post_id:
+                query = query.filter(post_id__gte=start_post_id)
             
-            if end_date:
-                if isinstance(end_date, str):
-                    # 문자열인 경우 datetime으로 변환 후 timezone 정보 추가
-                    end_datetime = timezone.make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
-                elif timezone.is_naive(end_date):
-                    # naive datetime인 경우 timezone 정보 추가
-                    end_datetime = timezone.make_aware(end_date)
-                else:
-                    # 이미 timezone 정보가 있는 경우 그대로 사용
-                    end_datetime = end_date
-                
-                query = query.filter(published_date__lte=end_datetime)
-            
-            if limit:
-                query = query[:limit]
+            if num_document:
+                query = query[:num_document]
             
             # 문서 처리 및 벡터 저장 준비
             documents = []
+            chunk_counters = {}  # 각 post_id별 청크 카운터를 추적하기 위한 딕셔너리
             
             for cafe_data in query:
                 # 텍스트 분할
                 chunks = self.text_splitter.split_text(cafe_data.content)
+                post_id = cafe_data.post_id
+                
+                # 이 post_id에 대한 카운터 초기화
+                if post_id not in chunk_counters:
+                    chunk_counters[post_id] = 1
                 
                 # 각 청크에 대한 메타데이터 생성
                 for chunk in chunks:
@@ -152,16 +134,17 @@ class PineconeService:
                         'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date else '',
                         'author': cafe_data.author,
                         'url': cafe_data.url,
-                        'post_id': cafe_data.post_id,
+                        'post_id': post_id,
+                        'chunk_number': chunk_counters[post_id],  # 청크 번호 저장
                     }
-                    documents.append((chunk, metadata))
+                    documents.append((chunk, metadata, chunk_counters[post_id]))
+                    chunk_counters[post_id] += 1  # 다음 청크를 위해 카운터 증가
             
             if not documents:
                 return 0
             
             # 벡터 저장소에 문서 추가 (배치 처리)
             batch_size = 100
-            total_processed = 0
             
             for i in range(0, len(documents), batch_size):
                 batch = documents[i:i+batch_size]
@@ -169,15 +152,17 @@ class PineconeService:
                 texts = [doc[0] for doc in batch]
                 metadatas = [doc[1] for doc in batch]
                 
-                # 각 청크에 고유 ID 생성 (post_id와 청크 인덱스 조합)
-                ids = [f"{meta['post_id']}-{total_processed+j}" for j, meta in enumerate(metadatas)]
+                # 각 청크에 post_id와 chunk_number를 조합하여 고유 ID 생성
+                ids = [f"{meta['post_id']}-{doc[2]}" for meta, doc in zip(metadatas, batch)]
                 
                 # ID를 명시적으로 지정하여 업서트 (동일 ID는 덮어쓰기됨)
                 self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
-                
-                total_processed += len(batch)
             
-            return total_processed
+            # 총 청크 수 계산 (각 post_id의 마지막 청크 번호 - 1을 합산)
+            # chunk_counters의 각 값은 마지막 청크 번호 + 1이므로 1을 빼지 않음
+            total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
+            
+            return total_chunks
             
         except Exception as e:
             print(f"Pinecone 처리 오류: {e}")
@@ -252,6 +237,30 @@ class PineconeService:
                 count=Count('id')
             ).order_by('-count')
             author_stats = {item['author']: item['count'] for item in author_counts}
+            
+            # post_id 분포도 분석
+            min_post_id = NaverCafeData.objects.order_by('post_id').values_list('post_id', flat=True).first() or 0
+            max_post_id = NaverCafeData.objects.order_by('-post_id').values_list('post_id', flat=True).first() or 0
+            
+            # post_id 범위를 10개 구간으로 나누어 분포 확인
+            if min_post_id < max_post_id:
+                range_size = (max_post_id - min_post_id) // 10
+                if range_size < 1:
+                    range_size = 1
+                
+                post_id_distribution = {}
+                for i in range(10):
+                    start_range = min_post_id + (i * range_size)
+                    end_range = min_post_id + ((i + 1) * range_size) if i < 9 else max_post_id + 1
+                    
+                    count = NaverCafeData.objects.filter(
+                        post_id__gte=start_range, 
+                        post_id__lt=end_range
+                    ).count()
+                    
+                    post_id_distribution[f"{start_range}~{end_range-1}"] = count
+            else:
+                post_id_distribution = {"데이터 없음": 0}
   
             # Pinecone 인덱스 통계
             index_stats = self.index.describe_index_stats()
@@ -260,6 +269,8 @@ class PineconeService:
             return {
                 '[ Pinecone vector 수 ]': vector_count,
                 '[ Django_documents 수 ]': django_total_documents,
+                '[ post_id 범위 ]': f"{min_post_id} ~ {max_post_id}",
+                '[ post_id 분포도 ]': post_id_distribution,
                 '카테고리별 documents 수': category_stats,
                 '저자별 documents 수': author_stats
             }

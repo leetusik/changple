@@ -3,7 +3,6 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from chatbot.services.pinecone_service import PineconeService
 from chatbot.services.langchain_service import LangchainService
-from datetime import datetime
 
 # Create your views here.
 
@@ -35,22 +34,16 @@ def search_documents(request):
 def index_cafe_data(request):
     """카페 데이터 인덱싱 API 엔드포인트"""
     data = request.data
-    start_date_str = data.get('start_date')
-    end_date_str = data.get('end_date')
-    limit = data.get('limit')
-    
-    # 날짜 형식 변환
-    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
-    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+    start_post_id = data.get('start_post_id')
+    num_document = data.get('num_document')
     
     pinecone_service = PineconeService()
-    processed_count = pinecone_service.process_cafe_data(
-        start_date=start_date,
-        end_date=end_date,
-        limit=limit
+    total_chunks = pinecone_service.process_cafe_data(
+        start_post_id=start_post_id,
+        num_document=num_document
     )
     
-    return Response({"processed_documents": processed_count})
+    return Response({"total_chunks": total_chunks})
 
 @api_view(['GET'])
 def get_pinecone_stats(request):
