@@ -1,11 +1,13 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
-from django.urls import path
+from django.urls import include, path
 from django.views.generic import RedirectView
 
-from .views import NaverCallbackView, NaverLoginView, logout_view, view_auth_logs
+from .views import NaverCallbackView, NaverLoginView, logout_view
 
 urlpatterns = [
+    # Include API URLs
+    path("api/", include("users.api.urls")),
     # Basic auth URLs
     path("logout/", logout_view, name="logout"),
     path("login/", RedirectView.as_view(url="/", permanent=False), name="login"),
@@ -15,6 +17,4 @@ urlpatterns = [
     # Naver social login URLs
     path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
     path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
-    # Debug URLs
-    path("auth-logs/", view_auth_logs, name="auth_logs"),
 ]

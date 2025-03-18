@@ -1,5 +1,8 @@
+import logging
+
 from django.contrib.auth import get_user_model
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -69,3 +72,43 @@ class SocialAuthService:
 
                 user = User.objects.create(**user_data)
                 return user, True
+
+    @staticmethod
+    def update_user_profile(user, provider, profile_data):
+        """
+        Update user profile with data from social login.
+
+        Args:
+            user (User): User instance
+            provider (str): Social auth provider
+            profile_data (dict): Profile data from social provider
+
+        Returns:
+            User: Updated user instance
+        """
+        if user.provider != provider:
+            logger.warning(
+                f"Attempted to update {user.provider} user with {provider} data"
+            )
+            return user
+
+        # Update fields based on provider
+        if provider == "naver":
+            if profile_data.get("profile_image"):
+                user.profile_image = profile_data.get("profile_image")
+
+            if profile_data.get("username"):
+                user.name = profile_data.get("username")
+
+            # Special case for specific user
+            if profile_data.get("email") == "gusang0@naver.com":
+                user.nickname = "sugnag"
+            elif not user.nickname and profile_data.get("email"):
+                # Set nickname to email username part
+                email_parts = profile_data.get("email", "").split("@")
+                user.nickname = email_parts[0] if email_parts else ""
+
+        # Add more providers as needed
+
+        user.save()
+        return user

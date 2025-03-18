@@ -8,7 +8,7 @@ from django.views import View
 from social_core.exceptions import AuthException, MissingBackend
 from social_django.utils import load_backend, load_strategy
 
-from .services import SocialAuthService
+from .services.social_auth_service import SocialAuthService
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class NaverLoginView(View):
             import traceback
 
             logger.error(traceback.format_exc())
-            return redirect(reverse("login_error"))
+            return redirect(reverse("home"))
 
 
 class NaverCallbackView(View):
@@ -107,11 +107,11 @@ class NaverCallbackView(View):
 
         if error:
             logger.error(f"Error from Naver: {error}")
-            return redirect(reverse("login_error"))
+            return redirect(reverse("home"))
 
         if not code:
             logger.error("No code parameter received from Naver")
-            return redirect(reverse("login_error"))
+            return redirect(reverse("home"))
 
         strategy = load_strategy(request)
         try:
@@ -165,10 +165,10 @@ class NaverCallbackView(View):
             import traceback
 
             logger.error(traceback.format_exc())
-            return redirect(reverse("login_error"))
+            return redirect(reverse("home"))
 
         logger.error("No user returned from auth process")
-        return redirect(reverse("login_error"))
+        return redirect(reverse("home"))
 
 
 def logout_view(request):
@@ -180,16 +180,3 @@ def logout_view(request):
 
     # Redirect to home page
     return redirect("home")
-
-
-def view_auth_logs(request):
-    """Debug view to see authentication logs."""
-    try:
-        with open("naver_auth.log", "r") as f:
-            log_content = f.readlines()
-            # Get the last 100 lines (most recent logs)
-            log_content = log_content[-100:]
-    except Exception as e:
-        log_content = [f"Error reading logs: {str(e)}"]
-
-    return render(request, "auth_logs.html", {"logs": log_content})
