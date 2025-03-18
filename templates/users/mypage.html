@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}마이페이지{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <h1>마이페이지</h1>
+    
+    {% if user.is_authenticated %}
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                {% if user.profile_image %}
+                    <img src="{{ user.profile_image }}" alt="프로필 이미지" style="width: 80px; height: 80px; border-radius: 50%; margin-right: 20px;">
+                {% else %}
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background-color: #ddd; margin-right: 20px; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 24px; color: #666;">{{ user.nickname|first }}</span>
+                    </div>
+                {% endif %}
+                <div>
+                    <h2 style="margin: 0;">{{ user.nickname }}</h2>
+                    {% if user.email %}
+                        <p style="margin: 5px 0; color: #666;">{{ user.email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <h3>계정 정보</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>가입일</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.date_joined|date:"Y년 m월 d일" }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>최근 로그인</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.last_login|date:"Y년 m월 d일 H:i" }}</td>
+                </tr>
+                {% if user.gender %}
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>성별</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.gender }}</td>
+                </tr>
+                {% endif %}
+                {% if user.age %}
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>연령대</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.age }}</td>
+                </tr>
+                {% endif %}
+            </table>
+            
+            <h3>챗봇 사용 정보</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>일일 쿼리 한도</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.daily_query_limit }}회</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>오늘 사용한 쿼리</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ user.daily_queries_used }}회</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>남은 쿼리</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                        {% if user.is_premium %}
+                            무제한 (프리미엄 사용자)
+                        {% else %}
+                            {{ user.daily_query_limit|add:"-"|add:user.daily_queries_used }}회
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>프리미엄 상태</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                        {% if user.is_premium %}
+                            프리미엄 (만료일: {{ user.premium_until|date:"Y년 m월 d일" }})
+                        {% else %}
+                            무료 회원
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    {% else %}
+        <p>로그인이 필요합니다. <a href="/">홈으로 이동</a></p>
+    {% endif %}
+</div>
+{% endblock %} 

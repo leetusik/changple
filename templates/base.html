@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}창플 AI 챗봇{% endblock %}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        nav {
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+        }
+        .nav-left a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: #333;
+        }
+        .nav-right a {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <div class="nav-left">
+                <a href="/">홈</a>
+                {% if user.is_authenticated %}
+                    <a href="/users/mypage/">마이페이지</a>
+                {% endif %}
+            </div>
+            <div class="nav-right">
+                {% if user.is_authenticated %}
+                    <span>{{ user.nickname }}님</span>
+                    <a href="/users/logout/">로그아웃</a>
+                {% endif %}
+            </div>
+        </nav>
+        
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

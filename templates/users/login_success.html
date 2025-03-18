@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Login Successful - Changple{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Login Successful</h3>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <p class="lead">You have successfully logged in!</p>
+                        <div class="alert alert-info">
+                            <p>Authentication tokens have been stored in your browser.</p>
+                            <p>You are now logged in with both API and session-based authentication.</p>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <div class="d-grid gap-2">
+                                <a href="/" class="btn btn-primary">Go to Home</a>
+                                <a href="/users/profile/" class="btn btn-outline-secondary">View Your Profile</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Get tokens from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const refresh = urlParams.get('refresh');
+
+    // Store tokens in localStorage
+    if (token) {
+        localStorage.setItem('access_token', token);
+    }
+    
+    if (refresh) {
+        localStorage.setItem('refresh_token', refresh);
+    }
+</script>
+{% endblock %} 

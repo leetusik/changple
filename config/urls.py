@@ -16,8 +16,17 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import RedirectView
+
+from users.views import home_view, login_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("django-rq/", include("django_rq.urls")),  # Add RQ dashboard URLs
+    path("users/", include("users.urls")),  # Include the users app URLs
+    path("", home_view, name="home"),  # Use home_view to handle redirects
+    path("login/", login_view, name="login"),  # Add explicit login URL
+    path(
+        "mypage/", RedirectView.as_view(url="/users/mypage/"), name="mypage_redirect"
+    ),  # Redirect to users mypage
 ]

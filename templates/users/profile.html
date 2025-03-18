@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile - Changple{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header {% if profile.is_superuser %}bg-dark{% else %}bg-primary{% endif %} text-white">
+                    <h4 class="mb-0">{% if profile.is_superuser %}Admin{% else %}User{% endif %} Profile</h4>
+                </div>
+                <div class="card-body text-center">
+                    {% if profile.profile_image %}
+                    <img src="{{ profile.profile_image }}" alt="{{ profile.nickname }}" class="img-fluid rounded-circle mb-3" style="max-width: 150px;">
+                    {% else %}
+                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                        <span class="display-4">{{ profile.nickname|first|upper }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <h3 class="mb-0">{{ profile.nickname }}</h3>
+                    <p class="text-muted">{{ profile.email }}</p>
+                    
+                    {% if profile.is_superuser %}
+                        <div class="badge bg-danger mb-2">Superuser</div>
+                    {% elif profile.is_admin %}
+                        <div class="badge bg-warning text-dark mb-2">Admin</div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 mt-3">
+                        {% if profile.is_admin or profile.is_superuser %}
+                        <a href="{% url 'admin:index' %}" class="btn btn-primary">
+                            <i class="bi bi-gear-fill me-2"></i>Admin Panel
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'users:logout' %}" class="btn btn-outline-danger">
+                            <i class="bi bi-box-arrow-right me-2"></i>Log Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header {% if profile.is_superuser %}bg-dark{% else %}bg-primary{% endif %} text-white">
+                    <h4 class="mb-0">Account Details</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Username:</div>
+                        <div class="col-md-8">{{ profile.username }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Email:</div>
+                        <div class="col-md-8">{{ profile.email }}</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Nickname:</div>
+                        <div class="col-md-8">{{ profile.nickname }}</div>
+                    </div>
+                    
+                    {% if profile.is_admin or profile.is_superuser %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Account Type:</div>
+                        <div class="col-md-8">
+                            {% if profile.is_superuser %}
+                                <span class="badge bg-danger">Superuser</span>
+                            {% elif profile.is_admin %}
+                                <span class="badge bg-warning text-dark">Admin</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4 fw-bold">Date Joined:</div>
+                        <div class="col-md-8">{{ profile.date_joined|date:"F j, Y, g:i a" }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile.has_naver_profile %}
+                        {% if profile.name %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Name:</div>
+                            <div class="col-md-8">{{ profile.name }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.gender %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Gender:</div>
+                            <div class="col-md-8">{{ profile.gender }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.age %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Age:</div>
+                            <div class="col-md-8">{{ profile.age }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.birthyear %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Birth Year:</div>
+                            <div class="col-md-8">{{ profile.birthyear }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.birthday %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Birthday:</div>
+                            <div class="col-md-8">{{ profile.birthday }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.mobile %}
+                        <div class="row mb-3">
+                            <div class="col-md-4 fw-bold">Mobile:</div>
+                            <div class="col-md-8">{{ profile.mobile }}</div>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info mt-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <strong>Admin User</strong>
+                            </div>
+                            <p class="mb-0">
+                                This account was created using Django's management system rather than Naver OAuth.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Changple{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Login to Changple</h3>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <p class="lead">Sign in using your Naver account</p>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mb-3">
+                        <a href="{{ naver_login_url }}" class="btn btn-success btn-lg">
+                            <i class="bi bi-person-fill me-2"></i>Login with Naver (Session)
+                        </a>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'users:naver_login_api' %}" class="btn btn-info btn-lg">
+                            <i class="bi bi-person-fill me-2"></i>Login with Naver (API/JWT)
+                        </a>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="text-muted">
+                            By logging in, you agree to our Terms of Service and Privacy Policy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

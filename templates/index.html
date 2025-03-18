@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}창플 AI 챗봇 - 홈{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-top: 50px;">
+    <h1>창플 AI 챗봇</h1>
+    <p>네이버 카페 데이터 기반 AI 챗봇 서비스에 오신 것을 환영합니다.</p>
+    
+    {% if user.is_authenticated %}
+        <div style="margin: 20px 0;">
+            <h3>환영합니다, {{ user.nickname }}님!</h3>
+            <p>프로필 정보를 보려면 <a href="/users/mypage/">마이페이지</a>로 이동하세요.</p>
+        </div>
+        <div style="margin-top: 20px;">
+            <h2>AI 챗봇 서비스</h2>
+            <p>여기에 챗봇 UI가 표시됩니다.</p>
+            <!-- 챗봇 UI는 추후 구현 예정 -->
+        </div>
+    {% else %}
+        <div style="margin: 30px 0;">
+            <p>서비스를 이용하시려면 네이버 로그인이 필요합니다.</p>
+            <a href="/users/api/login/naver/" style="display: inline-block;">
+                <img src="https://static.nid.naver.com/oauth/button_g.PNG" width="200" alt="네이버 로그인">
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
