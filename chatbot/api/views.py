@@ -66,4 +66,22 @@ def chat(request):
     langchain_service = LangchainService()
     response = langchain_service.generate_response(query, history)
     
-    return Response({"response": response})
+    # 새 대화를 history에 추가
+    updated_history = history.copy()
+    
+    # 사용자 질문 추가
+    updated_history.append({
+        "role": "user",
+        "content": query
+    })
+    
+    # AI 응답 추가
+    updated_history.append({
+        "role": "assistant",
+        "content": response
+    })
+    
+    return Response({
+        "response": response,
+        "history": updated_history  # 업데이트된 대화 이력 반환
+    })

@@ -13,6 +13,7 @@ from langchain.chains import LLMChain
 from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, AIMessagePromptTemplate
 from chatbot.services.openai_service import OpenAIService
 from chatbot.services.pinecone_service import PineconeService
+from django.conf import settings
 
 class LangchainService:
     """
@@ -26,24 +27,28 @@ class LangchainService:
         # Pinecone 서비스 초기화
         self.pinecone_service = PineconeService()
         
-        # 임베딩 모델 초기화 (필요시에만)
+        # 임베딩 모델 초기화 (settings.py에서 모델명 가져오기)
         self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-small",
+            model=settings.EMBEDDING_MODEL,
             openai_api_key=self.api_key
         )
         
         # 이미 있는 벡터스토어 가져오기
         self.vectorstore = self.pinecone_service.vectorstore
     
-    def generate_response(self, query, history=None, k=3):
+    def generate_response(self, query, history=None, k=None):
         """
         쿼리와 이전 대화 이력을 바탕으로 응답을 생성합니다.
         
         Args:
             query: 사용자 질문
             history: 대화 이력 (기본값: None)
-            k: 검색할 문서 수
+            k: 검색할 문서 수 (기본값: settings.py에서 설정된 값)
         """
+        # k 값이 None이면 settings에서 가져오기
+        if k is None:
+            k = getattr(settings, 'LLM_TOP_K', 3)
+            
         # 이력이 None이면 빈 리스트로 초기화
         if history is None:
             history = []
@@ -63,20 +68,16 @@ class LangchainService:
         
         # 대화 이력 포맷팅
         formatted_history = ""
-        history_query = ""
-        history_response = ""
         
         if history:
-            # 대화 이력을 순회하면서 마지막 사용자와 AI 메시지 추출
+            # 전체 대화 이력을 순회하며 포맷팅
             for msg in history:
                 role = msg.get('role', '')
                 content = msg.get('content', '')
                 if role == 'user':
                     formatted_history += f"사용자: {content}\n"
-                    history_query = content  # 마지막 사용자 메시지 저장
                 elif role == 'assistant':
                     formatted_history += f"AI: {content}\n"
-                    history_response = content  # 마지막 AI 메시지 저장
         
         # system 메시지와 human 메시지를 명시적으로 구분
         messages = [
@@ -85,10 +86,9 @@ class LangchainService:
             ),
         ]
         
-        # 이전 대화 이력 메시지들 추가
+        # 이전 대화 이력이 있으면 하나의 컨텍스트로 추가
         if formatted_history:
-            messages.append(HumanMessagePromptTemplate.from_template("{history_query}"))
-            messages.append(AIMessagePromptTemplate.from_template("{history_response}"))
+            messages.append(SystemMessagePromptTemplate.from_template("이전 대화 내역:\n{history}")) # history 자리를 만들어주는 것
         
         # 현재 질문 추가
         messages.append(HumanMessagePromptTemplate.from_template("{query}"))
@@ -96,18 +96,20 @@ class LangchainService:
         prompt = ChatPromptTemplate.from_messages(messages)
         
         # LangChain 모델 및 프롬프트 설정
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, openai_api_key=self.api_key)
+        llm = ChatOpenAI(
+            model=getattr(settings, 'LLM_MODEL', 'gpt-4o-mini'), 
+            temperature=getattr(settings, 'LLM_TEMPERATURE', 0.7), 
+            openai_api_key=self.api_key
+        )
         
         # LangChain 체인 생성 및 실행
         chain = LLMChain(llm=llm, prompt=prompt)
         
-        # history_query와 history_response를 명시적으로 전달
+        # 체인 실행 - history_query, history_response 대신 전체 formatted_history 사용
         response = chain.run(
             context=combined_context, 
-            history=formatted_history, 
-            query=query,
-            history_query=history_query,
-            history_response=history_response
+            history=formatted_history, # history 자리에 formatted_history 넣어주는 것
+            query=query
         )
         
         return response 

@@ -155,3 +155,8 @@ PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
 
 # 임베딩 모델 설정
 EMBEDDING_MODEL = "text-embedding-3-small"
+
+# LLM 모델 설정
+LLM_MODEL = "gpt-4o-mini"
+LLM_TEMPERATURE = 0.7
+LLM_TOP_K = 3

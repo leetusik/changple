@@ -60,22 +60,25 @@
     </div>
 
     <script>
+        // 대화 이력을 저장할 변수 추가
+        let chatHistory = [];
+
         document.getElementById('chat-form').addEventListener('submit', function(event) {
             event.preventDefault();
             const userInput = document.getElementById('user-input').value;
-            const chatHistory = document.getElementById('chat-history');
+            const chatHistoryDiv = document.getElementById('chat-history');
 
             // 사용자 입력을 대화 이력에 추가
             const userMessage = document.createElement('div');
             userMessage.className = 'user-message';
             userMessage.textContent = '사용자: ' + userInput;
-            chatHistory.appendChild(userMessage);
+            chatHistoryDiv.appendChild(userMessage);
 
             // "생성 중..." 메시지 추가
             const loadingMessage = document.createElement('div');
             loadingMessage.className = 'ai-message';
             loadingMessage.textContent = 'AI: 생성 중...';
-            chatHistory.appendChild(loadingMessage);
+            chatHistoryDiv.appendChild(loadingMessage);
 
             // 서버에 요청 보내기
             fetch('/chatbot/chat/', {
@@ -83,12 +86,18 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ query: userInput, history: [] }) // history는 빈 배열로 시작
+                body: JSON.stringify({ query: userInput, history: chatHistory }) // 저장된 대화 이력 전송
             })
             .then(response => response.json())
             .then(data => {
                 // "생성 중..." 메시지를 실제 응답으로 대체
                 loadingMessage.textContent = 'AI: ' + data.response;
+                
+                // 서버에서 받은 업데이트된 대화 이력 저장
+                chatHistory = data.history;
+                
+                // 스크롤을 항상 아래로 유지
+                chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
             })
             .catch(error => {
                 console.error('Error:', error);
