@@ -20,4 +20,5 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("django-rq/", include("django_rq.urls")),  # Add RQ dashboard URLs
+    path("chatbot/", include("chatbot.api.urls")),
 ]

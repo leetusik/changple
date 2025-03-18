@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     # Local apps
     "scraper",
     "django_rq",
+    "chatbot",
 ]
 
 MIDDLEWARE = [
@@ -59,7 +60,9 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [
+            BASE_DIR / 'templates',
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -145,3 +148,10 @@ RQ_QUEUES = {
 
 # Specify the Redis client to be used
 RQ_SHOW_ADMIN_LINK = True
+
+# Pinecone 설정 추가
+PINECONE_ENVIRONMENT = "us-east-1"          # Pinecone 환경(리전) 설정
+PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
+
+# 임베딩 모델 설정
+EMBEDDING_MODEL = "text-embedding-3-small"
