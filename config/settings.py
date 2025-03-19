@@ -239,3 +239,10 @@ RQ_QUEUES = {
 
 # Specify the Redis client to be used
 RQ_SHOW_ADMIN_LINK = True
+
+# RQ Scheduler Configuration
+RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
+RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
