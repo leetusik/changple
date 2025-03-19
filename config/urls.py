@@ -25,6 +25,9 @@ from users.views import NaverCallbackView, NaverLoginView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("django-rq/", include("django_rq.urls")),  # Add RQ dashboard URLs
+<<<<<<< HEAD
+    path("chatbot/", include("chatbot.api.urls")),
+=======
     path("users/", include("users.urls")),  # Include users app URLs
     path(
         "social-auth/", include("social_django.urls", namespace="social")
@@ -40,4 +43,5 @@ urlpatterns = [
     # Add Naver auth URLs at the root level
     path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
     path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
+>>>>>>> develop
 ]

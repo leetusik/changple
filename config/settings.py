@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "users",
     "scraper",
     "django_rq",
+    "chatbot",
 ]
 
 # Custom User Model
@@ -101,7 +102,13 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
+<<<<<<< HEAD
+        "DIRS": [
+            BASE_DIR / 'templates',
+        ],
+=======
         "DIRS": [BASE_DIR / "templates"],
+>>>>>>> develop
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -240,9 +247,23 @@ RQ_QUEUES = {
 # Specify the Redis client to be used
 RQ_SHOW_ADMIN_LINK = True
 
+<<<<<<< HEAD
+# Pinecone 설정 추가
+PINECONE_ENVIRONMENT = "us-east-1"          # Pinecone 환경(리전) 설정
+PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
+
+# 임베딩 모델 설정
+EMBEDDING_MODEL = "text-embedding-3-small"
+
+# LLM 모델 설정
+LLM_MODEL = "gpt-4o-mini"
+LLM_TEMPERATURE = 0.7
+LLM_TOP_K = 3
+=======
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
 RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+>>>>>>> develop
