@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,11 +40,50 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third party apps
     "rest_framework",
+    "social_django",
     # Local apps
+    "users",
     "scraper",
     "django_rq",
     "chatbot",
 ]
+
+# Custom User Model
+AUTH_USER_MODEL = "users.User"
+
+# Authentication Backends
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # Default model backend
+    "users.backends.SocialAuthBackend",  # Social auth backend
+    "social_core.backends.naver.NaverOAuth2",  # Naver OAuth2
+]
+
+# Social Auth Settings
+SOCIAL_AUTH_NAVER_KEY = os.environ.get("SOCIAL_AUTH_NAVER_CLIENT_ID")
+SOCIAL_AUTH_NAVER_SECRET = os.environ.get("SOCIAL_AUTH_NAVER_CLIENT_SECRET")
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = "/"
+SOCIAL_AUTH_LOGIN_ERROR_URL = "/login-error/"
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "/"
+SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = "/"
+
+# Naver specific settings
+SOCIAL_AUTH_NAVER_CALLBACK_URL = (
+    "http://localhost:8000/naver/callback/"  # Clean URL without any query params
+)
+
+# Social Auth Pipeline
+SOCIAL_AUTH_PIPELINE = (
+    "social_core.pipeline.social_auth.social_details",
+    "social_core.pipeline.social_auth.social_uid",
+    "social_core.pipeline.social_auth.auth_allowed",
+    "social_core.pipeline.social_auth.social_user",
+    "social_core.pipeline.user.get_username",
+    "social_core.pipeline.social_auth.associate_by_email",
+    "users.pipeline.create_user",
+    "social_core.pipeline.social_auth.associate_user",
+    "social_core.pipeline.social_auth.load_extra_data",
+    "social_core.pipeline.user.user_details",
+)
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -53,6 +93,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "social_django.middleware.SocialAuthExceptionMiddleware",
+    "users.middleware.NaverAuthMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -60,9 +102,13 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
+<<<<<<< HEAD
         "DIRS": [
             BASE_DIR / 'templates',
         ],
+=======
+        "DIRS": [BASE_DIR / "templates"],
+>>>>>>> develop
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -70,6 +116,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "social_django.context_processors.backends",
+                "social_django.context_processors.login_redirect",
             ],
         },
     },
@@ -121,6 +169,56 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Authentication Settings
+LOGIN_URL = "/"
+LOGIN_REDIRECT_URL = "/"
+
+# Logging Configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "naver_auth.log",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "users": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "social_core": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "social_django": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+    },
+}
+
 # Redis and RQ Configuration
 RQ_QUEUES = {
     "default": {
@@ -149,6 +247,7 @@ RQ_QUEUES = {
 # Specify the Redis client to be used
 RQ_SHOW_ADMIN_LINK = True
 
+<<<<<<< HEAD
 # Pinecone 설정 추가
 PINECONE_ENVIRONMENT = "us-east-1"          # Pinecone 환경(리전) 설정
 PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
@@ -160,3 +259,11 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 LLM_MODEL = "gpt-4o-mini"
 LLM_TEMPERATURE = 0.7
 LLM_TOP_K = 3
+=======
+# RQ Scheduler Configuration
+RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
+RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+>>>>>>> develop

@@ -307,4 +307,4 @@ To ensure scheduled jobs execute properly, you need to run both:
 
 Both processes must be running simultaneously for the scheduled scraping to work correctly.
 
-For more detailed information about the scraper functionality, see the [scraper module README](scraper/README.md).
+For more detailed information about the scraper functionality, see the [scraper module README](z_docs/scrpaer_guide.md).
