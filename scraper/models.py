@@ -10,6 +10,7 @@ class NaverCafeData(models.Model):
     published_date = models.DateTimeField(auto_now_add=True, null=False, blank=False)
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
+    
 
     def __str__(self):
         return self.title
