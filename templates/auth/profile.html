@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}창플 - 마이페이지{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+        <h2 class="mb-4">마이페이지</h2>
+        
+        {% if user.is_authenticated %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>사용자 정보</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center mb-3">
+                            {% if user.profile_image %}
+                                <img src="{{ user.profile_image }}" alt="프로필 이미지" class="img-fluid rounded-circle" style="max-width: 120px;">
+                            {% else %}
+                                <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; margin: 0 auto;">
+                                    <span style="font-size: 3rem;">{{ user.name|default:user.username|first|upper }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <th scope="row" style="width: 30%;">이름</th>
+                                        <td>{{ user.name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">사용자명</th>
+                                        <td>{{ user.nickname }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">이메일</th>
+                                        <td>{{ user.email }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">프로필 이미지</th>
+                                        <td>{{ user.profile_image }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">소셜 ID</th>
+                                        <td>{{ user.social_id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">로그인 제공자</th>
+                                        <td>{{ user.provider|default:"직접 가입"|title }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">가입일</th>
+                                        <td>{{ user.date_joined|date:"Y년 m월 d일" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">로그아웃</a>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <p>로그인이 필요한 페이지입니다.</p>
+                <a href="{% url 'home' %}" class="btn btn-primary mt-2">로그인 페이지로 이동</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
