@@ -25,13 +25,20 @@
             height: 300px;
             overflow-y: auto;
         }
+        .user-message, .ai-message {
+            margin: 5px 0;
+            position: relative;
+        }
         .user-message {
             text-align: right;
-            margin: 5px 0;
         }
         .ai-message {
             text-align: left;
-            margin: 5px 0;
+        }
+        .message-time {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 2px;
         }
         #chat-form {
             display: flex;
@@ -62,6 +69,12 @@
     <script>
         // 대화 이력을 저장할 변수 추가
         let chatHistory = [];
+        
+        // 현재 시간을 가져오는 함수
+        function getCurrentTime() {
+            const now = new Date();
+            return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        }
 
         document.getElementById('chat-form').addEventListener('submit', function(event) {
             event.preventDefault();
@@ -73,6 +86,12 @@
             userMessage.className = 'user-message';
             userMessage.textContent = '사용자: ' + userInput;
             chatHistoryDiv.appendChild(userMessage);
+            
+            // 시간 표시 추가
+            const userTime = document.createElement('div');
+            userTime.className = 'message-time';
+            userTime.textContent = getCurrentTime();
+            userMessage.appendChild(userTime);
 
             // "생성 중..." 메시지 추가
             const loadingMessage = document.createElement('div');
@@ -93,6 +112,12 @@
                 // "생성 중..." 메시지를 실제 응답으로 대체
                 loadingMessage.textContent = 'AI: ' + data.response;
                 
+                // 시간 표시 추가
+                const aiTime = document.createElement('div');
+                aiTime.className = 'message-time';
+                aiTime.textContent = getCurrentTime();
+                loadingMessage.appendChild(aiTime);
+                
                 // 서버에서 받은 업데이트된 대화 이력 저장
                 chatHistory = data.history;
                 
@@ -102,6 +127,12 @@
             .catch(error => {
                 console.error('Error:', error);
                 loadingMessage.textContent = 'AI: 오류가 발생했습니다.';
+                
+                // 오류 메시지에도 시간 표시 추가
+                const errorTime = document.createElement('div');
+                errorTime.className = 'message-time';
+                errorTime.textContent = getCurrentTime();
+                loadingMessage.appendChild(errorTime);
             });
 
             // 입력 필드 초기화
