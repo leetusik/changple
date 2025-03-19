@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}창플 - 챗봇{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-10 offset-md-1">
+        <h2 class="mb-4">AI 챗봇</h2>
+        
+        <div class="card chat-container">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">창플 AI 챗봇</h5>
+            </div>
+            <div class="card-body">
+                <div id="chat-messages" class="mb-3">
+                    <!-- Messages will be dynamically inserted here -->
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            안녕하세요! 창플 AI 챗봇입니다. 어떻게 도와드릴까요?
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <form id="chat-form">
+                        <div class="input-group">
+                            <input 
+                                type="text" 
+                                id="chat-input" 
+                                class="form-control" 
+                                placeholder="질문을 입력하세요..."
+                                required
+                            >
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> 보내기
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

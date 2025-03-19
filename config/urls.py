@@ -15,9 +15,29 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.contrib.auth.decorators import login_required
 from django.urls import include, path
+from django.views.generic import TemplateView
+
+# Import NaverCallbackView directly
+from users.views import NaverCallbackView, NaverLoginView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("django-rq/", include("django_rq.urls")),  # Add RQ dashboard URLs
+    path("users/", include("users.urls")),  # Include users app URLs
+    path(
+        "social-auth/", include("social_django.urls", namespace="social")
+    ),  # Social auth URLs
+    path(
+        "", TemplateView.as_view(template_name="index.html"), name="home"
+    ),  # Home page
+    path(
+        "profile/",
+        login_required(TemplateView.as_view(template_name="auth/profile.html")),
+        name="profile",
+    ),  # Profile page, login required
+    # Add Naver auth URLs at the root level
+    path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
+    path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
 ]
