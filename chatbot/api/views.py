@@ -7,8 +7,12 @@ from chatbot.services.langchain_service import LangchainService
 # Create your views here.
 
 def index(request):
-    # 템플릿 렌더링으로 변경
+    # 메인 페이지 렌더링
     return render(request, 'index.html')
+
+def chat_view(request):
+    # 챗봇 페이지 렌더링
+    return render(request, 'chat/chat.html')
 
 def search_view(request):
     query = request.GET.get('q', '')
