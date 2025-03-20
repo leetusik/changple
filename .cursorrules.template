@@ -1,0 +1,14 @@
+* Only modify code directly relevant to the specific request. Avoid changing unrelated functionality.
+* Break problems into smaller steps. Think through each step separately before implementing.
+* Always provide a complete PLAN with REASONING based on evidence from code and logs before making changes.
+* Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue.
+* Use the tools that the framework provides. If there is a native way to do something in the framework, do it that way
+* Scan the whole project to better understand structure
+* Don't forget to fix all the UX/UI, always watch for directions of improvement
+* Don't break the code that is used in multiple modules
+* Check that all UI, db, backend models, requests, parameters are in sync, to avoid errors
+* Test everything thoroughly and edge cases
+* Templates should always have unique names
+* Never finish until you tested your code and can verify its working
+* Remove all temporary code at the end, make sure the app is functional
+* Never commit to git yourself until I ask explicitly

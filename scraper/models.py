@@ -7,10 +7,11 @@ class NaverCafeData(models.Model):
     category = models.CharField(max_length=200, null=False, blank=False)
     content = models.TextField(null=False, blank=False)
     author = models.CharField(max_length=200, null=False, blank=False)
-    published_date = models.DateTimeField(auto_now_add=True, null=False, blank=False)
+    published_date = models.CharField(
+        max_length=200, null=True, blank=True
+    )  # Store as original string from Naver
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
-    
 
     def __str__(self):
         return self.title
@@ -23,9 +24,8 @@ class PostStatus(models.Model):
 
     STATUS_CHOICES = [
         ("DELETED", "Deleted"),
-        ("NOT_FOUND", "Not Found"),
-        ("ACCESS_DENIED", "Access Denied"),
         ("ERROR", "Error"),
+        ("SAVED", "Saved"),
     ]
 
     post_id = models.IntegerField(unique=True, null=False, blank=False)
