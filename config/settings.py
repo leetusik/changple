@@ -248,10 +248,14 @@ PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
 # 임베딩 모델 설정
 EMBEDDING_MODEL = "text-embedding-3-small"
 
+# 텍스트 분할 설정
+TEXT_SPLITTER_CHUNK_SIZE = 1000
+TEXT_SPLITTER_CHUNK_OVERLAP = 200
+
 # LLM 모델 설정
 LLM_MODEL = "gpt-4o-mini"
 LLM_TEMPERATURE = 0.7
-LLM_TOP_K = 3
+LLM_TOP_K = 5
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
 RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue
