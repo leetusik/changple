@@ -10,6 +10,7 @@ urlpatterns = [
     path("search/", views.search_documents, name="search_documents"),
     path("index-cafe-data/", views.index_cafe_data, name="index_cafe_data"),
     path("pinecone-stats/", views.get_pinecone_stats, name="get_pinecone_stats"),
+    path("clear-pinecone-index/", views.clear_pinecone_index, name="clear_pinecone_index"),
     path("chat/", views.chat, name="chat"),
     path('ab-test/', views.ab_test_view, name='ab_test'),
     path('run-ab-test/', views.run_ab_test, name='run_ab_test'),

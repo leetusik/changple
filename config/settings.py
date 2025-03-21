@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 파일 시작 부분에 .env 로드
+load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -243,8 +248,8 @@ RQ_QUEUES = {
 RQ_SHOW_ADMIN_LINK = True
 
 # Pinecone 설정 추가
-PINECONE_ENVIRONMENT = "us-east-1"  # Pinecone 환경(리전) 설정
-PINECONE_INDEX_NAME = "pdf-index"  # 기본 인덱스 이름
+PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
+PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME")
 
 # 임베딩 모델 설정
 EMBEDDING_MODEL = "text-embedding-3-small"

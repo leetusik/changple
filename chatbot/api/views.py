@@ -4,8 +4,14 @@ from rest_framework.response import Response
 from chatbot.services.pinecone_service import PineconeService
 from chatbot.services.langchain_service import LangchainService
 from chatbot.models import Prompt, ABTest
+from scraper.models import NaverCafeData, AllowedCategory, AllowedAuthor
 from django.conf import settings
 from django.utils.text import slugify
+import os
+from dotenv import load_dotenv
+
+# 파일 시작 부분에 .env 로드
+load_dotenv()
 
 # Create your views here.
 
@@ -40,23 +46,41 @@ def search_documents(request):
 @api_view(['POST'])
 def index_cafe_data(request):
     """카페 데이터 인덱싱 API 엔드포인트"""
-    data = request.data
-    start_post_id = data.get('start_post_id')
-    num_document = data.get('num_document')
-    
-    pinecone_service = PineconeService()
-    total_chunks = pinecone_service.process_cafe_data(
-        start_post_id=start_post_id,
-        num_document=num_document
-    )
-    
-    return Response({"total_chunks": total_chunks})
+    try:
+        # process_cafe_data 대신 process_unvectorized_data 함수 사용
+        pinecone_service = PineconeService()
+        total_chunks = pinecone_service.process_unvectorized_data()
+        
+        return Response({
+            "success": True,
+            "total_chunks": total_chunks,
+            "message": f"벡터화되지 않은 카페 데이터 인덱싱 완료. 총 {total_chunks}개의 청크가 생성되었습니다."
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 def get_pinecone_stats(request):
     """Pinecone 통계 정보 조회 API 엔드포인트"""
+    # URL 파라미터에서 필터링 옵션 가져오기
+    vectorized = request.GET.get('vectorized')
+    allowed_category_active = request.GET.get('allowed_category_active')
+    allowed_author_active = request.GET.get('allowed_author_active')
+    
+    # 문자열 값을 bool로 변환
+    if vectorized is not None:
+        vectorized = vectorized.lower() == 'true'
+    if allowed_category_active is not None:
+        allowed_category_active = allowed_category_active.lower() == 'true'
+    if allowed_author_active is not None:
+        allowed_author_active = allowed_author_active.lower() == 'true'
+    
     pinecone_service = PineconeService()
-    stats = pinecone_service.get_stats()
+    stats = pinecone_service.get_stats(
+        vectorized=vectorized,
+        allowed_category_active=allowed_category_active,
+        allowed_author_active=allowed_author_active
+    )
     
     return Response(stats)
 
@@ -302,15 +326,9 @@ def api_management_view(request):
             'id': 'index-cafe-data',
             'url': '/chatbot/index-cafe-data/',
             'method': 'POST',
-            'description': 'Django DB의 naver cafe data를 벡터화하여 Pinecone에 저장합니다',
-            'params': {
-                'start_post_id': '시작 게시글 ID',
-                'num_document': 'Pinecone에 업로드 할 문서 수'
-            },
-            'example_json': '''{
-  "start_post_id": 1000,
-  "num_document": 50
-}'''
+            'description': '아직 벡터화되지 않은(vectorized=False) 카페 데이터만 Pinecone에 저장합니다. 허용된 카테고리와 작성자의 데이터만 처리합니다.',
+            'params': {},
+            'example_json': ''
         },
         {
             'name': 'Pinecone_통계',
@@ -319,7 +337,7 @@ def api_management_view(request):
             'method': 'GET',
             'description': 'Pinecone 및 Django DB에 저장된 데이터의 통계 현황을 조회합니다',
             'params': {},
-            'example_json': '{}'
+            'example_json': ''
         },
         {
             'name': '프롬프트_생성',
@@ -366,7 +384,7 @@ def api_management_view(request):
             'method': 'DELETE',
             'description': 'Django DB의 프롬프트를 삭제합니다 (프롬프트 ID 필요)',
             'params': {},
-            'example_json': '{}'
+            'example_json': ''
         }
     ]
     
@@ -375,3 +393,18 @@ def api_management_view(request):
         print(f"API Name: {api['name']}, Slug ID: {api['id']}")
     
     return render(request, 'management/api_management.html', {'apis': apis})
+
+@api_view(['POST'])
+def clear_pinecone_index(request):
+    """Pinecone 인덱스 초기화 API 엔드포인트"""
+    try:
+        pinecone_service = PineconeService()
+        result = pinecone_service.clear_index()
+        
+        if result:
+            message = "Pinecone 인덱스가 성공적으로 초기화되었습니다."
+            return Response({"success": True, "message": message})
+        else:
+            return Response({"error": "인덱스 초기화 중 오류가 발생했습니다."}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
