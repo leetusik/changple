@@ -95,9 +95,13 @@ class NaverCallbackView(View):
 
     def get(self, request):
         """Process Naver OAuth callback data."""
-        # Log all request parameters
-        logger.info("NaverCallbackView received request")
-        logger.info(f"Request GET params: {json.dumps(dict(request.GET.items()))}")
+        # Enhanced logging of all request parameters
+        logger.info("====== NAVER CALLBACK RECEIVED ======")
+        logger.info(
+            f"Request GET params: {json.dumps(dict(request.GET.items()), ensure_ascii=False)}"
+        )
+        logger.info(f"Request META: {self._get_safe_meta(request)}")
+        logger.info("======================================")
 
         code = request.GET.get("code")
         error = request.GET.get("error")
@@ -148,7 +152,7 @@ class NaverCallbackView(View):
 
                 if user and user.is_active:
                     login(request, user)
-                    logger.info(f"User logged in: {user.username}")
+                    logger.info(f"User logged in: {user.id}")
                     return redirect(reverse("home"))
                 else:
                     logger.error("User not active or not returned")
@@ -169,6 +173,20 @@ class NaverCallbackView(View):
 
         logger.error("No user returned from auth process")
         return redirect(reverse("home"))
+
+    def _get_safe_meta(self, request):
+        """Get a safe version of request.META for logging."""
+        safe_meta = {}
+        for key, value in request.META.items():
+            # Only log headers and other useful information, skip server details
+            if key.startswith("HTTP_") or key in [
+                "QUERY_STRING",
+                "PATH_INFO",
+                "REMOTE_ADDR",
+                "REQUEST_METHOD",
+            ]:
+                safe_meta[key] = str(value)
+        return safe_meta
 
 
 def logout_view(request):

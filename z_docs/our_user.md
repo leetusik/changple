@@ -6,6 +6,23 @@ The Users app manages user authentication, registration, and profile management 
 
 ## Recent Updates
 
+### Username & User Model Updates (2024-03-21)
+
+1. **Username Handling**:
+   - Username field is now hidden from forms and admin interface
+   - Automatically generated from social_id for social users (`provider_social_id`)
+   - Uses ID-based format for admin users (`id_123`)
+   - Still maintains uniqueness required by Django auth
+
+2. **Korean-Focused User Model**:
+   - Primary focus on `name` and `nickname` fields for Korean users
+   - De-emphasized `first_name` and `last_name` fields in the admin interface
+   - Updated `__str__` representation to use name/nickname instead of username
+
+3. **Mobile Number Integration**:
+   - Added API integration to fetch mobile numbers from Naver's profile API
+   - Automatic storage of mobile numbers during user creation and profile updates
+
 ### Restructuring (2024-03-18)
 
 1. **App Structure Reorganization**:
@@ -72,6 +89,14 @@ The app extends Django's AbstractUser to create a custom User model with additio
 
 ```python
 class User(AbstractUser):
+    # Username is hidden from forms but maintained for Django auth
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        help_text="Internal field used for authentication only.",
+        editable=False,  # Hide from forms
+    )
+    
     # User type (admin or social)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default="social")
     
@@ -80,18 +105,43 @@ class User(AbstractUser):
     social_id = models.CharField(max_length=100, blank=True)
     profile_image = models.URLField(blank=True)
     
-    # Profile fields
+    # Korean context fields
     name = models.CharField(max_length=255, null=True, blank=True)
     nickname = models.CharField(max_length=100, blank=True)
+    mobile = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Query limit fields
+    daily_query_limit = models.IntegerField(default=10)
+    daily_queries_used = models.IntegerField(default=0)
+    last_query_reset = models.DateTimeField(default=timezone.now)
+    
+    # Premium status
+    is_premium = models.BooleanField(default=False)
+    premium_until = models.DateTimeField(null=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        # For social users, use social_id as username if available
+        if self.is_social_user() and self.social_id and not self.username:
+            provider_prefix = f"{self.provider}_" if self.provider else ""
+            self.username = f"{provider_prefix}{self.social_id}"
+        
+        # For admin users or if no social_id is available, use ID-based username
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and not self.username and not self.social_id:
+            self.username = f"id_{self.pk}"
+            type(self).objects.filter(pk=self.pk).update(username=self.username)
 ```
 
 Key features:
+- `username`: Hidden field used internally for Django authentication
 - `user_type`: Distinguishes between admin users and social login users
 - `provider`: Identifies the social login provider (e.g., "naver")
 - `social_id`: Stores the unique ID from the social provider
 - `profile_image`: URL to the user's profile image from social provider
-- `name`: User's real name (from social provider)
-- `nickname`: User's nickname
+- `name`: User's full Korean name (from social provider)
+- `nickname`: User's preferred display name
+- `mobile`: User's mobile number (retrieved from Naver API)
 
 ## Authentication Flows
 
@@ -152,26 +202,77 @@ Located in `pipeline.py`, the pipeline function `create_user` handles user creat
 - Creates new users based on Naver profile data
 - Updates existing user profiles with fresh data from Naver
 - Sets special nickname "sugnag" for a specific user (gusang0@naver.com)
+- Retrieves mobile number via additional API call to Naver's profile API
+
+The mobile number retrieval is handled by the `get_naver_profile_data` function:
+
+```python
+def get_naver_profile_data(access_token):
+    """
+    Make an additional API call to get more profile data including mobile number
+    """
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get("https://openapi.naver.com/v1/nid/me", headers=headers)
+    # Process response to extract mobile number
+    profile_data = response.json().get("response", {})
+    return profile_data
+```
 
 #### 3. Authentication Backend
 
-Located in `backends.py`, the `SocialAuthBackend` authenticates users based on their social provider and ID:
+Located in `backends.py`, the app provides two custom authentication backends:
+
+1. `SocialAuthBackend`: Authenticates users based on their social provider and ID
+2. `EmailBackend`: Allows admin users to log in using email instead of username
 
 ```python
-def authenticate(self, request, provider=None, social_id=None, **kwargs):
-    if provider is None or social_id is None:
-        return None
+class SocialAuthBackend(ModelBackend):
+    def authenticate(self, request, provider=None, social_id=None, **kwargs):
+        if provider is None or social_id is None:
+            return None
 
-    try:
-        user = User.objects.get(provider=provider, social_id=social_id)
-        return user
-    except User.DoesNotExist:
-        return None
+        try:
+            user = User.objects.get(provider=provider, social_id=social_id)
+            return user
+        except User.DoesNotExist:
+            return None
 ```
 
-#### 4. Middleware
+## Admin Interface
 
-Located in `middleware.py`, the `NaverAuthMiddleware` handles Naver OAuth state parameter for security.
+The admin interface has been customized to hide the username field and focus on the name and nickname fields:
+
+```python
+class CustomUserAdmin(UserAdmin):
+    list_display = (
+        "id",
+        "name",
+        "nickname",
+        "email",
+        "user_type",
+        "is_premium",
+        "daily_queries_used",
+        "is_staff",
+        "is_active",
+    )
+    
+    fieldsets = (
+        (None, {"fields": ("password",)}),  # Username removed
+        (
+            _("Korean User Information"),
+            {
+                "fields": (
+                    "name",
+                    "nickname",
+                    "email",
+                    "mobile",
+                    "profile_image",
+                ),
+            },
+        ),
+        # ... other fieldsets
+    )
+```
 
 ## Service Layer
 
@@ -183,7 +284,6 @@ Located in `services/auth_service.py`, this provides general authentication util
 
 - `get_user_by_id`: Retrieves a user by ID
 - `get_user_by_email`: Retrieves a user by email
-- `generate_unique_username`: Generates a unique username
 
 ### 2. Social Auth Service
 
@@ -200,8 +300,8 @@ The API layer provides REST endpoints for user data:
 
 Located in `api/serializers.py`, these convert model instances to JSON:
 
-- `UserSerializer`: Full user model serialization
-- `UserProfileSerializer`: User profile data serialization
+- `UserSerializer`: Full user model serialization with username as read-only
+- `UserProfileSerializer`: User profile data serialization with username as read-only
 - `SocialAuthSerializer`: Serializes social auth request data
 
 ### 2. Views
@@ -211,63 +311,27 @@ Located in `api/views.py`, these handle API requests:
 - `UserViewSet`: CRUD operations for user model
 - `SocialAuthView`: Handles social authentication via API
 
-## Integration Points
+## Security Considerations
 
-### 1. Django Settings
-
-The app integrates with Django via settings:
-
-```python
-AUTH_USER_MODEL = 'users.User'
-
-AUTHENTICATION_BACKENDS = [
-    'users.backends.SocialAuthBackend',
-    'django.contrib.auth.backends.ModelBackend',
-]
-
-MIDDLEWARE = [
-    # ...
-    'users.middleware.NaverAuthMiddleware',
-]
-
-SOCIAL_AUTH_PIPELINE = [
-    # ...
-    'users.pipeline.create_user',
-]
-```
-
-### 2. Templates
-
-The app connects to templates for:
-- Login page (`auth/login.html`)
-- Profile display (`auth/profile.html`)
-- The main layout (`base.html`) includes navigation links to profiles and authentication
-
-### 3. Main URLs
-
-The app connects to the main URL configuration:
-
-```python
-# In config/urls.py:
-path("users/", include("users.urls")),
-
-# Profile URL
-path(
-    "profile/",
-    login_required(TemplateView.as_view(template_name="auth/profile.html")),
-    name="profile",
-),
-
-# Root-level Naver auth URLs for easier access
-path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
-path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
-```
+1. **OAuth State Parameter**: Used to prevent CSRF attacks
+2. **Password Storage**: Admin users have passwords stored using Django's hashing
+3. **Social Users**: Automatically assigned a secure random password (never used)
+4. **Username Field**: Hidden from forms and API but maintained for Django auth
+5. **Mobile Number Security**: Retrieved securely via API using OAuth token
 
 ## Custom Logic for Special Cases
 
-1. **Special Nickname**: For the user with email "gusang0@naver.com", the nickname is set to "sugnag"
-2. **Username Format**: For Korean users, their username is set to their Korean name
-3. **Profile Image**: Social profile images are stored as URLs, not downloaded
+1. **Username Generation**: 
+   - Social users: `{provider}_{social_id}` (e.g., "naver_12345")
+   - Admin users: `id_{id}` (e.g., "id_123")
+   
+2. **Special Nickname**: For user with email "gusang0@naver.com", nickname is set to "sugnag"
+
+3. **Korean Name Handling**: 
+   - Displays Korean names properly 
+   - Focuses on full name rather than first/last name split
+
+4. **Mobile Number**: Retrieved from Naver's additional profile API
 
 ## Testing
 
@@ -275,13 +339,6 @@ The app includes test files that verify:
 - User model functionality
 - Authentication flows
 - Social login integration
-
-## Security Considerations
-
-1. **OAuth State Parameter**: Used to prevent CSRF attacks
-2. **Password Storage**: Admin users have passwords stored using Django's hashing
-3. **Permissions**: API endpoints have appropriate permission classes
-4. **JWT Authentication**: Used for API authentication where appropriate
 
 ## Deployment Considerations
 

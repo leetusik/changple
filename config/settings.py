@@ -53,6 +53,7 @@ AUTH_USER_MODEL = "users.User"
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = [
+    "users.backends.EmailBackend",  # Email auth backend
     "django.contrib.auth.backends.ModelBackend",  # Default model backend
     "users.backends.SocialAuthBackend",  # Social auth backend
     "social_core.backends.naver.NaverOAuth2",  # Naver OAuth2
@@ -242,8 +243,8 @@ RQ_QUEUES = {
 RQ_SHOW_ADMIN_LINK = True
 
 # Pinecone 설정 추가
-PINECONE_ENVIRONMENT = "us-east-1"          # Pinecone 환경(리전) 설정
-PINECONE_INDEX_NAME = "pdf-index"    # 기본 인덱스 이름
+PINECONE_ENVIRONMENT = "us-east-1"  # Pinecone 환경(리전) 설정
+PINECONE_INDEX_NAME = "pdf-index"  # 기본 인덱스 이름
 
 # 임베딩 모델 설정
 EMBEDDING_MODEL = "text-embedding-3-small"

@@ -54,15 +54,8 @@ class SocialAuthService:
                 user.save()
                 return user, False
             except User.DoesNotExist:
-                # Create new user
-                username = f"{provider}_{social_id}"
-
-                # Check if username exists, if so, make it unique
-                if User.objects.filter(username=username).exists():
-                    username = f"{provider}_{social_id}_{User.objects.count()}"
-
+                # Create new user - username will be set automatically based on social_id in the model
                 user_data = {
-                    "username": username,
                     "email": email,
                     "provider": provider,
                     "social_id": social_id,
@@ -99,6 +92,10 @@ class SocialAuthService:
 
             if profile_data.get("username"):
                 user.name = profile_data.get("username")
+
+            # Update mobile if available
+            if profile_data.get("mobile"):
+                user.mobile = profile_data.get("mobile")
 
             # Special case for specific user
             if profile_data.get("email") == "gusang0@naver.com":
