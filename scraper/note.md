@@ -22,3 +22,4 @@ from playwright.async_api import async_playwright
 
 from scraper.models import AllowedCategory, NaverCafeData, PostStatus
 ```
+
