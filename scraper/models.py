@@ -12,6 +12,7 @@ class NaverCafeData(models.Model):
     )  # Store as original string from Naver
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
+    vectorized = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
@@ -85,6 +86,37 @@ class AllowedCategory(models.Model):
         verbose_name = "Allowed Category"
         verbose_name_plural = "Allowed Categories"
         ordering = ["category_group", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class AllowedAuthor(models.Model):
+    """Allowed authors for vectorization"""
+
+    AUTHOR_GROUPS = [
+        ("창플", "창플"),
+        ("팀비즈니스_브랜드_대표", "팀비즈니스 브랜드 대표"),
+        ("기타", "기타"),
+    ]
+
+    name = models.CharField(max_length=200, unique=True, null=False, blank=False)
+    author_group = models.CharField(
+        max_length=50,
+        choices=AUTHOR_GROUPS,
+        default="창플",
+        help_text="Author group for organization",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="If unchecked, this author's posts will not be vectorized",
+    )
+    date_added = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Allowed Author"
+        verbose_name_plural = "Allowed Authors"
+        ordering = ["author_group", "name"]
 
     def __str__(self):
         return self.name
