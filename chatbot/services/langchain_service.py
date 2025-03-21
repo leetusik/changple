@@ -15,6 +15,10 @@ from chatbot.services.openai_service import OpenAIService
 from chatbot.services.pinecone_service import PineconeService
 from django.conf import settings
 from chatbot.models import Prompt
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class LangchainService:
     """

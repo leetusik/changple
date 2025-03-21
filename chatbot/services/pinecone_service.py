@@ -12,7 +12,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from django.utils import timezone
 from django.conf import settings
-from scraper.models import NaverCafeData
+from scraper.models import NaverCafeData, AllowedCategory, AllowedAuthor
 from django.db.models import Count
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -58,8 +58,8 @@ class PineconeService:
         return environment
     
     def _get_index_name_from_env(self):
-        # Django settings에서 인덱스 이름 가져오기,
-        index_name = getattr(settings, "PINECONE_INDEX_NAME", "pdf-index")
+        # .env 파일에서 인덱스 이름 가져오기
+        index_name = os.environ.get("PINECONE_INDEX_NAME")
         return index_name
     
     def _initialize_pinecone(self):
@@ -141,7 +141,7 @@ class PineconeService:
                         'document_id': cafe_data.id,
                         'title': cafe_data.title,
                         'category': cafe_data.category,
-                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date else '',
+                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
                         'author': cafe_data.author,
                         'url': cafe_data.url,
                         'post_id': post_id,
@@ -180,6 +180,114 @@ class PineconeService:
             total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
             
             print(f"인덱싱 작업 완료! 총 {total_chunks}개의 청크가 생성되었습니다.")
+            return total_chunks
+            
+        except Exception as e:
+            print(f"Pinecone 처리 오류: {e}")
+            return 0
+        
+    def process_unvectorized_data(self):
+        """
+        NaverCafeData 모델에서 vectorized=False이고 허용된 카테고리 및 저자의 데이터만 가져와 
+        Pinecone에 저장합니다. 처리 후 해당 데이터의 vectorized 필드를 True로 업데이트합니다.
+        
+        Returns:
+            int: 생성된 총 청크 수
+        """
+        try:
+            print(f"벡터화되지 않은 카페 데이터 인덱싱 작업을 시작합니다...")
+            
+            # 허용된 카테고리와 저자 목록 가져오기
+            allowed_categories = list(AllowedCategory.objects.filter(is_active=True).values_list('name', flat=True))
+            allowed_authors = list(AllowedAuthor.objects.filter(is_active=True).values_list('name', flat=True))
+            
+            print(f"허용된 카테고리 수: {len(allowed_categories)}, 허용된 저자 수: {len(allowed_authors)}")
+            
+            # vectorized=False, 허용된 카테고리 및 저자인 데이터만 쿼리
+            query = NaverCafeData.objects.filter(
+                vectorized=False,
+                category__in=allowed_categories,
+                author__in=allowed_authors
+            )
+            
+            total_documents = query.count()
+            print(f"총 {total_documents}개의 미벡터화 문서를 처리합니다.")
+            
+            if total_documents == 0:
+                print("벡터화할 새 문서가 없습니다.")
+                return 0
+            
+            # 문서 처리 및 벡터 저장 준비
+            documents = []
+            chunk_counters = {}  # 각 post_id별 청크 카운터를 추적하기 위한 딕셔너리
+            processed_document_ids = []  # 처리된 문서 ID를 저장할 리스트
+            
+            for i, cafe_data in enumerate(query):
+                # 진행 상황 표시 (10% 단위로)
+                if i % max(1, total_documents // 10) == 0 or i == total_documents - 1:
+                    progress = (i / total_documents) * 100
+                    print(f"진행 중... {progress:.1f}% 완료 ({i}/{total_documents})")
+                
+                # 텍스트 분할
+                chunks = self.text_splitter.split_text(cafe_data.content)
+                post_id = cafe_data.post_id
+                
+                # 이 post_id에 대한 카운터 초기화
+                if post_id not in chunk_counters:
+                    chunk_counters[post_id] = 1
+                
+                # 각 청크에 대한 메타데이터 생성
+                for chunk in chunks:
+                    metadata = {
+                        'document_id': cafe_data.id,
+                        'title': cafe_data.title,
+                        'category': cafe_data.category,
+                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
+                        'author': cafe_data.author,
+                        'url': cafe_data.url,
+                        'post_id': post_id,
+                        'chunk_number': chunk_counters[post_id],  # 청크 번호 저장
+                    }
+                    documents.append((chunk, metadata, chunk_counters[post_id]))
+                    chunk_counters[post_id] += 1  # 다음 청크를 위해 카운터 증가
+                
+                # 처리된 문서 ID 저장
+                processed_document_ids.append(cafe_data.id)
+            
+            if not documents:
+                print("인덱싱할 문서가 없습니다.")
+                return 0
+            
+            # 벡터 저장소에 문서 추가 (배치 처리)
+            batch_size = 100
+            total_batches = (len(documents) + batch_size - 1) // batch_size
+            
+            print(f"총 {len(documents)}개의 청크를 {total_batches}개 배치로 처리합니다.")
+            
+            for i in range(0, len(documents), batch_size):
+                batch = documents[i:i+batch_size]
+                batch_num = i // batch_size + 1
+                
+                print(f"배치 처리 중... {batch_num}/{total_batches} ({(batch_num/total_batches)*100:.1f}%)")
+                
+                texts = [doc[0] for doc in batch]
+                metadatas = [doc[1] for doc in batch]
+                
+                # 각 청크에 post_id와 chunk_number를 조합하여 고유 ID 생성
+                ids = [f"{meta['post_id']}-{doc[2]}" for meta, doc in zip(metadatas, batch)]
+                
+                # ID를 명시적으로 지정하여 업서트 (동일 ID는 덮어쓰기됨)
+                self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+            
+            # 총 청크 수 계산 (각 post_id의 마지막 청크 번호 - 1을 합산)
+            # chunk_counters의 각 값은 마지막 청크 번호 + 1이므로 1을 빼지 않음
+            total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
+            
+            # 처리된 문서의 vectorized 필드를 True로 업데이트
+            NaverCafeData.objects.filter(id__in=processed_document_ids).update(vectorized=True)
+            
+            print(f"인덱싱 작업 완료! 총 {total_chunks}개의 청크가 생성되었습니다.")
+            print(f"{len(processed_document_ids)}개 문서의 vectorized 상태가 True로 업데이트되었습니다.")
             return total_chunks
             
         except Exception as e:
@@ -233,7 +341,7 @@ class PineconeService:
             print(f"인덱스 초기화 오류: {e}")
             return False
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self, vectorized: bool = True, allowed_category: bool = True, allowed_author: bool = True) -> Dict[str, Any]:
         """
         처리된 문서 통계 정보를 반환합니다.
         
@@ -241,24 +349,38 @@ class PineconeService:
             Dict: 통계 정보
         """
         try:
+
+            # 허용된 카테고리와 저자 목록 가져오기
+            allowed_categories = list(AllowedCategory.objects.filter(is_active=allowed_category).values_list('name', flat=True))
+            allowed_authors = list(AllowedAuthor.objects.filter(is_active=allowed_author).values_list('name', flat=True))
+            
+            print(f"허용된 카테고리 수: {len(allowed_categories)}, 허용된 저자 수: {len(allowed_authors)}")
+            
+            # vectorized=False, 허용된 카테고리 및 저자인 데이터만 쿼리
+            cafe_data_query = NaverCafeData.objects.filter(
+                vectorized=vectorized,
+                category__in=allowed_categories,
+                author__in=allowed_authors
+            )
+            
             # Django ORM으로 통계 정보 조회
-            django_total_documents = NaverCafeData.objects.count()
+            django_total_documents = cafe_data_query.count()
             
             # 카테고리별 문서 수 
-            category_counts = NaverCafeData.objects.values('category').annotate(
+            category_counts = cafe_data_query.values('category').annotate(
                 count=Count('id')
             ).order_by('-count')
             category_stats = {item['category']: item['count'] for item in category_counts}
             
             # 저자별 문서 수
-            author_counts = NaverCafeData.objects.values('author').annotate(
+            author_counts = cafe_data_query.values('author').annotate(
                 count=Count('id')
             ).order_by('-count')
             author_stats = {item['author']: item['count'] for item in author_counts}
             
             # post_id 분포도 분석
-            min_post_id = NaverCafeData.objects.order_by('post_id').values_list('post_id', flat=True).first() or 0
-            max_post_id = NaverCafeData.objects.order_by('-post_id').values_list('post_id', flat=True).first() or 0
+            min_post_id = cafe_data_query.order_by('post_id').values_list('post_id', flat=True).first() or 0
+            max_post_id = cafe_data_query.order_by('-post_id').values_list('post_id', flat=True).first() or 0
             
             # post_id 범위를 10개 구간으로 나누어 분포 확인
             if min_post_id < max_post_id:
@@ -271,7 +393,7 @@ class PineconeService:
                     start_range = min_post_id + (i * range_size)
                     end_range = min_post_id + ((i + 1) * range_size) if i < 9 else max_post_id + 1
                     
-                    count = NaverCafeData.objects.filter(
+                    count = cafe_data_query.filter(
                         post_id__gte=start_range, 
                         post_id__lt=end_range
                     ).count()
