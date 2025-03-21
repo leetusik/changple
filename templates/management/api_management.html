@@ -91,6 +91,16 @@
                                             <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modal-clear-pinecone-index">실행</button>
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td>Pinecone_통계_조회</td>
+                                        <td>
+                                            <span class="badge bg-success">GET</span>
+                                        </td>
+                                        <td>Pinecone 및 Django DB에 저장된 데이터의 통계 현황을 조회합니다 (파라미터 설정 가능)</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modal-pinecone-stats">실행</button>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -200,73 +210,6 @@
     </div>
     {% endfor %}
 
-    <!-- Pinecone 통계 모달 -->
-    <div class="modal fade" id="modal-pinecone-stats" tabindex="-1" aria-labelledby="modal-pinecone-stats-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modal-pinecone-stats-label">Pinecone 통계</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>메소드: <span class="badge bg-success">GET</span></p>
-                    <p>엔드포인트: /chatbot/pinecone-stats/</p>
-                    
-                    <!-- 필터링 옵션 추가 -->
-                    <div class="card mb-3">
-                        <div class="card-header">필터링 옵션</div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="use-vectorized-filter">
-                                        <label class="form-check-label" for="use-vectorized-filter">벡터화 상태 필터링 사용</label>
-                                    </div>
-                                    <select class="form-select mt-2" id="vectorized-filter" disabled>
-                                        <option value="true">벡터화됨</option>
-                                        <option value="false">벡터화안됨</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="use-category-filter">
-                                        <label class="form-check-label" for="use-category-filter">허용된 카테고리 필터링 사용</label>
-                                    </div>
-                                    <select class="form-select mt-2" id="category-filter" disabled>
-                                        <option value="true">활성화됨</option>
-                                        <option value="false">비활성화됨</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="use-author-filter">
-                                        <label class="form-check-label" for="use-author-filter">허용된 저자 필터링 사용</label>
-                                    </div>
-                                    <select class="form-select mt-2" id="author-filter" disabled>
-                                        <option value="true">활성화됨</option>
-                                        <option value="false">비활성화됨</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button class="btn btn-success execute-stats-filtered">통계 조회</button>
-                    
-                    <div class="mt-4">
-                        <div class="loading-spinner text-center" style="display: none;">
-                            <div class="spinner-border text-primary"></div>
-                        </div>
-                        <div class="result-container" style="display: none;">
-                            <h6>응답 결과:</h6>
-                            <pre class="result-display bg-light p-3 rounded"></pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Pinecone 인덱스 초기화 모달 -->
     <div class="modal fade" id="modal-clear-pinecone-index" tabindex="-1" aria-labelledby="modal-clear-pinecone-index-label" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -284,6 +227,56 @@
                     </div>
                     
                     <button class="btn btn-danger confirm-clear-index">인덱스 초기화 실행</button>
+                    
+                    <div class="mt-4">
+                        <div class="loading-spinner text-center" style="display: none;">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                        <div class="result-container" style="display: none;">
+                            <h6>응답 결과:</h6>
+                            <pre class="result-display bg-light p-3 rounded"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pinecone 통계 모달 추가 -->
+    <div class="modal fade" id="modal-pinecone-stats" tabindex="-1" aria-labelledby="modal-pinecone-stats-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-pinecone-stats-label">Pinecone 통계 조회</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>메소드: <span class="badge bg-success">GET</span></p>
+                    <p>엔드포인트: /chatbot/pinecone-stats/</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">파라미터 설정</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="vectorized-param" checked>
+                            <label class="form-check-label" for="vectorized-param">
+                                vectorized (벡터화된 데이터만 포함)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowed-category-param" checked>
+                            <label class="form-check-label" for="allowed-category-param">
+                                allowed_category (허용된 카테고리만 포함)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowed-author-param" checked>
+                            <label class="form-check-label" for="allowed-author-param">
+                                allowed_author (허용된 저자만 포함)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-success execute-pinecone-stats">통계 조회</button>
                     
                     <div class="mt-4">
                         <div class="loading-spinner text-center" style="display: none;">
@@ -404,48 +397,41 @@
             });
         });
 
-        // 필터 체크박스와 드롭다운 연결
-        document.getElementById('use-vectorized-filter').addEventListener('change', function() {
-            document.getElementById('vectorized-filter').disabled = !this.checked;
-        });
-        
-        document.getElementById('use-category-filter').addEventListener('change', function() {
-            document.getElementById('category-filter').disabled = !this.checked;
-        });
-        
-        document.getElementById('use-author-filter').addEventListener('change', function() {
-            document.getElementById('author-filter').disabled = !this.checked;
-        });
-        
-        // Pinecone 통계 필터링 실행 버튼
-        document.querySelector('.execute-stats-filtered').addEventListener('click', function() {
+        // Pinecone 통계 조회 실행 버튼
+        document.querySelector('.execute-pinecone-stats').addEventListener('click', function() {
             const modal = this.closest('.modal');
+            const vectorized = document.getElementById('vectorized-param').checked ? 'true' : 'false';
+            const allowedCategory = document.getElementById('allowed-category-param').checked ? 'true' : 'false';
+            const allowedAuthor = document.getElementById('allowed-author-param').checked ? 'true' : 'false';
             
-            // 쿼리 파라미터 생성
-            let url = '/chatbot/pinecone-stats/';
-            const params = new URLSearchParams();
+            // URL 구성
+            const url = `/chatbot/pinecone-stats/?vectorized=${vectorized}&allowed_category=${allowedCategory}&allowed_author=${allowedAuthor}`;
             
-            // 체크박스가 체크된 필터만 적용
-            if (document.getElementById('use-vectorized-filter').checked) {
-                params.append('vectorized', document.getElementById('vectorized-filter').value);
-            }
-            
-            if (document.getElementById('use-category-filter').checked) {
-                params.append('allowed_category_active', document.getElementById('category-filter').value);
-            }
-            
-            if (document.getElementById('use-author-filter').checked) {
-                params.append('allowed_author_active', document.getElementById('author-filter').value);
-            }
-            
-            if (params.toString()) {
-                url += '?' + params.toString();
-            }
-            
-            // API 호출
-            executeApi(url, 'GET', null, modal);
+            executePineconeStatsApi(url, modal);
         });
 
+        // Pinecone 통계 API 실행 함수
+        function executePineconeStatsApi(url, modal) {
+            const spinner = modal.querySelector('.loading-spinner');
+            const resultContainer = modal.querySelector('.result-container');
+            
+            spinner.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => showResult(modal, data))
+            .catch(error => showResult(modal, {error: error.message}))
+            .finally(() => {
+                spinner.style.display = 'none';
+            });
+        }
 
         // API 실행 함수
         function executeApi(url, method, data, modal) {
@@ -454,25 +440,6 @@
             
             spinner.style.display = 'block';
             resultContainer.style.display = 'none';
-            
-            // 데이터 전처리 추가
-            if (data) {
-                // top_k를 숫자로 변환
-                if (data.hasOwnProperty('top_k')) {
-                    data.top_k = parseInt(data.top_k) || 5; // 기본값 5
-                }
-                
-                // 다른 숫자 타입 필드들도 변환
-                if (data.hasOwnProperty('num_document')) {
-                    data.num_document = parseInt(data.num_document);
-                }
-                if (data.hasOwnProperty('score')) {
-                    data.score = parseInt(data.score);
-                }
-                if (data.hasOwnProperty('num_exposure')) {
-                    data.num_exposure = parseInt(data.num_exposure);
-                }
-            }
             
             const options = {
                 method: method,

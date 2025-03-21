@@ -62,25 +62,18 @@ def index_cafe_data(request):
 @api_view(['GET'])
 def get_pinecone_stats(request):
     """Pinecone 통계 정보 조회 API 엔드포인트"""
-    # URL 파라미터에서 필터링 옵션 가져오기
-    vectorized = request.GET.get('vectorized')
-    allowed_category_active = request.GET.get('allowed_category_active')
-    allowed_author_active = request.GET.get('allowed_author_active')
+    # URL 예시: /chatbot/pinecone-stats/?vectorized=true&allowed_category=true&allowed_author=true
+    # URL 쿼리 파라미터에서 필터 옵션 가져오기
+
+    vectorized = request.query_params.get('vectorized', 'true').lower() == 'true'
+    allowed_category = request.query_params.get('allowed_category', 'true').lower() == 'true'
+    allowed_author = request.query_params.get('allowed_author', 'true').lower() == 'true'
     
-    # 문자열 값을 bool로 변환
-    if vectorized is not None:
-        vectorized = vectorized.lower() == 'true'
-    if allowed_category_active is not None:
-        allowed_category_active = allowed_category_active.lower() == 'true'
-    if allowed_author_active is not None:
-        allowed_author_active = allowed_author_active.lower() == 'true'
-    
+    print(f"필터링 조건 | vectorized: {vectorized}, allowed_category: {allowed_category}, allowed_author: {allowed_author}")
+
+    # 필터링 옵션 적용하여 통계 조회
     pinecone_service = PineconeService()
-    stats = pinecone_service.get_stats(
-        vectorized=vectorized,
-        allowed_category_active=allowed_category_active,
-        allowed_author_active=allowed_author_active
-    )
+    stats = pinecone_service.get_stats(vectorized, allowed_category, allowed_author)
     
     return Response(stats)
 
@@ -327,15 +320,6 @@ def api_management_view(request):
             'url': '/chatbot/index-cafe-data/',
             'method': 'POST',
             'description': '아직 벡터화되지 않은(vectorized=False) 카페 데이터만 Pinecone에 저장합니다. 허용된 카테고리와 작성자의 데이터만 처리합니다.',
-            'params': {},
-            'example_json': ''
-        },
-        {
-            'name': 'Pinecone_통계',
-            'id': 'pinecone-stats',
-            'url': '/chatbot/pinecone-stats/',
-            'method': 'GET',
-            'description': 'Pinecone 및 Django DB에 저장된 데이터의 통계 현황을 조회합니다',
             'params': {},
             'example_json': ''
         },

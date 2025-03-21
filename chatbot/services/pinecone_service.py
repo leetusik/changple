@@ -141,7 +141,7 @@ class PineconeService:
                         'document_id': cafe_data.id,
                         'title': cafe_data.title,
                         'category': cafe_data.category,
-                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date else '',
+                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
                         'author': cafe_data.author,
                         'url': cafe_data.url,
                         'post_id': post_id,
@@ -213,7 +213,6 @@ class PineconeService:
             total_documents = query.count()
             print(f"총 {total_documents}개의 미벡터화 문서를 처리합니다.")
             
-            input("Press Enter to continue...")
             if total_documents == 0:
                 print("벡터화할 새 문서가 없습니다.")
                 return 0
@@ -243,7 +242,7 @@ class PineconeService:
                         'document_id': cafe_data.id,
                         'title': cafe_data.title,
                         'category': cafe_data.category,
-                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date else '',
+                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
                         'author': cafe_data.author,
                         'url': cafe_data.url,
                         'post_id': post_id,
@@ -342,48 +341,30 @@ class PineconeService:
             print(f"인덱스 초기화 오류: {e}")
             return False
     
-    def get_stats(self, vectorized=None, allowed_category_active=None, allowed_author_active=None) -> Dict[str, Any]:
+    def get_stats(self, vectorized: bool = True, allowed_category: bool = True, allowed_author: bool = True) -> Dict[str, Any]:
         """
         처리된 문서 통계 정보를 반환합니다.
-        
-        Args:
-            vectorized: 벡터화 상태로 필터링 (None=모두, True=벡터화됨, False=벡터화안됨)
-            allowed_category_active: 허용된 카테고리 활성화 상태로 필터링 (None=모두, True=활성화된 카테고리, False=비활성화된 카테고리)
-            allowed_author_active: 허용된 저자 활성화 상태로 필터링 (None=모두, True=활성화된 저자, False=비활성화된 저자)
         
         Returns:
             Dict: 통계 정보
         """
         try:
-            # 필터 조건 준비
-            query_filter = {}
+
+            # 허용된 카테고리와 저자 목록 가져오기
+            allowed_categories = list(AllowedCategory.objects.filter(is_active=allowed_category).values_list('name', flat=True))
+            allowed_authors = list(AllowedAuthor.objects.filter(is_active=allowed_author).values_list('name', flat=True))
             
-            # 벡터화 상태에 따른 필터링
-            if vectorized is not None:
-                query_filter['vectorized'] = vectorized
+            print(f"허용된 카테고리 수: {len(allowed_categories)}, 허용된 저자 수: {len(allowed_authors)}")
             
-            # 허용된 카테고리 상태에 따른 필터링
-            if allowed_category_active is not None:
-                allowed_categories = AllowedCategory.objects.filter(is_active=allowed_category_active).values_list('name', flat=True)
-                query_filter['category__in'] = allowed_categories
-            
-            # 허용된 저자 상태에 따른 필터링
-            if allowed_author_active is not None:
-                allowed_authors = AllowedAuthor.objects.filter(is_active=allowed_author_active).values_list('name', flat=True)
-                query_filter['author__in'] = allowed_authors
-            
-            # 필터 조건 적용
-            cafe_data_query = NaverCafeData.objects.filter(**query_filter)
+            # vectorized=False, 허용된 카테고리 및 저자인 데이터만 쿼리
+            cafe_data_query = NaverCafeData.objects.filter(
+                vectorized=vectorized,
+                category__in=allowed_categories,
+                author__in=allowed_authors
+            )
             
             # Django ORM으로 통계 정보 조회
             django_total_documents = cafe_data_query.count()
-            
-            # 필터 상태를 결과에 포함
-            filter_status = {
-                '벡터화 상태 필터': '전체' if vectorized is None else ('벡터화됨' if vectorized else '벡터화안됨'),
-                '허용 카테고리 필터': '전체' if allowed_category_active is None else ('활성화됨' if allowed_category_active else '비활성화됨'),
-                '허용 저자 필터': '전체' if allowed_author_active is None else ('활성화됨' if allowed_author_active else '비활성화됨')
-            }
             
             # 카테고리별 문서 수 
             category_counts = cafe_data_query.values('category').annotate(
@@ -428,7 +409,6 @@ class PineconeService:
             return {
                 '[ Pinecone vector 수 ]': vector_count,
                 '[ Django_documents 수 ]': django_total_documents,
-                '[ 필터 상태 ]': filter_status,
                 '[ post_id 범위 ]': f"{min_post_id} ~ {max_post_id}",
                 '[ post_id 분포도 ]': post_id_distribution,
                 '카테고리별 documents 수': category_stats,
