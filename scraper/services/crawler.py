@@ -45,15 +45,12 @@ class NaverCafeScraper:
         self.config = {
             "navigation": {
                 "max_retries": 3,
-                "timeout": 60000,
-                "page_load_timeout": 10000,
+                "timeout": 10000,
+                "page_load_timeout": 3000,
             },
             "login": {
                 "retry_direct_url": "https://nid.naver.com/nidlogin.login",
                 "login_wait_time": 10,
-            },
-            "scraping": {
-                "max_consecutive_errors": 100,
             },
         }
 
@@ -66,7 +63,8 @@ class NaverCafeScraper:
         """
         try:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(headless=False)
+            # self.browser = await self.playwright.chromium.launch(headless=False)
+            self.browser = await self.playwright.chromium.launch(headless=True)
             context = await self.browser.new_context()
             self.page = await context.new_page()
             return True
@@ -120,7 +118,7 @@ class NaverCafeScraper:
                 )
                 if attempt < max_retries:
                     # Wait before retrying (increasing backoff)
-                    wait_time = 5 * attempt  # 5, 10, 15 seconds...
+                    wait_time = 3 * attempt  # 3, 6, 9 seconds...
                     logger.info(f"Waiting {wait_time} seconds before retry...")
                     await asyncio.sleep(wait_time)
                 else:
@@ -352,14 +350,14 @@ class NaverCafeScraper:
     @staticmethod
     @sync_to_async
     def _mark_post_as_deleted(
-        post_id: int, status: str, error_message: Optional[str] = None
+        post_id: int, error_message: Optional[str] = None
     ) -> None:
         """
         Mark a post as deleted in the PostStatus table
 
         Args:
             post_id: The post ID to mark
-            status: Status code (DELETED, NOT_FOUND, ACCESS_DENIED, ERROR)
+            status: Status code (DELETED, ERROR, SAVED)
             error_message: Optional error message
         """
         try:
@@ -367,13 +365,13 @@ class NaverCafeScraper:
                 PostStatus.objects.update_or_create(
                     post_id=post_id,
                     defaults={
-                        "status": status,
+                        "status": "DELETED",
                         "error_message": error_message,
                     },
                 )
-                logger.info(f"Marked post {post_id} as {status}")
+                logger.info(f"Marked post {post_id} as DELETED")
         except Exception as e:
-            logger.error(f"Error marking post {post_id} as {status}: {e}")
+            logger.error(f"Error marking post {post_id} as DELETED: {e}")
 
     @staticmethod
     @sync_to_async
@@ -396,6 +394,28 @@ class NaverCafeScraper:
                 logger.info(f"Marked post {post_id} as SAVED")
         except Exception as e:
             logger.error(f"Error marking post {post_id} as SAVED: {e}")
+
+    @staticmethod
+    @sync_to_async
+    def _mark_post_as_error(post_id: int, error_message: str) -> None:
+        """
+        Mark a post as error in the PostStatus table
+
+        Args:
+            post_id: The post ID to mark
+        """
+        try:
+            with transaction.atomic():
+                PostStatus.objects.update_or_create(
+                    post_id=post_id,
+                    defaults={
+                        "status": "ERROR",
+                        "error_message": error_message,
+                    },
+                )
+                logger.info(f"Marked post {post_id} as ERROR: {error_message}")
+        except Exception as e:
+            logger.error(f"Error marking post {post_id} as ERROR: {e}")
 
     async def scrape_post(
         self, post_id: int, allowed_categories: Optional[List[str]] = None
@@ -423,9 +443,7 @@ class NaverCafeScraper:
 
         if not await self.navigate_with_retry(target_url):
             logger.error(f"Failed to navigate to {target_url}")
-            await self._mark_post_as_deleted(
-                post_id, "DELETED", "Failed to navigate to URL"
-            )
+            await self._mark_post_as_error(post_id, "Failed to navigate to URL")
             return None
 
         try:
@@ -435,9 +453,7 @@ class NaverCafeScraper:
                 logger.info(
                     f"Post {post_id} appears to be deleted (redirected to base URL)"
                 )
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Redirected to base URL"
-                )
+                await self._mark_post_as_deleted(post_id, "Redirected to base URL")
                 return None
 
             # Check for deleted post message or popup
@@ -449,7 +465,7 @@ class NaverCafeScraper:
                 logger.info(
                     f"Post {post_id} appears to be deleted or inaccessible: {msg}"
                 )
-                await self._mark_post_as_deleted(post_id, "DELETED", msg)
+                await self._mark_post_as_error(post_id, msg)
                 return None
 
             # Wait for iframe to be available with increased timeout
@@ -457,17 +473,15 @@ class NaverCafeScraper:
                 await self.page.wait_for_selector("#cafe_main", timeout=10000)
             except PlaywrightTimeoutError:
                 logger.error(f"Iframe #cafe_main not found for post {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Iframe #cafe_main not found"
-                )
+                await self._mark_post_as_error(post_id, "Iframe #cafe_main not found")
                 return None
 
             # Get the iframe
             iframe_element = await self.page.query_selector("#cafe_main")
             if not iframe_element:
                 logger.error(f"Could not find iframe #cafe_main on page {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Iframe #cafe_main not found after waiting"
+                await self._mark_post_as_error(
+                    post_id, "Iframe #cafe_main not found after waiting"
                 )
                 return None
 
@@ -475,8 +489,8 @@ class NaverCafeScraper:
             frame = await iframe_element.content_frame()
             if not frame:
                 logger.error(f"Could not get content frame on page {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Could not get content frame from iframe"
+                await self._mark_post_as_error(
+                    post_id, "Could not get content frame from iframe"
                 )
                 return None
 
@@ -494,9 +508,7 @@ class NaverCafeScraper:
             )
 
             if not post_data:
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Failed to extract content"
-                )
+                await self._mark_post_as_error(post_id, "Failed to extract content")
                 return None
 
             # No longer filter by category - keep comment for documentation
@@ -511,7 +523,7 @@ class NaverCafeScraper:
         except Exception as e:
             logger.error(f"Error in post_id {post_id}: {str(e)}")
             logger.debug(traceback.format_exc())
-            await self._mark_post_as_deleted(post_id, "DELETED", str(e))
+            await self._mark_post_as_deleted(post_id, str(e))
             return None
 
     def _get_selectors(self) -> List[Dict[str, str]]:
