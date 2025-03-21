@@ -256,6 +256,8 @@ TEXT_SPLITTER_CHUNK_OVERLAP = 200
 LLM_MODEL = "gpt-4o-mini"
 LLM_TEMPERATURE = 0.7
 LLM_TOP_K = 5
+PROMPT_ID = 9  # Django DB에서 불러올 프롬프트 ID
+
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
 RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue

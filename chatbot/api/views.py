@@ -5,6 +5,7 @@ from chatbot.services.pinecone_service import PineconeService
 from chatbot.services.langchain_service import LangchainService
 from chatbot.models import Prompt, ABTest
 from django.conf import settings
+from django.utils.text import slugify
 
 # Create your views here.
 
@@ -65,12 +66,13 @@ def chat(request):
     data = request.data
     query = data.get('query', '')
     history = data.get('history', [])
+    prompt_id = data.get('prompt_id', getattr(settings, 'PROMPT_ID', None))
     
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
     
     langchain_service = LangchainService()
-    response = langchain_service.generate_response(query, history)
+    response = langchain_service.generate_response(query, history, prompt_id=prompt_id)
     
     # 새 대화를 history에 추가
     updated_history = history.copy()
@@ -91,6 +93,11 @@ def chat(request):
         "response": response,
         "history": updated_history  # 업데이트된 대화 이력 반환
     })
+
+def ab_test_view(request):
+    """A/B 테스트 페이지를 렌더링합니다."""
+    prompts = Prompt.objects.all().order_by('-created_at')
+    return render(request, 'management/ab_test.html', {'prompts': prompts})
 
 @api_view(['POST'])
 def run_ab_test(request):
@@ -174,11 +181,6 @@ def vote_ab_test(request):
     except Exception as e:
         return Response({'error': str(e)}, status=400)
 
-def ab_test_view(request):
-    """A/B 테스트 페이지를 렌더링합니다."""
-    prompts = Prompt.objects.all().order_by('-created_at')
-    return render(request, 'chat/ab_test.html', {'prompts': prompts})
-
 @api_view(['POST'])
 def create_prompt(request):
     """프롬프트 생성 API 엔드포인트"""
@@ -186,7 +188,6 @@ def create_prompt(request):
     
     try:
         prompt = Prompt.objects.create(
-            prompt_id=data.get('prompt_id'),
             name=data.get('name'),
             content=data.get('content'),
             description=data.get('description', '')
@@ -194,7 +195,8 @@ def create_prompt(request):
         
         return Response({
             "success": True,
-            "prompt_id": prompt.id
+            "id": prompt.id,
+            "message": "프롬프트가 생성되었습니다."
         })
     except Exception as e:
         return Response({"error": str(e)}, status=400)
@@ -205,16 +207,10 @@ def update_prompt(request, prompt_id):
     data = request.data
     
     try:
-        # 먼저 ID로 찾기
-        try:
-            prompt = Prompt.objects.get(id=prompt_id)
-        except Prompt.DoesNotExist:
-            # ID로 못 찾으면 prompt_id로 찾기 시도
-            prompt = Prompt.objects.get(prompt_id=prompt_id)
+        # 이제 항상 ID로만 검색
+        prompt = Prompt.objects.get(id=prompt_id)
         
-        # 데이터 업데이트
-        if 'prompt_id' in data:
-            prompt.prompt_id = data['prompt_id']
+        # 데이터 업데이트 - prompt_id 관련 코드 제거
         if 'name' in data:
             prompt.name = data['name']
         if 'content' in data:
@@ -222,7 +218,7 @@ def update_prompt(request, prompt_id):
         if 'description' in data:
             prompt.description = data['description']
         
-        # 점수와 노출 수 필드도 업데이트 가능하도록 추가
+        # 점수와 노출 수 필드
         if 'score' in data:
             try:
                 prompt.score = int(data['score'])
@@ -250,13 +246,7 @@ def update_prompt(request, prompt_id):
 def delete_prompt(request, prompt_id):
     """프롬프트를 삭제하는 API 엔드포인트"""
     try:
-        # 먼저 ID로 찾기
-        try:
-            prompt = Prompt.objects.get(id=prompt_id)
-        except (Prompt.DoesNotExist, ValueError):
-            # ID로 못 찾으면 prompt_id로 찾기 시도
-            prompt = Prompt.objects.get(prompt_id=prompt_id)
-        
+        prompt = Prompt.objects.get(id=prompt_id)
         prompt_name = prompt.name
         prompt.delete()
         
@@ -268,3 +258,120 @@ def delete_prompt(request, prompt_id):
         return Response({"error": "프롬프트를 찾을 수 없습니다."}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+@api_view(['GET'])
+def get_prompts(request):
+    """모든 프롬프트 정보를 JSON으로 반환합니다."""
+    prompts = Prompt.objects.all()
+    prompt_data = []
+    
+    for prompt in prompts:
+        prompt_data.append({
+            'id': prompt.id,
+            'name': prompt.name,
+            'description': prompt.description,
+            'updated_at': prompt.updated_at.isoformat(),
+            'score': prompt.score,
+            'num_exposure': prompt.num_exposure
+        })
+    
+    return Response({'prompts': prompt_data})
+
+def api_management_view(request):
+    """API 관리 페이지를 렌더링합니다."""
+    apis = [
+        {
+            'name': '문서 검색',
+            'id': 'search-documents',
+            'url': '/chatbot/search/',
+            'method': 'POST',
+            'description': 'Pinecone에 저장된 문서를 similarity search 합니다. (상위 k개)',
+            'params': {
+                'query': '검색어',
+                'top_k': '결과 개수',
+                'filters': '필터(선택사항)'
+            },
+            'example_json': '''{
+  "query": "카페 이용방법",
+  "top_k": 5,
+  "filters": {"category": "FAQ"}
+}'''
+        },
+        {
+            'name': '카페 데이터 인덱싱',
+            'id': 'index-cafe-data',
+            'url': '/chatbot/index-cafe-data/',
+            'method': 'POST',
+            'description': 'Django DB의 naver cafe data를 벡터화하여 Pinecone에 저장합니다',
+            'params': {
+                'start_post_id': '시작 게시글 ID',
+                'num_document': 'Pinecone에 업로드 할 문서 수'
+            },
+            'example_json': '''{
+  "start_post_id": 1000,
+  "num_document": 50
+}'''
+        },
+        {
+            'name': 'Pinecone_통계',
+            'id': 'pinecone-stats',
+            'url': '/chatbot/pinecone-stats/',
+            'method': 'GET',
+            'description': 'Pinecone 및 Django DB에 저장된 데이터의 통계 현황을 조회합니다',
+            'params': {},
+            'example_json': '{}'
+        },
+        {
+            'name': '프롬프트_생성',
+            'id': 'create-prompt',
+            'url': '/chatbot/create-prompt/',
+            'method': 'POST',
+            'description': '새 프롬프트를 Django DB에 추가합니다',
+            'params': {
+                'name': '이름',
+                'content': '내용',
+                'description': '설명(선택사항)'
+            },
+            'example_json': '''{
+  "name": "cafe_guide_prompt",
+  "content": "당신은 카페 이용을 도와주는 가이드입니다. 다음 정보를 바탕으로 답변해주세요: {context}",
+  "description": "카페 이용 정보를 제공하는 프롬프트"
+}'''
+        },
+        {
+            'name': '프롬프트_수정',
+            'id': 'update-prompt',
+            'url': '/chatbot/update-prompt/{id}/',
+            'method': 'PUT',
+            'description': 'Django DB의 프롬프트를 수정합니다. (프롬프트 ID 필요)',
+            'params': {
+                'name': '이름',
+                'content': '내용',
+                'description': '설명',
+                'score': '점수',
+                'num_exposure': '노출 횟수'
+            },
+            'example_json': '''{
+  "name": "수정된 카페 가이드 프롬프트",
+  "content": "당신은 친절한 카페 이용 안내자입니다. 다음 정보를 참고하여 답변해주세요: {context}",
+  "description": "더 친절한 어조로 카페 이용 정보를 제공",
+  "score": 10,
+  "num_exposure": 25
+}'''
+        },
+        {
+            'name': '프롬프트_삭제',
+            'id': 'delete-prompt',
+            'url': '/chatbot/delete-prompt/{id}/',
+            'method': 'DELETE',
+            'description': 'Django DB의 프롬프트를 삭제합니다 (프롬프트 ID 필요)',
+            'params': {},
+            'example_json': '{}'
+        }
+    ]
+    
+    # 디버깅을 위한 출력
+    for api in apis:
+        print(f"API Name: {api['name']}, Slug ID: {api['id']}")
+    
+    return render(request, 'management/api_management.html', {'apis': apis})

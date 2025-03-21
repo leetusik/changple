@@ -5,6 +5,7 @@ app_name = 'chatbot'
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path('management/', views.api_management_view, name='api_management'),
     path("chat-view/", views.chat_view, name="chat_view"),
     path("search/", views.search_documents, name="search_documents"),
     path("index-cafe-data/", views.index_cafe_data, name="index_cafe_data"),
@@ -16,4 +17,5 @@ urlpatterns = [
     path('create-prompt/', views.create_prompt, name='create_prompt'),
     path('update-prompt/<str:prompt_id>/', views.update_prompt, name='update_prompt'),
     path('delete-prompt/<str:prompt_id>/', views.delete_prompt, name='delete_prompt'),
+    path('get-prompts/', views.get_prompts, name='get_prompts'),
 ]

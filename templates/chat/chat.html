@@ -241,7 +241,10 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrftoken  // CSRF 토큰 추가
                 },
-                body: JSON.stringify({ query: userInput, history: chatHistory }) // 저장된 대화 이력 전송
+                body: JSON.stringify({ 
+                    query: userInput, 
+                    history: chatHistory,
+                }) 
             })
             .then(response => response.json())
             .then(data => {

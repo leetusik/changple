@@ -25,7 +25,6 @@ class ChatMessage(models.Model):
         return f"{self.role}: {self.content[:50]}..."
 
 class Prompt(models.Model):
-    prompt_id = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
     content = models.TextField()
     description = models.TextField(blank=True)
@@ -35,7 +34,7 @@ class Prompt(models.Model):
     num_exposure = models.IntegerField(default=0)
     
     def __str__(self):
-        return f"{self.prompt_id}_{self.updated_at.strftime('%Y%m%d')}"
+        return f"{self.name}_{self.updated_at.strftime('%Y%m%d')}"
 
 class ABTest(models.Model):
     query = models.TextField()

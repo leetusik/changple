@@ -14,6 +14,7 @@ from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTem
 from chatbot.services.openai_service import OpenAIService
 from chatbot.services.pinecone_service import PineconeService
 from django.conf import settings
+from chatbot.models import Prompt
 
 class LangchainService:
     """
@@ -36,14 +37,15 @@ class LangchainService:
         # 이미 있는 벡터스토어 가져오기
         self.vectorstore = self.pinecone_service.vectorstore
     
-    def generate_response(self, query, history=None, k=None):
+    def generate_response(self, query, history=None, k=None, prompt_id=None):
         """
-        쿼리와 이전 대화 이력을 바탕으로 응답을 생성합니다.
+        쿼리와 이전 대화 이력을 바탕으로 응답을 생성합니다. (프롬프트는 Django DB에서 불러옴)
         
         Args:
             query: 사용자 질문
             history: 대화 이력 (기본값: None)
             k: 검색할 문서 수 (기본값: settings.py에서 설정된 값)
+            prompt_id: Django DB에서 불러올 프롬프트 ID (기본값: None, 기본 프롬프트 사용)
         """
         # k 값이 None이면 settings에서 가져오기
         if k is None:
@@ -79,16 +81,26 @@ class LangchainService:
                 elif role == 'assistant':
                     formatted_history += f"AI: {content}\n"
         
+        # 프롬프트를 DB에서 가져오기
+        if prompt_id:
+            try:
+                prompt_obj = Prompt.objects.get(id=prompt_id)
+                system_template = prompt_obj.content
+            except Prompt.DoesNotExist:
+                # 프롬프트를 찾지 못한 경우 기본 프롬프트 사용
+                system_template = "당신은 창플의 대표입니다. 아래 글은 창플 대표가 쓴 글들입니다. 창플 철학을 학습하여, 이전 대화 맥락을 고려해 상담 고객의 질문에 답변해주세요:\n{context}"
+        else:
+            # 프롬프트 ID가 없는 경우 기본 프롬프트 사용
+            system_template = "당신은 창플의 대표입니다. 아래 글은 창플 대표가 쓴 글들입니다. 창플 철학을 학습하여, 이전 대화 맥락을 고려해 상담 고객의 질문에 답변해주세요:\n{context}"
+        
         # system 메시지와 human 메시지를 명시적으로 구분
         messages = [
-            SystemMessagePromptTemplate.from_template(
-                "당신은 창플의 대표입니다. 아래 글은 창플 대표가 쓴 글들입니다. 창플 철학을 학습하여, 이전 대화 맥락을 고려해 상담 고객의 질문에 답변해주세요:\n{context}"
-            ),
+            SystemMessagePromptTemplate.from_template(system_template),
         ]
         
         # 이전 대화 이력이 있으면 하나의 컨텍스트로 추가
         if formatted_history:
-            messages.append(SystemMessagePromptTemplate.from_template("\n이전 대화 내역:\n{history}")) # history 자리를 만들어주는 것
+            messages.append(SystemMessagePromptTemplate.from_template("\n이전 대화 내역:\n{history}"))
         
         # 현재 질문 추가
         messages.append(HumanMessagePromptTemplate.from_template("{query}"))
