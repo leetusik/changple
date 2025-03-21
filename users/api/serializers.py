@@ -28,6 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "username",
             "date_joined",
             "last_login",
             "user_type",
@@ -53,7 +54,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "nickname",
             "profile_image",
         ]
-        read_only_fields = ["id", "email"]
+        read_only_fields = ["id", "username", "email"]
 
 
 class SocialAuthSerializer(serializers.Serializer):
