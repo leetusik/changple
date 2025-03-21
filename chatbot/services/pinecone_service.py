@@ -33,8 +33,8 @@ class PineconeService:
         # 임베딩 및 텍스트 분할 설정
         self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
+            chunk_size=getattr(settings, "TEXT_SPLITTER_CHUNK_SIZE", 1000),
+            chunk_overlap=getattr(settings, "TEXT_SPLITTER_CHUNK_OVERLAP", 100),
             length_function=len
         )
         
@@ -103,6 +103,8 @@ class PineconeService:
             int: 생성된 총 청크 수
         """
         try:
+            print(f"카페 데이터 인덱싱 작업을 시작합니다...")
+            
             # 쿼리 구성
             query = NaverCafeData.objects.all()
             
@@ -112,11 +114,19 @@ class PineconeService:
             if num_document:
                 query = query[:num_document]
             
+            total_documents = query.count()
+            print(f"총 {total_documents}개의 문서를 처리합니다.")
+            
             # 문서 처리 및 벡터 저장 준비
             documents = []
             chunk_counters = {}  # 각 post_id별 청크 카운터를 추적하기 위한 딕셔너리
             
-            for cafe_data in query:
+            for i, cafe_data in enumerate(query):
+                # 진행 상황 표시 (10% 단위로)
+                if i % max(1, total_documents // 10) == 0 or i == total_documents - 1:
+                    progress = (i / total_documents) * 100
+                    print(f"진행 중... {progress:.1f}% 완료 ({i}/{total_documents})")
+                
                 # 텍스트 분할
                 chunks = self.text_splitter.split_text(cafe_data.content)
                 post_id = cafe_data.post_id
@@ -141,13 +151,20 @@ class PineconeService:
                     chunk_counters[post_id] += 1  # 다음 청크를 위해 카운터 증가
             
             if not documents:
+                print("인덱싱할 문서가 없습니다.")
                 return 0
             
             # 벡터 저장소에 문서 추가 (배치 처리)
             batch_size = 100
+            total_batches = (len(documents) + batch_size - 1) // batch_size
+            
+            print(f"총 {len(documents)}개의 청크를 {total_batches}개 배치로 처리합니다.")
             
             for i in range(0, len(documents), batch_size):
                 batch = documents[i:i+batch_size]
+                batch_num = i // batch_size + 1
+                
+                print(f"배치 처리 중... {batch_num}/{total_batches} ({(batch_num/total_batches)*100:.1f}%)")
                 
                 texts = [doc[0] for doc in batch]
                 metadatas = [doc[1] for doc in batch]
@@ -162,6 +179,7 @@ class PineconeService:
             # chunk_counters의 각 값은 마지막 청크 번호 + 1이므로 1을 빼지 않음
             total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
             
+            print(f"인덱싱 작업 완료! 총 {total_chunks}개의 청크가 생성되었습니다.")
             return total_chunks
             
         except Exception as e:
