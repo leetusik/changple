@@ -31,6 +31,11 @@ class Command(BaseCommand):
             default=100,
             help="Number of posts to collect before saving to database (default: 100)",
         )
+        parser.add_argument(
+            "--only-error",
+            action="store_true",
+            help="Only attempt to scrape posts with ERROR status",
+        )
 
     def handle(self, *args, **options):
         # Configure logging based on verbosity
@@ -52,6 +57,8 @@ class Command(BaseCommand):
             params["end_id"] = options["end_id"]
         if options["batch_size"] is not None:
             params["batch_size"] = options["batch_size"]
+        if options["only_error"]:
+            params["only_error"] = True
 
         # Run the crawler
         self.stdout.write(self.style.SUCCESS("Starting Naver Cafe crawler..."))
