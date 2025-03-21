@@ -45,15 +45,12 @@ class NaverCafeScraper:
         self.config = {
             "navigation": {
                 "max_retries": 3,
-                "timeout": 60000,
-                "page_load_timeout": 10000,
+                "timeout": 10000,
+                "page_load_timeout": 3000,
             },
             "login": {
                 "retry_direct_url": "https://nid.naver.com/nidlogin.login",
                 "login_wait_time": 10,
-            },
-            "scraping": {
-                "max_consecutive_errors": 100,
             },
         }
 
@@ -66,7 +63,8 @@ class NaverCafeScraper:
         """
         try:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(headless=False)
+            # self.browser = await self.playwright.chromium.launch(headless=False)
+            self.browser = await self.playwright.chromium.launch(headless=True)
             context = await self.browser.new_context()
             self.page = await context.new_page()
             return True
@@ -120,7 +118,7 @@ class NaverCafeScraper:
                 )
                 if attempt < max_retries:
                     # Wait before retrying (increasing backoff)
-                    wait_time = 5 * attempt  # 5, 10, 15 seconds...
+                    wait_time = 3 * attempt  # 3, 6, 9 seconds...
                     logger.info(f"Waiting {wait_time} seconds before retry...")
                     await asyncio.sleep(wait_time)
                 else:
@@ -314,37 +312,52 @@ class NaverCafeScraper:
 
     @staticmethod
     @sync_to_async
-    def _is_post_deleted(post_id: int) -> bool:
+    def _should_skip_post(post_id: int) -> bool:
         """
-        Check if a post is already marked as deleted or not found
+        Check if a post should be skipped (already saved or deleted)
 
         Args:
             post_id: The post ID to check
 
         Returns:
-            bool: True if post is marked as deleted, False otherwise
+            bool: True if post should be skipped, False otherwise
         """
         try:
             with transaction.atomic():
-                statuses = ["DELETED", "NOT_FOUND", "ACCESS_DENIED"]
-                return PostStatus.objects.filter(
-                    post_id=post_id, status__in=statuses
-                ).exists()
+                # Skip posts that are marked as DELETED
+                if PostStatus.objects.filter(
+                    post_id=post_id, status="DELETED"
+                ).exists():
+                    return True
+
+                # Check if post is SAVED but has NULL published_date
+                if PostStatus.objects.filter(post_id=post_id, status="SAVED").exists():
+                    # Check if this post exists in NaverCafeData with a NULL published_date
+                    post_with_null_date = NaverCafeData.objects.filter(
+                        post_id=post_id, published_date__isnull=True
+                    ).exists()
+
+                    # If it has a NULL date, don't skip it (return False) to re-scrape it
+                    # If it has a valid date, skip it (return True)
+                    return not post_with_null_date
+
+                # Don't skip posts marked as ERROR
+                return False
         except Exception as e:
-            logger.error(f"Error checking if post {post_id} is deleted: {e}")
+            logger.error(f"Error checking if post {post_id} should be skipped: {e}")
             return False
 
     @staticmethod
     @sync_to_async
     def _mark_post_as_deleted(
-        post_id: int, status: str, error_message: Optional[str] = None
+        post_id: int, error_message: Optional[str] = None
     ) -> None:
         """
         Mark a post as deleted in the PostStatus table
 
         Args:
             post_id: The post ID to mark
-            status: Status code (DELETED, NOT_FOUND, ACCESS_DENIED, ERROR)
+            status: Status code (DELETED, ERROR, SAVED)
             error_message: Optional error message
         """
         try:
@@ -352,13 +365,57 @@ class NaverCafeScraper:
                 PostStatus.objects.update_or_create(
                     post_id=post_id,
                     defaults={
-                        "status": status,
+                        "status": "DELETED",
                         "error_message": error_message,
                     },
                 )
-                logger.info(f"Marked post {post_id} as {status}")
+                logger.info(f"Marked post {post_id} as DELETED")
         except Exception as e:
-            logger.error(f"Error marking post {post_id} as {status}: {e}")
+            logger.error(f"Error marking post {post_id} as DELETED: {e}")
+
+    @staticmethod
+    @sync_to_async
+    def _mark_post_as_saved(post_id: int) -> None:
+        """
+        Mark a post as saved in the PostStatus table
+
+        Args:
+            post_id: The post ID to mark
+        """
+        try:
+            with transaction.atomic():
+                PostStatus.objects.update_or_create(
+                    post_id=post_id,
+                    defaults={
+                        "status": "SAVED",
+                        "error_message": None,
+                    },
+                )
+                logger.info(f"Marked post {post_id} as SAVED")
+        except Exception as e:
+            logger.error(f"Error marking post {post_id} as SAVED: {e}")
+
+    @staticmethod
+    @sync_to_async
+    def _mark_post_as_error(post_id: int, error_message: str) -> None:
+        """
+        Mark a post as error in the PostStatus table
+
+        Args:
+            post_id: The post ID to mark
+        """
+        try:
+            with transaction.atomic():
+                PostStatus.objects.update_or_create(
+                    post_id=post_id,
+                    defaults={
+                        "status": "ERROR",
+                        "error_message": error_message,
+                    },
+                )
+                logger.info(f"Marked post {post_id} as ERROR: {error_message}")
+        except Exception as e:
+            logger.error(f"Error marking post {post_id} as ERROR: {e}")
 
     async def scrape_post(
         self, post_id: int, allowed_categories: Optional[List[str]] = None
@@ -373,11 +430,11 @@ class NaverCafeScraper:
         Returns:
             dict: Post data if successful, None otherwise
         """
-        # First check if post is already known to be deleted
-        is_deleted = await self._is_post_deleted(post_id)
-        if is_deleted:
+        # First check if post should be skipped (already saved or deleted)
+        should_skip = await self._should_skip_post(post_id)
+        if should_skip:
             logger.info(
-                f"Post {post_id} is already marked as deleted/not found, skipping"
+                f"Post {post_id} is already marked as SAVED or DELETED, skipping"
             )
             return None
 
@@ -386,9 +443,7 @@ class NaverCafeScraper:
 
         if not await self.navigate_with_retry(target_url):
             logger.error(f"Failed to navigate to {target_url}")
-            await self._mark_post_as_deleted(
-                post_id, "ERROR", "Failed to navigate to URL"
-            )
+            await self._mark_post_as_error(post_id, "Failed to navigate to URL")
             return None
 
         try:
@@ -398,9 +453,7 @@ class NaverCafeScraper:
                 logger.info(
                     f"Post {post_id} appears to be deleted (redirected to base URL)"
                 )
-                await self._mark_post_as_deleted(
-                    post_id, "DELETED", "Redirected to base URL"
-                )
+                await self._mark_post_as_deleted(post_id, "Redirected to base URL")
                 return None
 
             # Check for deleted post message or popup
@@ -412,7 +465,7 @@ class NaverCafeScraper:
                 logger.info(
                     f"Post {post_id} appears to be deleted or inaccessible: {msg}"
                 )
-                await self._mark_post_as_deleted(post_id, "DELETED", msg)
+                await self._mark_post_as_error(post_id, msg)
                 return None
 
             # Wait for iframe to be available with increased timeout
@@ -420,17 +473,15 @@ class NaverCafeScraper:
                 await self.page.wait_for_selector("#cafe_main", timeout=10000)
             except PlaywrightTimeoutError:
                 logger.error(f"Iframe #cafe_main not found for post {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "NOT_FOUND", "Iframe #cafe_main not found"
-                )
+                await self._mark_post_as_error(post_id, "Iframe #cafe_main not found")
                 return None
 
             # Get the iframe
             iframe_element = await self.page.query_selector("#cafe_main")
             if not iframe_element:
                 logger.error(f"Could not find iframe #cafe_main on page {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "NOT_FOUND", "Iframe #cafe_main not found after waiting"
+                await self._mark_post_as_error(
+                    post_id, "Iframe #cafe_main not found after waiting"
                 )
                 return None
 
@@ -438,8 +489,8 @@ class NaverCafeScraper:
             frame = await iframe_element.content_frame()
             if not frame:
                 logger.error(f"Could not get content frame on page {post_id}")
-                await self._mark_post_as_deleted(
-                    post_id, "ERROR", "Could not get content frame from iframe"
+                await self._mark_post_as_error(
+                    post_id, "Could not get content frame from iframe"
                 )
                 return None
 
@@ -457,24 +508,22 @@ class NaverCafeScraper:
             )
 
             if not post_data:
-                await self._mark_post_as_deleted(
-                    post_id, "ERROR", "Failed to extract content"
-                )
+                await self._mark_post_as_error(post_id, "Failed to extract content")
                 return None
 
-            # Check if this category is in the allowed list
-            if allowed_categories and post_data["category"] not in allowed_categories:
-                logger.info(
-                    f"Skipping post {post_id} with category '{post_data['category']}' (not in allowed list)"
-                )
-                return None
+            # No longer filter by category - keep comment for documentation
+            # if allowed_categories and post_data["category"] not in allowed_categories:
+            #     logger.info(
+            #         f"Skipping post {post_id} with category '{post_data['category']}' (not in allowed list)"
+            #     )
+            #     return None
 
             return post_data
 
         except Exception as e:
             logger.error(f"Error in post_id {post_id}: {str(e)}")
             logger.debug(traceback.format_exc())
-            await self._mark_post_as_deleted(post_id, "ERROR", str(e))
+            await self._mark_post_as_deleted(post_id, str(e))
             return None
 
     def _get_selectors(self) -> List[Dict[str, str]]:
@@ -713,14 +762,21 @@ class NaverCafeScraper:
                 posts_skipped += 1
                 continue
 
-            # Check if the post is already known to be deleted
-            is_deleted = await self._is_post_deleted(current_post_id)
-            if is_deleted:
+            # Check if the post should be skipped (already saved or deleted)
+            should_skip = await self._should_skip_post(current_post_id)
+            if should_skip:
                 logger.info(
-                    f"Post {current_post_id} is marked as deleted/not found, skipping"
+                    f"Post {current_post_id} is already marked as SAVED or DELETED, skipping"
                 )
-                posts_deleted += 1
+                posts_skipped += 1
                 continue
+
+            # Check if we're re-scraping a post with NULL published_date
+            is_rescraping = await self._is_rescraping_null_date(current_post_id)
+            if is_rescraping:
+                logger.info(
+                    f"Re-scraping post {current_post_id} because it has NULL published_date"
+                )
 
             post_data = await self.scrape_post(current_post_id, allowed_categories)
 
@@ -872,17 +928,217 @@ class NaverCafeScraper:
                 )
                 saved_count += 1
                 logger.info(f"Saved post {post_ids[i]} to database")
+
+                # Mark as SAVED using a separate transaction
+                # Note: We can't use _mark_post_as_saved directly here because it's an async method
+                # and we're inside a sync_to_async function
+                try:
+                    PostStatus.objects.update_or_create(
+                        post_id=post_ids[i],
+                        defaults={
+                            "status": "SAVED",
+                            "error_message": None,
+                        },
+                    )
+                except Exception as e:
+                    logger.error(f"Error marking post {post_ids[i]} as SAVED: {e}")
             except Exception as e:
                 logger.error(f"Error saving post {post_ids[i]} to database: {str(e)}")
 
         logger.info(f"Total posts saved to database: {saved_count}")
         return saved_count
 
+    @staticmethod
+    @sync_to_async
+    def _get_error_posts() -> List[int]:
+        """
+        Get the list of post IDs with ERROR status from the database
+
+        Returns:
+            List[int]: List of post IDs with ERROR status
+        """
+        try:
+            with transaction.atomic():
+                post_ids = PostStatus.objects.filter(status="ERROR").values_list(
+                    "post_id", flat=True
+                )
+                return list(post_ids)
+        except Exception as e:
+            logger.error(f"Error getting posts with ERROR status: {e}")
+            # Default to empty list if there's an error
+            return []
+
+    async def scrape_error_posts(
+        self, batch_size: int = 100, allowed_categories: Optional[List[str]] = None
+    ) -> Tuple[
+        List[str], List[str], List[str], List[str], List[str], List[int], List[str]
+    ]:
+        """
+        Scrape posts that previously had errors
+
+        Args:
+            batch_size: Number of posts to collect before saving to database (default: 100)
+            allowed_categories: List of categories to collect (if None, collect all)
+
+        Returns:
+            tuple: Lists containing the scraped data
+        """
+        title_list = []
+        content_list = []
+        author_list = []
+        published_date_list = []
+        url_list = []
+        post_id_list = []
+        category_list = []
+
+        # Get the list of posts with ERROR status
+        error_post_ids = await self._get_error_posts()
+
+        if not error_post_ids:
+            logger.info("No posts with ERROR status found")
+            return (
+                title_list,
+                content_list,
+                author_list,
+                published_date_list,
+                url_list,
+                post_id_list,
+                category_list,
+            )
+
+        logger.info(f"Found {len(error_post_ids)} posts with ERROR status")
+
+        posts_collected = 0
+        posts_skipped = 0
+        posts_deleted = 0
+        posts_saved_batch = 0
+        total_saved = 0
+
+        # Process each post with ERROR status
+        for post_id in error_post_ids:
+            # Check if the post should be skipped (already saved or deleted)
+            should_skip = await self._should_skip_post(post_id)
+            if should_skip:
+                logger.info(
+                    f"Post {post_id} is already marked as SAVED or DELETED, skipping"
+                )
+                posts_skipped += 1
+                continue
+
+            # Check if we're re-scraping a post with NULL published_date
+            is_rescraping = await self._is_rescraping_null_date(post_id)
+            if is_rescraping:
+                logger.info(
+                    f"Re-scraping post {post_id} because it has NULL published_date"
+                )
+
+            # Try to scrape the post
+            post_data = await self.scrape_post(post_id, allowed_categories)
+
+            if post_data:
+                posts_collected += 1
+                posts_saved_batch += 1
+
+                # Append to lists
+                title_list.append(post_data["title"])
+                content_list.append(post_data["content"])
+                author_list.append(post_data["author"])
+                published_date_list.append(post_data["published_date"])
+                url_list.append(post_data["url"])
+                post_id_list.append(post_data["post_id"])
+                category_list.append(post_data["category"])
+
+                logger.info(
+                    f"Successfully collected post {post_data['post_id']} (Total: {posts_collected})"
+                )
+                logger.info(f"Category: {post_data['category']}")
+
+                # Save data to database every batch_size posts
+                if posts_saved_batch >= batch_size:
+                    logger.info(
+                        f"Saving batch of {posts_saved_batch} posts to database..."
+                    )
+
+                    # Create a tuple of current data for saving
+                    batch_data = (
+                        title_list,
+                        content_list,
+                        author_list,
+                        published_date_list,
+                        url_list,
+                        post_id_list,
+                        category_list,
+                    )
+
+                    # Save the current batch to database
+                    saved_count = await self._save_posts_to_db(batch_data)
+                    total_saved += saved_count
+
+                    logger.info(
+                        f"Saved batch of {saved_count} posts (Total saved: {total_saved})"
+                    )
+
+                    # Clear lists for next batch
+                    title_list = []
+                    content_list = []
+                    author_list = []
+                    published_date_list = []
+                    url_list = []
+                    post_id_list = []
+                    category_list = []
+
+                    # Reset batch counter
+                    posts_saved_batch = 0
+            else:
+                # Post still has issues
+                posts_deleted += 1
+
+        # Save any remaining posts
+        if posts_saved_batch > 0:
+            logger.info(
+                f"Saving final batch of {posts_saved_batch} posts to database..."
+            )
+
+            # Create a tuple of remaining data
+            final_batch = (
+                title_list,
+                content_list,
+                author_list,
+                published_date_list,
+                url_list,
+                post_id_list,
+                category_list,
+            )
+
+            # Save the final batch
+            saved_count = await self._save_posts_to_db(final_batch)
+            total_saved += saved_count
+
+            logger.info(
+                f"Saved final batch of {saved_count} posts (Total saved: {total_saved})"
+            )
+
+        logger.info(
+            f"Finished processing error posts. Total posts collected: {posts_collected}, skipped: {posts_skipped}, failed again: {posts_deleted}, saved: {total_saved}"
+        )
+
+        # Return the last saved batch or empty lists if all data has been saved
+        return (
+            title_list,
+            content_list,
+            author_list,
+            published_date_list,
+            url_list,
+            post_id_list,
+            category_list,
+        )
+
     async def run(
         self,
         start_id: Optional[int] = None,
         end_id: Optional[int] = None,
         batch_size: int = 100,
+        only_error: bool = False,
     ) -> None:
         """
         Run the scraper
@@ -891,6 +1147,7 @@ class NaverCafeScraper:
             start_id: Starting post ID to scrape (overrides the last post in database)
             end_id: Ending post ID to scrape (inclusive)
             batch_size: Number of posts to collect before saving to database (default: 100)
+            only_error: Whether to only scrape posts with ERROR status
         """
         try:
             # Setup browser
@@ -920,28 +1177,51 @@ class NaverCafeScraper:
                 logger.info("Waiting for page to fully load after login...")
                 await asyncio.sleep(self.config["login"]["login_wait_time"])
 
-            # Get allowed categories from database
+            # Sync NaverCafeData with PostStatus table
+            logger.info(
+                "Syncing PostStatus table with existing NaverCafeData entries..."
+            )
+            synced_count = await self._sync_post_status_with_db()
+            logger.info(f"Synced {synced_count} posts with SAVED status")
+
+            logger.info("Crawler behavior:")
+            logger.info("1. Skipping posts marked as DELETED")
+            logger.info("2. Skipping posts marked as SAVED with valid published_date")
+            logger.info("3. Re-scraping posts marked as SAVED with NULL published_date")
+            logger.info("4. Attempting to scrape posts marked as ERROR")
+            logger.info("5. Attempting to scrape posts not yet in PostStatus table")
+
+            # Get allowed categories from database but don't use them for filtering
             allowed_categories = await self._get_allowed_categories()
             if allowed_categories:
                 logger.info(
-                    f"Will only collect posts with these categories: {allowed_categories}"
+                    f"Found these categories in the database (for reference): {allowed_categories}"
                 )
             else:
-                logger.info(
-                    "No category filters found in database. Will collect all categories."
-                )
+                logger.info("No categories found in database.")
+            logger.info("Collecting all posts regardless of category.")
 
+            # If only_error flag is set, scrape only posts with ERROR status
+            if only_error:
+                logger.info("Only scraping posts with ERROR status")
+                await self.scrape_error_posts(
+                    batch_size=batch_size,
+                    allowed_categories=None,  # Pass None to collect all categories
+                )
+                return
+
+            # Regular scraping workflow
             # Determine start_post_id
             start_post_id = await self._determine_start_id(start_id)
 
             # Determine end_post_id
             end_post_id = await self._determine_end_id(end_id)
 
-            # Get post data
+            # Get post data - pass None for allowed_categories to collect all
             post_data = await self.scrape_posts(
                 start_post_id,
                 end_post_id=end_post_id,
-                allowed_categories=allowed_categories,
+                allowed_categories=None,  # Pass None to collect all categories
                 batch_size=batch_size,
             )
 
@@ -1020,8 +1300,78 @@ class NaverCafeScraper:
             # Default to empty list if there's an error
             return []
 
+    @staticmethod
+    @sync_to_async
+    def _sync_post_status_with_db() -> int:
+        """
+        Sync the PostStatus table with NaverCafeData
 
-async def main(start_id=None, end_id=None, batch_size=100):
+        Marks all posts that exist in NaverCafeData as SAVED in the PostStatus table
+        if they don't already have a status.
+
+        Returns:
+            int: Number of posts marked as SAVED
+        """
+        try:
+            with transaction.atomic():
+                # Get all post_ids from NaverCafeData
+                all_post_ids = set(
+                    NaverCafeData.objects.values_list("post_id", flat=True)
+                )
+
+                # Get post_ids that already have a status
+                existing_status_ids = set(
+                    PostStatus.objects.values_list("post_id", flat=True)
+                )
+
+                # Find post_ids that need to be marked as SAVED
+                posts_to_mark = all_post_ids - existing_status_ids
+
+                # Create PostStatus entries for these posts
+                post_status_objects = [
+                    PostStatus(post_id=post_id, status="SAVED")
+                    for post_id in posts_to_mark
+                ]
+
+                # Bulk create the objects
+                if post_status_objects:
+                    PostStatus.objects.bulk_create(post_status_objects)
+
+                logger.info(
+                    f"Synced {len(posts_to_mark)} posts from NaverCafeData to PostStatus as SAVED"
+                )
+                return len(posts_to_mark)
+        except Exception as e:
+            logger.error(f"Error syncing PostStatus with NaverCafeData: {e}")
+            return 0
+
+    @staticmethod
+    @sync_to_async
+    def _is_rescraping_null_date(post_id: int) -> bool:
+        """
+        Check if a post should be re-scraped because it has NULL published_date
+
+        Args:
+            post_id: The post ID to check
+
+        Returns:
+            bool: True if the post should be re-scraped, False otherwise
+        """
+        try:
+            with transaction.atomic():
+                # Check if this post exists in NaverCafeData with a NULL published_date
+                post_with_null_date = NaverCafeData.objects.filter(
+                    post_id=post_id, published_date__isnull=True
+                ).exists()
+
+                # If it has a NULL date, return True to re-scrape it
+                return post_with_null_date
+        except Exception as e:
+            logger.error(f"Error checking if post {post_id} should be re-scraped: {e}")
+            return False
+
+
+async def main(start_id=None, end_id=None, batch_size=100, only_error=False):
     """
     Main function to run the crawler
 
@@ -1029,9 +1379,10 @@ async def main(start_id=None, end_id=None, batch_size=100):
         start_id: Starting post ID to crawl from (overrides the last post in database)
         end_id: Ending post ID to crawl to (inclusive)
         batch_size: Number of posts to collect before saving to database (default: 100)
+        only_error: Whether to only scrape posts with ERROR status
     """
     scraper = NaverCafeScraper(cafe_url="https://cafe.naver.com/cjdckddus/")
-    await scraper.run(start_id, end_id, batch_size)
+    await scraper.run(start_id, end_id, batch_size, only_error)
 
 
 if __name__ == "__main__":
