@@ -41,4 +41,5 @@ urlpatterns = [
     # Add Naver auth URLs at the root level
     path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
     path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
+    path("notifications/", include("notifications.urls", namespace="notifications")),
 ]

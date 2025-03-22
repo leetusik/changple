@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # 파일 시작 부분에 .env 로드
@@ -49,8 +50,9 @@ INSTALLED_APPS = [
     # Local apps
     "users",
     "scraper",
-    "django_rq",
     "chatbot",
+    "notifications",
+    "django_rq",
 ]
 
 # Custom User Model
@@ -270,3 +272,14 @@ RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
 RQ_SCHEDULER_QUEUES = ["default", "high", "low"]  # Check all queues
+
+# Email settings
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.your-email-provider.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Your App <noreply@yourapp.com>")
