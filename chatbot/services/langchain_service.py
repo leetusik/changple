@@ -128,7 +128,8 @@ class LangchainService:
             query=query
         )
         
-        return response 
+        # 응답과 검색 결과를 함께 반환
+        return response, search_results 
 
     def generate_response_custom_prompt(self, query, custom_prompt=None, history=None, k=None, model=None):
         """

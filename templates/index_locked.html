@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChangpleAI</title>
-    <link rel="stylesheet" href="../static/css/index_locked.css">
+    <link rel="stylesheet" href="{% static 'css/index_locked.css' %}">
 
 </head>
 <body>
@@ -12,10 +13,10 @@
         <div class="header">
 
             <!-- 로그인 전 btn -->
-            <div class="login-btn">
-                    <svg class="naver-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="16" viewBox="0 0 17 16" fill="none">
-                        <path d="M11.8212 8.56186L5.88885 0.0664062H0.973938V15.9211H6.12674V7.43886L12.059 15.9211H16.9739V0.0664062H11.8212V8.56186Z" fill="#03C75A"/>                    
-                    </svg>
+            <div class="login-btn" onclick="location.href='{% url 'naver_login' %}'">
+                <svg class="naver-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="16" viewBox="0 0 17 16" fill="none">
+                    <path d="M11.8212 8.56186L5.88885 0.0664062H0.973938V15.9211H6.12674V7.43886L12.059 15.9211H16.9739V0.0664062H11.8212V8.56186Z" fill="#03C75A"/>                    
+                </svg>
                 <div class="login-btn-text">네이버 로그인</div>
             </div>
 

@@ -21,6 +21,8 @@ from django.views.generic import TemplateView
 
 # Import NaverCallbackView directly
 from users.views import NaverCallbackView, NaverLoginView
+# 새로 만든 HomeView 임포트
+from chatbot.api.views import HomeView  # core 앱을 생성했다고 가정, 원하는 앱에 뷰를 만들 수 있습니다
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -30,9 +32,7 @@ urlpatterns = [
     path(
         "social-auth/", include("social_django.urls", namespace="social")
     ),  # Social auth URLs
-    path(
-        "", TemplateView.as_view(template_name="index.html"), name="home"
-    ),  # Home page
+    path("", HomeView.as_view(), name="home"),
     path(
         "profile/",
         login_required(TemplateView.as_view(template_name="auth/profile.html")),

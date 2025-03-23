@@ -9,6 +9,8 @@ from django.conf import settings
 from django.utils.text import slugify
 import os
 from dotenv import load_dotenv
+from django.views import View
+
 
 # 파일 시작 부분에 .env 로드
 load_dotenv()
@@ -20,8 +22,17 @@ def index(request):
     return render(request, 'index.html')
 
 def chat_view(request):
-    # 챗봇 페이지 렌더링
-    return render(request, 'chat/chat.html')
+    # URL에서 message 파라미터 가져오기
+    user_message = request.GET.get('message')
+    
+    # 템플릿에 전달할 기본 컨텍스트
+    context = {
+        'user_message': user_message,
+        # 기타 필요한 컨텍스트
+    }
+    
+    # index_chat.html 템플릿 렌더링
+    return render(request, 'index_chat.html', context)
 
 def search_view(request):
     query = request.GET.get('q', '')
@@ -89,7 +100,9 @@ def chat(request):
         return Response({"error": "질문을 입력해주세요."}, status=400)
     
     langchain_service = LangchainService()
-    response = langchain_service.generate_response(query, history, prompt_id=prompt_id)
+    
+    # 응답 생성 (search_results도 함께 받음)
+    response, search_results = langchain_service.generate_response(query, history, prompt_id=prompt_id)
     
     # 새 대화를 history에 추가
     updated_history = history.copy()
@@ -108,7 +121,8 @@ def chat(request):
     
     return Response({
         "response": response,
-        "history": updated_history  # 업데이트된 대화 이력 반환
+        "history": updated_history,  # 업데이트된 대화 이력 반환
+        "search_results": search_results  # 검색 결과도 함께 반환
     })
 
 def ab_test_view(request):
@@ -392,3 +406,17 @@ def clear_pinecone_index(request):
             return Response({"error": "인덱스 초기화 중 오류가 발생했습니다."}, status=400)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+class HomeView(View):
+    """
+    홈페이지 뷰
+    사용자 로그인 상태에 따라 다른 템플릿을 렌더링합니다.
+    """
+    def get(self, request):
+        # 사용자가 인증되어 있는지 확인
+        if request.user.is_authenticated:
+            # 로그인된 사용자에게는 unlocked 페이지 보여주기
+            return render(request, 'index_unlocked.html')
+        else:
+            # 로그인되지 않은 사용자에게는 locked 페이지 보여주기
+            return render(request, 'index_locked.html')

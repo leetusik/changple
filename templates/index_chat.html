@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChangpleAI</title>
-    <link rel="stylesheet" href="../static/css/index_chat.css">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/index_chat.css' %}">
 
 </head>
 <body>
@@ -30,128 +31,6 @@
         <div class="main-content-prompt">
             <div class="prompt-container">
                 <div class="prompt-wrapper">
-
-                    <div class= "prompt-answer-block">
-                        <div class="prompt-text-area">
-                            <p>첫 창업을 하려고 준비 중 입니다. 어떤 분야가 괜찮을지 추천해 주세요</p>
-                        </div>
-                    </div>
-
-                    <p class="prompt-p">
-                        사용자는 AI를 활용한 기업 대상 검색력 향상 서비스를 개발 중이고, 디자인과 개발을 모두 할 줄 아는 UX 디자이너이자 데이터 분석가, 백엔드 개발자라는 강점을 가지고 있습니다. 이런 배경을 고려할 때, 다음과 같은 창업 분야가 유망할 수 있습니다.  
-
-                        1. B2B AI 검색 및 데이터 분석 서비스
-                        - 기업들이 원하는 데이터를 빠르게 찾을 수 있도록 AI 기반 검색 서비스를 제공  
-                        - 특정 업종(예: 금융, 법률, 의료 등)에 특화된 AI 검색 솔루션 개발  
-                        - 예: 법률 문서 검색 AI, 시장 조사 데이터 자동 수집 및 분석  
-
-                        2. AI 기반 UX 최적화 솔루션
-                        - AI를 활용해 웹사이트 및 앱의 UX를 자동으로 개선하는 SaaS 서비스  
-                        - 사용자 행동 데이터를 분석하여 UX/UI 최적화 추천  
-                        - 예: A/B 테스트 자동 분석, 실시간 UX 문제 진단 도구  
-
-                        3. B2B 데이터 인텔리전스 및 자동화 도구
-                        - 기업이 내부 데이터와 외부 데이터를 효과적으로 통합·분석할 수 있는 AI 솔루션  
-                        - 구글 스프레드시트 및 다양한 API를 연동하여 업무 자동화 기능 제공  
-                        - 예: AI 기반의 고객 인사이트 분석 툴, 기업 대상 데이터 대시보드 서비스  
-
-                        4. AI 기반 채용 및 인재 매칭 플랫폼
-                        - 기업과 지원자를 AI 알고리즘을 통해 보다 정밀하게 매칭  
-                        - UX 디자이너 및 개발자를 위한 맞춤형 채용 솔루션 개발 가능  
-                        - 예: 스타트업 전용 리크루팅 AI, 프리랜서 디자이너·개발자 매칭 플랫폼  
-
-                        ### **5. AI 기반 스타트업 네트워킹 플랫폼**  
-                        - 초기 스타트업들이 투자자 및 협력사를 쉽게 찾을 수 있도록 돕는 AI 솔루션  
-                        - 사용자가 직접 경험하고 있는 창업 과정의 어려움을 해결하는 제품 기획 가능  
-                        - 예: 스타트업과 VC(벤처캐피탈) 매칭 서비스, AI 기반의 공동 창업자 추천 시스템  
-                        1. B2B AI 검색 및 데이터 분석 서비스
-                        - 기업들이 원하는 데이터를 빠르게 찾을 수 있도록 AI 기반 검색 서비스를 제공  
-                        - 특정 업종(예: 금융, 법률, 의료 등)에 특화된 AI 검색 솔루션 개발  
-                        - 예: 법률 문서 검색 AI, 시장 조사 데이터 자동 수집 및 분석  
-
-                        2. AI 기반 UX 최적화 솔루션
-                        - AI를 활용해 웹사이트 및 앱의 UX를 자동으로 개선하는 SaaS 서비스  
-                        - 사용자 행동 데이터를 분석하여 UX/UI 최적화 추천  
-                        - 예: A/B 테스트 자동 분석, 실시간 UX 문제 진단 도구  
-
-                        3. B2B 데이터 인텔리전스 및 자동화 도구
-                        - 기업이 내부 데이터와 외부 데이터를 효과적으로 통합·분석할 수 있는 AI 솔루션  
-                        - 구글 스프레드시트 및 다양한 API를 연동하여 업무 자동화 기능 제공  
-                        - 예: AI 기반의 고객 인사이트 분석 툴, 기업 대상 데이터 대시보드 서비스  
-
-                        4. AI 기반 채용 및 인재 매칭 플랫폼
-                        - 기업과 지원자를 AI 알고리즘을 통해 보다 정밀하게 매칭  
-                        - UX 디자이너 및 개발자를 위한 맞춤형 채용 솔루션 개발 가능  
-                        - 예: 스타트업 전용 리크루팅 AI, 프리랜서 디자이너·개발자 매칭 플랫폼  
-
-                        ### **5. AI 기반 스타트업 네트워킹 플랫폼**  
-                        - 초기 스타트업들이 투자자 및 협력사를 쉽게 찾을 수 있도록 돕는 AI 솔루션  
-                        - 사용자가 직접 경험하고 있는 창업 과정의 어려움을 해결하는 제품 기획 가능  
-                        - 예: 스타트업과 VC(벤처캐피탈) 매칭 서비스, AI 기반의 공동 창업자 추천 시스템  
-                        1. B2B AI 검색 및 데이터 분석 서비스
-                        - 기업들이 원하는 데이터를 빠르게 찾을 수 있도록 AI 기반 검색 서비스를 제공  
-                        - 특정 업종(예: 금융, 법률, 의료 등)에 특화된 AI 검색 솔루션 개발  
-                        - 예: 법률 문서 검색 AI, 시장 조사 데이터 자동 수집 및 분석  
-
-                        2. AI 기반 UX 최적화 솔루션
-                        - AI를 활용해 웹사이트 및 앱의 UX를 자동으로 개선하는 SaaS 서비스  
-                        - 사용자 행동 데이터를 분석하여 UX/UI 최적화 추천  
-                        - 예: A/B 테스트 자동 분석, 실시간 UX 문제 진단 도구  
-
-                        3. B2B 데이터 인텔리전스 및 자동화 도구
-                        - 기업이 내부 데이터와 외부 데이터를 효과적으로 통합·분석할 수 있는 AI 솔루션  
-                        - 구글 스프레드시트 및 다양한 API를 연동하여 업무 자동화 기능 제공  
-                        - 예: AI 기반의 고객 인사이트 분석 툴, 기업 대상 데이터 대시보드 서비스  
-
-                        4. AI 기반 채용 및 인재 매칭 플랫폼
-                        - 기업과 지원자를 AI 알고리즘을 통해 보다 정밀하게 매칭  
-                        - UX 디자이너 및 개발자를 위한 맞춤형 채용 솔루션 개발 가능  
-                        - 예: 스타트업 전용 리크루팅 AI, 프리랜서 디자이너·개발자 매칭 플랫폼  
-
-                        ### **5. AI 기반 스타트업 네트워킹 플랫폼**  
-                        - 초기 스타트업들이 투자자 및 협력사를 쉽게 찾을 수 있도록 돕는 AI 솔루션  
-                        - 사용자가 직접 경험하고 있는 창업 과정의 어려움을 해결하는 제품 기획 가능  
-                        - 예: 스타트업과 VC(벤처캐피탈) 매칭 서비스, AI 기반의 공동 창업자 추천 시스템  
-
-                        사용자의 **기술적 강점(AI, 데이터 분석, UX/UI, 개발)**과 **현재 창업하려는 방향(기업 대상 검색력 향상 서비스)**을 고려하면, 위의 분야 중 하나를 선택하여 집중하는 것이 좋을 것 같습니다.  
-
-                        혹시 특정한 관심 분야나 해결하고 싶은 문제가 있다면 더 구체적인 아이디어를 제안해 드릴 수 있습니다! 😊
-                    </p> 
-                       
-                    <div class="prompt-links-container">
-                        <div class="prompt-links-cards">
-                            <a href="https://cafe.naver.com" target="_blank" class="link-card">
-                                <div class="card-content">
-                                    <div class="card-title">네이버 카페</div>
-                                    <div class="card-description">창업 관련 정보와 커뮤니티를 확인해보세요</div>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="prompt-links-cards">
-                            <a href="https://cafe.naver.com" target="_blank" class="link-card">
-                                <div class="card-content">
-                                    <div class="card-title">네이버 카페</div>
-                                    <div class="card-description">창업 관련 정보와 커뮤니티를 확인해보세요</div>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="prompt-links-cards">
-                            <a href="https://cafe.naver.com" target="_blank" class="link-card">
-                                <div class="card-content">
-                                    <div class="card-title">네이버 카페</div>
-                                    <div class="card-description">창업 관련 정보와 커뮤니티를 확인해보세요</div>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="free-use-count-container">
-                        <div class="free-use-count">
-                            <p>무료 사용(#/#)</p>
-                         </div>  
-                    </div>
 
                 </div>
             </div>
@@ -184,6 +63,236 @@
             <div class="privacy-policy">개인정보처리방침</div>
         </div>
     </div>
-    <script src="../static/js/index.js"></script>
+    {% load static %}
+    <script src="{% static 'js/index.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 대화 기록을 저장할 배열 추가
+            let chatHistory = [];
+            
+            // 무료 사용 횟수 초기화 (총 10회)
+            let remainingFreeCount = 10;
+            
+            // URL에서 message 파라미터 가져오기
+            const urlParams = new URLSearchParams(window.location.search);
+            const userMessage = urlParams.get('message');
+            
+            if (userMessage) {
+                // 사용자 메시지가 있으면 chat API 호출
+                callChatAPI(userMessage);
+            }
+            
+            // 입력 필드와 전송 버튼 가져오기
+            const inputBox = document.querySelector('.input-box-unlocked');
+            const sendBtn = document.querySelector('.send-btn');
+            
+            // 전송 버튼 클릭 이벤트
+            sendBtn.addEventListener('click', function() {
+                const message = inputBox.value.trim();
+                if (message) {
+                    callChatAPI(message);
+                    inputBox.value = ''; // 입력 필드 비우기
+                }
+            });
+            
+            // 엔터키 이벤트
+            inputBox.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    const message = this.value.trim();
+                    if (message) {
+                        callChatAPI(message);
+                        this.value = ''; // 입력 필드 비우기
+                    }
+                }
+            });
+            
+            // Chat API 호출 함수
+            function callChatAPI(query) {
+                // 사용자 메시지를 대화 영역에 추가
+                addMessageToChat('user', query);
+                
+                // 로딩 메시지 추가
+                const loadingId = addLoadingMessage();
+                
+                fetch('/chatbot/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken') // CSRF 토큰 가져오기
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        history: chatHistory // 대화 기록 전송
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // 로딩 메시지 제거
+                    removeLoadingMessage(loadingId);
+                    
+                    // API 응답 처리
+                    if (data.response) {
+                        // 응답을 대화 영역에 추가
+                        addMessageToChat('assistant', data.response);
+                        
+                        // 대화 기록 업데이트
+                        chatHistory = data.history || [];
+                        
+                        // 검색 결과로 카드 업데이트
+                        updateSearchCards(data.search_results);
+                        
+                        // 무료 사용 횟수 감소 및 표시
+                        if (remainingFreeCount > 0) {
+                            remainingFreeCount--;
+                        }
+                        addFreeUseCount(remainingFreeCount);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // 로딩 메시지 제거
+                    removeLoadingMessage(loadingId);
+                    // 오류 메시지 추가
+                    addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
+                    addFreeUseCount(remainingFreeCount); // 에러 발생 시에도 카운트 표시
+                });
+            }
+            
+            // 무료 사용 카운트 추가 함수
+            function addFreeUseCount(count) {
+                const promptContainer = document.querySelector('.prompt-wrapper');
+                
+                // 고유 ID 생성
+                const counterId = 'free-use-count-' + Date.now();
+                
+                const freeUseCountHTML = `
+                    <div id="${counterId}" class="free-use-count-container">
+                        <div class="free-use-count">
+                            <p>무료 사용(${count}/10)</p>
+                        </div>  
+                    </div>
+                `;
+                
+                promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
+                
+                // 새로 추가된 요소 찾기
+                const counterElement = document.getElementById(counterId);
+            }
+            
+            // 대화 메시지를 화면에 추가하는 함수
+            function addMessageToChat(role, content) {
+                const promptContainer = document.querySelector('.prompt-wrapper');
+                
+                if (role === 'user') {
+                    // 고유 ID 생성
+                    const messageId = 'user-message-' + Date.now();
+                    
+                    // 사용자 메시지 추가
+                    const userMessageHTML = `
+                        <div id="${messageId}" class="prompt-answer-block">
+                            <div class="prompt-text-area">
+                                <p>${content}</p>
+                            </div>
+                        </div>
+                    `;
+                    promptContainer.insertAdjacentHTML('beforeend', userMessageHTML);
+                    
+                    // 새 메시지로 스크롤 (smoothly)
+                    document.getElementById(messageId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (role === 'assistant') {
+                    // 챗봇 응답에 고유 ID 부여
+                    const botMessageId = 'bot-message-' + Date.now();
+                    const botMessageHTML = `
+                        <div id="${botMessageId}" class="prompt-p">${content}</div>
+                    `;
+                    promptContainer.insertAdjacentHTML('beforeend', botMessageHTML);
+                    
+                }
+            }
+            
+            // 로딩 메시지 추가
+            function addLoadingMessage() {
+                const loadingId = 'loading-' + Date.now();
+                const promptContainer = document.querySelector('.prompt-wrapper');
+                const loadingHTML = `
+                    <div id="${loadingId}" class="prompt-p">생성중...</div>
+                `;
+                promptContainer.insertAdjacentHTML('beforeend', loadingHTML);
+
+                // 새 메시지로 스크롤 (smoothly)
+                document.getElementById(loadingId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return loadingId;
+            }
+            
+            // 로딩 메시지 제거
+            function removeLoadingMessage(loadingId) {
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) {
+                    loadingElement.remove();
+                }
+            }
+            
+            // 검색 결과 카드 업데이트
+            function updateSearchCards(searchResults) {
+                if (searchResults && searchResults.length > 0) {
+                    // 새로운 검색 결과 컨테이너 생성
+                    const promptContainer = document.querySelector('.prompt-wrapper');
+                    
+                    // 새 검색 결과 컨테이너 생성
+                    const newLinksContainer = document.createElement('div');
+                    newLinksContainer.className = 'prompt-links-container';
+                    
+                    // 최대 3개까지만 표시
+                    const maxCardsToShow = Math.min(searchResults.length, 3);
+                    
+                    for (let i = 0; i < maxCardsToShow; i++) {
+                        const result = searchResults[i];
+                        const title = result.metadata.title || '제목 없음';
+                        const content = result.content || '';
+                        const url = result.metadata.url || 'https://cafe.naver.com';
+                        
+                        // content 첫 20자만 표시 (있을 경우)
+                        const shortContent = content.length > 20 
+                            ? content.substring(0, 20) + '...' 
+                            : content;
+                        
+                        // 카드 요소 생성
+                        const cardHTML = `
+                            <div class="prompt-links-cards">
+                                <a href="${url}" target="_blank" class="link-card">
+                                    <div class="card-content">
+                                        <div class="card-title">${title}</div>
+                                        <div class="card-description">${shortContent}</div>
+                                    </div>
+                                </a>
+                            </div>
+                        `;
+                        
+                        // 새 컨테이너에 카드 추가
+                        newLinksContainer.innerHTML += cardHTML;
+                    }
+                    
+                    // 각 대화 후 새 컨테이너를 추가
+                    promptContainer.appendChild(newLinksContainer);
+                }
+            }
+            
+            // CSRF 토큰 가져오기 위한 함수
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+        });
+    </script>
 </body>
 </html>
