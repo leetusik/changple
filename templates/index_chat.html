@@ -6,7 +6,60 @@
     <title>ChangpleAI</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/index_chat.css' %}">
-
+    <!-- 마크다운 변환 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- XSS 공격 방지를 위한 DOMPurify 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <style>
+        /* 마크다운 렌더링을 위한 스타일 */
+        .prompt-p h1, .prompt-p h2, .prompt-p h3 {
+            margin: 10px 0;
+            text-align: left;
+        }
+        
+        .prompt-p code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .prompt-p pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            text-align: left;
+        }
+        
+        .prompt-p blockquote {
+            border-left: 4px solid #ccc;
+            margin-left: 0;
+            padding-left: 10px;
+            color: #666;
+            text-align: left;
+        }
+        
+        .prompt-p a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        
+        .prompt-p a:hover {
+            text-decoration: underline;
+        }
+        
+        .prompt-p ul, .prompt-p ol {
+            text-align: left;
+            padding-left: 20px;
+        }
+        
+        .prompt-p hr {
+            border: 0;
+            height: 1px;
+            background: #ccc;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -198,15 +251,23 @@
                     promptContainer.insertAdjacentHTML('beforeend', userMessageHTML);
                     
                     // 새 메시지로 스크롤 (smoothly)
-                    document.getElementById(messageId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById(messageId).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } else if (role === 'assistant') {
                     // 챗봇 응답에 고유 ID 부여
                     const botMessageId = 'bot-message-' + Date.now();
+                    
+                    // 마크다운 렌더링 적용
+                    const renderedContent = DOMPurify.sanitize(marked.parse(content));
+                    
                     const botMessageHTML = `
-                        <div id="${botMessageId}" class="prompt-p">${content}</div>
+                        <br>
+                        <br>
+                        <div id="${botMessageId}" class="prompt-p">${renderedContent}</div>
                     `;
                     promptContainer.insertAdjacentHTML('beforeend', botMessageHTML);
                     
+                    // 새 메시지로 스크롤
+                    document.getElementById(botMessageId).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }
             
@@ -248,20 +309,25 @@
                     for (let i = 0; i < maxCardsToShow; i++) {
                         const result = searchResults[i];
                         const title = result.metadata.title || '제목 없음';
+                        // 타이틀 25자로 제한
+                        const shortTitle = title.length > 25
+                            ? title.substring(0, 25) + '...' 
+                            : title;
                         const content = result.content || '';
-                        const url = result.metadata.url || 'https://cafe.naver.com';
                         
-                        // content 첫 20자만 표시 (있을 경우)
-                        const shortContent = content.length > 20 
-                            ? content.substring(0, 20) + '...' 
+                        // content 첫 15자만 표시 (있을 경우)
+                        const shortContent = content.length > 15 
+                            ? content.substring(0, 15) + '...' 
                             : content;
+                        
+                        const url = result.metadata.url || 'https://cafe.naver.com';
                         
                         // 카드 요소 생성
                         const cardHTML = `
                             <div class="prompt-links-cards">
                                 <a href="${url}" target="_blank" class="link-card">
                                     <div class="card-content">
-                                        <div class="card-title">${title}</div>
+                                        <div class="card-title">${shortTitle}</div>
                                         <div class="card-description">${shortContent}</div>
                                     </div>
                                 </a>
