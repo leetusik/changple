@@ -9,6 +9,7 @@ from django.conf import settings
 from django.utils.text import slugify
 import os
 from dotenv import load_dotenv
+from chatbot.services.advanced_retrieval_service import AdvancedRetrievalService
 
 # 파일 시작 부분에 .env 로드
 load_dotenv()
@@ -58,6 +59,21 @@ def index_cafe_data(request):
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+    
+@api_view(['POST'])
+def clear_pinecone_index(request):
+    """Pinecone 인덱스 초기화 API 엔드포인트"""
+    try:
+        pinecone_service = PineconeService()
+        result = pinecone_service.clear_index()
+        
+        if result:
+            message = "Pinecone 인덱스가 성공적으로 초기화되었습니다."
+            return Response({"success": True, "message": message})
+        else:
+            return Response({"error": "인덱스 초기화 중 오류가 발생했습니다."}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 def get_pinecone_stats(request):
@@ -84,12 +100,13 @@ def chat(request):
     query = data.get('query', '')
     history = data.get('history', [])
     prompt_id = data.get('prompt_id', getattr(settings, 'PROMPT_ID', None))
-    
+    model = getattr(settings, 'LLM_MODEL', 'gpt-4o-mini')
+
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
-    
+
     langchain_service = LangchainService()
-    response = langchain_service.generate_response(query, history, prompt_id=prompt_id)
+    response = langchain_service.generate_response(query, history, prompt_id=prompt_id, model=model)
     
     # 새 대화를 history에 추가
     updated_history = history.copy()
@@ -124,15 +141,12 @@ def run_ab_test(request):
     llm_model = request.data.get('llm_model', 'gpt-4o-mini')
     
     try:
-        prompt_a = Prompt.objects.get(id=prompt_a_id)
-        prompt_b = Prompt.objects.get(id=prompt_b_id)
-        
         # Langchain 서비스 인스턴스 생성
         langchain_service = LangchainService()
         
         # 각 프롬프트로 응답 생성
-        response_a = langchain_service.generate_response_custom_prompt(query, custom_prompt=prompt_a.content, model=llm_model)
-        response_b = langchain_service.generate_response_custom_prompt(query, custom_prompt=prompt_b.content, model=llm_model)
+        response_a = langchain_service.generate_response(query, prompt_id=prompt_a_id, model=llm_model)
+        response_b = langchain_service.generate_response(query, prompt_id=prompt_b_id, model=llm_model)
         
         # settings에서 값 가져오기
         llm_temperature = getattr(settings, "LLM_TEMPERATURE", 0.7)
@@ -143,8 +157,8 @@ def run_ab_test(request):
         # 테스트 결과 저장
         test = ABTest.objects.create(
             query=query,
-            prompt_a=prompt_a,
-            prompt_b=prompt_b,
+            prompt_a=Prompt.objects.get(id=prompt_a_id),
+            prompt_b=Prompt.objects.get(id=prompt_b_id),
             response_a=response_a,
             response_b=response_b,
             llm_model=llm_model,
@@ -379,14 +393,88 @@ def api_management_view(request):
     return render(request, 'management/api_management.html', {'apis': apis})
 
 @api_view(['POST'])
-def clear_pinecone_index(request):
-    """Pinecone 인덱스 초기화 API 엔드포인트"""
+def hybrid_search(request):
+    """하이브리드 검색 API 엔드포인트 (벡터 검색 + BM25 키워드 검색)"""
+    data = request.data
+    query = data.get('query', '')
+    top_k = data.get('top_k', 5)
+    filters = data.get('filters', None)
+    vector_weight = data.get('vector_weight', 0.5)
+    search_type = data.get('search_type', 'hybrid')  # 'hybrid', 'vector', 'bm25' 중 하나
+    
+    if not query:
+        return Response({"error": "검색어를 입력해주세요."}, status=400)
+    
+    # 검색 유형 검증
+    if search_type not in ['hybrid', 'vector', 'bm25']:
+        return Response({"error": "검색 유형은 'hybrid', 'vector', 'bm25' 중 하나여야 합니다."}, status=400)
+    
+    # 벡터 가중치 검증 (0.0 ~ 1.0)
     try:
-        pinecone_service = PineconeService()
-        result = pinecone_service.clear_index()
+        vector_weight = float(vector_weight)
+        if vector_weight < 0 or vector_weight > 1:
+            return Response({"error": "벡터 가중치는 0.0과 1.0 사이의 값이어야 합니다."}, status=400)
+    except (ValueError, TypeError):
+        return Response({"error": "벡터 가중치는 숫자 형식이어야 합니다."}, status=400)
+    
+    # 검색 서비스 초기화
+    advanced_retrieval = AdvancedRetrievalService()
+    
+    # 검색 유형에 따라 적절한 메서드 호출
+    try:
+        if search_type == 'hybrid':
+            results = advanced_retrieval.hybrid_search(
+                query_text=query,
+                top_k=top_k,
+                filter_dict=filters,
+                vector_weight=vector_weight
+            )
+        elif search_type == 'vector':
+            results = advanced_retrieval.pinecone_service.search_similar_documents(
+                query_text=query,
+                top_k=top_k,
+                filter_dict=filters
+            )
+        else:  # 'bm25'
+            results = advanced_retrieval.bm25_search(
+                query_text=query,
+                top_k=top_k,
+                filter_dict=filters
+            )
+        
+        return Response({
+            "results": results,
+            "search_type": search_type,
+            "query": query,
+            "vector_weight": vector_weight if search_type == 'hybrid' else None
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['POST'])
+def index_opensearch_data(request):
+    """OpenSearch 데이터 인덱싱 API 엔드포인트"""
+    try:
+        advanced_retrieval = AdvancedRetrievalService()
+        total_documents = advanced_retrieval.index_unindexed_data()
+        
+        return Response({
+            "success": True,
+            "total_documents": total_documents,
+            "message": f"OpenSearch 인덱싱 완료. 총 {total_documents}개의 문서가 인덱싱되었습니다."
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['POST'])
+def clear_opensearch_index(request):
+    """OpenSearch 인덱스 초기화 API 엔드포인트"""
+    try:
+        advanced_retrieval = AdvancedRetrievalService()
+        result = advanced_retrieval.clear_opensearch_index()
         
         if result:
-            message = "Pinecone 인덱스가 성공적으로 초기화되었습니다."
+            message = "OpenSearch 인덱스가 성공적으로 초기화되었습니다."
             return Response({"success": True, "message": message})
         else:
             return Response({"error": "인덱스 초기화 중 오류가 발생했습니다."}, status=400)

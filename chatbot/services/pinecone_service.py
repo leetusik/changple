@@ -91,100 +91,100 @@ class PineconeService:
             print(f"Pinecone 초기화 오류: {e}")
             raise
     
-    def process_cafe_data(self, start_post_id=None, num_document=None):
-        """
-        NaverCafeData 모델에서 데이터를 가져와 Pinecone에 저장합니다.
+    # def process_cafe_data(self, start_post_id=None, num_document=None):
+    #     """
+    #     NaverCafeData 모델에서 데이터를 가져와 Pinecone에 저장합니다.
         
-        Args:
-            start_post_id: 조회 시작할 post_id (이 값보다 크거나 같은 post_id부터 조회)
-            num_document: 처리할 문서 수, 없으면 전체 문서 처리 (e.g. 1000)
+    #     Args:
+    #         start_post_id: 조회 시작할 post_id (이 값보다 크거나 같은 post_id부터 조회)
+    #         num_document: 처리할 문서 수, 없으면 전체 문서 처리 (e.g. 1000)
         
-        Returns:
-            int: 생성된 총 청크 수
-        """
-        try:
-            print(f"카페 데이터 인덱싱 작업을 시작합니다...")
+    #     Returns:
+    #         int: 생성된 총 청크 수
+    #     """
+    #     try:
+    #         print(f"카페 데이터 인덱싱 작업을 시작합니다...")
             
-            # 쿼리 구성
-            query = NaverCafeData.objects.all()
+    #         # 쿼리 구성
+    #         query = NaverCafeData.objects.all()
             
-            if start_post_id:
-                query = query.filter(post_id__gte=start_post_id)
+    #         if start_post_id:
+    #             query = query.filter(post_id__gte=start_post_id)
             
-            if num_document:
-                query = query[:num_document]
+    #         if num_document:
+    #             query = query[:num_document]
             
-            total_documents = query.count()
-            print(f"총 {total_documents}개의 문서를 처리합니다.")
+    #         total_documents = query.count()
+    #         print(f"총 {total_documents}개의 문서를 처리합니다.")
             
-            # 문서 처리 및 벡터 저장 준비
-            documents = []
-            chunk_counters = {}  # 각 post_id별 청크 카운터를 추적하기 위한 딕셔너리
+    #         # 문서 처리 및 벡터 저장 준비
+    #         documents = []
+    #         chunk_counters = {}  # 각 post_id별 청크 카운터를 추적하기 위한 딕셔너리
             
-            for i, cafe_data in enumerate(query):
-                # 진행 상황 표시 (10% 단위로)
-                if i % max(1, total_documents // 10) == 0 or i == total_documents - 1:
-                    progress = (i / total_documents) * 100
-                    print(f"진행 중... {progress:.1f}% 완료 ({i}/{total_documents})")
+    #         for i, cafe_data in enumerate(query):
+    #             # 진행 상황 표시 (10% 단위로)
+    #             if i % max(1, total_documents // 10) == 0 or i == total_documents - 1:
+    #                 progress = (i / total_documents) * 100
+    #                 print(f"진행 중... {progress:.1f}% 완료 ({i}/{total_documents})")
                 
-                # 텍스트 분할
-                chunks = self.text_splitter.split_text(cafe_data.content)
-                post_id = cafe_data.post_id
+    #             # 텍스트 분할
+    #             chunks = self.text_splitter.split_text(cafe_data.content)
+    #             post_id = cafe_data.post_id
                 
-                # 이 post_id에 대한 카운터 초기화
-                if post_id not in chunk_counters:
-                    chunk_counters[post_id] = 1
+    #             # 이 post_id에 대한 카운터 초기화
+    #             if post_id not in chunk_counters:
+    #                 chunk_counters[post_id] = 1
                 
-                # 각 청크에 대한 메타데이터 생성
-                for chunk in chunks:
-                    metadata = {
-                        'document_id': cafe_data.id,
-                        'title': cafe_data.title,
-                        'category': cafe_data.category,
-                        'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
-                        'author': cafe_data.author,
-                        'url': cafe_data.url,
-                        'post_id': post_id,
-                        'chunk_number': chunk_counters[post_id],  # 청크 번호 저장
-                    }
-                    documents.append((chunk, metadata, chunk_counters[post_id]))
-                    chunk_counters[post_id] += 1  # 다음 청크를 위해 카운터 증가
+    #             # 각 청크에 대한 메타데이터 생성
+    #             for chunk in chunks:
+    #                 metadata = {
+    #                     'document_id': cafe_data.id,
+    #                     'title': cafe_data.title,
+    #                     'category': cafe_data.category,
+    #                     'upload_date': cafe_data.published_date.isoformat() if cafe_data.published_date and hasattr(cafe_data.published_date, 'isoformat') else str(cafe_data.published_date) if cafe_data.published_date else '',
+    #                     'author': cafe_data.author,
+    #                     'url': cafe_data.url,
+    #                     'post_id': post_id,
+    #                     'chunk_number': chunk_counters[post_id],  # 청크 번호 저장
+    #                 }
+    #                 documents.append((chunk, metadata, chunk_counters[post_id]))
+    #                 chunk_counters[post_id] += 1  # 다음 청크를 위해 카운터 증가
             
-            if not documents:
-                print("인덱싱할 문서가 없습니다.")
-                return 0
+    #         if not documents:
+    #             print("인덱싱할 문서가 없습니다.")
+    #             return 0
             
-            # 벡터 저장소에 문서 추가 (배치 처리)
-            batch_size = 100
-            total_batches = (len(documents) + batch_size - 1) // batch_size
+    #         # 벡터 저장소에 문서 추가 (배치 처리)
+    #         batch_size = 100
+    #         total_batches = (len(documents) + batch_size - 1) // batch_size
             
-            print(f"총 {len(documents)}개의 청크를 {total_batches}개 배치로 처리합니다.")
+    #         print(f"총 {len(documents)}개의 청크를 {total_batches}개 배치로 처리합니다.")
             
-            for i in range(0, len(documents), batch_size):
-                batch = documents[i:i+batch_size]
-                batch_num = i // batch_size + 1
+    #         for i in range(0, len(documents), batch_size):
+    #             batch = documents[i:i+batch_size]
+    #             batch_num = i // batch_size + 1
                 
-                print(f"배치 처리 중... {batch_num}/{total_batches} ({(batch_num/total_batches)*100:.1f}%)")
+    #             print(f"배치 처리 중... {batch_num}/{total_batches} ({(batch_num/total_batches)*100:.1f}%)")
                 
-                texts = [doc[0] for doc in batch]
-                metadatas = [doc[1] for doc in batch]
+    #             texts = [doc[0] for doc in batch]
+    #             metadatas = [doc[1] for doc in batch]
                 
-                # 각 청크에 post_id와 chunk_number를 조합하여 고유 ID 생성
-                ids = [f"{meta['post_id']}-{doc[2]}" for meta, doc in zip(metadatas, batch)]
+    #             # 각 청크에 post_id와 chunk_number를 조합하여 고유 ID 생성
+    #             ids = [f"{meta['post_id']}-{doc[2]}" for meta, doc in zip(metadatas, batch)]
                 
-                # ID를 명시적으로 지정하여 업서트 (동일 ID는 덮어쓰기됨)
-                self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+    #             # ID를 명시적으로 지정하여 업서트 (동일 ID는 덮어쓰기됨)
+    #             self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
             
-            # 총 청크 수 계산 (각 post_id의 마지막 청크 번호 - 1을 합산)
-            # chunk_counters의 각 값은 마지막 청크 번호 + 1이므로 1을 빼지 않음
-            total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
+    #         # 총 청크 수 계산 (각 post_id의 마지막 청크 번호 - 1을 합산)
+    #         # chunk_counters의 각 값은 마지막 청크 번호 + 1이므로 1을 빼지 않음
+    #         total_chunks = sum(chunk_counters.values()) - len(chunk_counters)
             
-            print(f"인덱싱 작업 완료! 총 {total_chunks}개의 청크가 생성되었습니다.")
-            return total_chunks
+    #         print(f"인덱싱 작업 완료! 총 {total_chunks}개의 청크가 생성되었습니다.")
+    #         return total_chunks
             
-        except Exception as e:
-            print(f"Pinecone 처리 오류: {e}")
-            return 0
+    #     except Exception as e:
+    #         print(f"Pinecone 처리 오류: {e}")
+    #         return 0
         
     def process_unvectorized_data(self):
         """

@@ -19,4 +19,7 @@ urlpatterns = [
     path('update-prompt/<str:prompt_id>/', views.update_prompt, name='update_prompt'),
     path('delete-prompt/<str:prompt_id>/', views.delete_prompt, name='delete_prompt'),
     path('get-prompts/', views.get_prompts, name='get_prompts'),
+    path("hybrid-search/", views.hybrid_search, name="hybrid_search"),
+    path("index-opensearch-data/", views.index_opensearch_data, name="index_opensearch_data"),
+    path("clear-opensearch-index/", views.clear_opensearch_index, name="clear_opensearch_index"),
 ]
