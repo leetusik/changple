@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>챗봇 API 관리</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-btn {
+            background-color: white;
+            color: #0d6efd;
+            border: 1px solid #0d6efd;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .chat-btn:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>챗봇 API 관리 (내부용)</h1>
+            <a href="/chatbot/chat-view/" class="btn chat-btn">챗봇으로 이동하기</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">사용 가능한 API 목록</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>API 이름</th>
+                                        <th>메소드</th>
+                                        <th>설명</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for api in apis %}
+                                    <tr>
+                                        <td>{{ api.name }}</td>
+                                        <td>
+                                            <span class="badge {% if api.method == 'GET' %}bg-success{% elif api.method == 'POST' %}bg-primary{% elif api.method == 'PUT' %}bg-warning{% elif api.method == 'DELETE' %}bg-danger{% endif %}">
+                                                {{ api.method }}
+                                            </span>
+                                        </td>
+                                        <td>{{ api.description }}</td>
+                                        <td>
+                                            <button class="btn btn-sm {% if api.method == 'GET' %}btn-success{% elif api.method == 'POST' %}btn-primary{% elif api.method == 'PUT' %}btn-warning{% elif api.method == 'DELETE' %}btn-danger{% endif %}"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#modal-{{ api.id }}">
+                                                {% if api.method == 'GET' %}실행
+                                                {% elif api.method == 'POST' %}생성
+                                                {% elif api.method == 'PUT' %}수정
+                                                {% elif api.method == 'DELETE' %}삭제
+                                                {% endif %}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    <!-- AB 테스트 행 추가 -->
+                                    <tr>
+                                        <td>프롬프트_AB테스트</td>
+                                        <td>
+                                            <span class="badge bg-info">링크</span>
+                                        </td>
+                                        <td>두 개의 다른 프롬프트를 비교하는 AB 테스트를 실행합니다</td>
+                                        <td>
+                                            <a href="/chatbot/ab-test/" class="btn btn-sm btn-info">페이지 이동</a>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td>Pinecone_인덱스_초기화</td>
+                                        <td>
+                                            <span class="badge bg-danger">POST</span>
+                                        </td>
+                                        <td>Pinecone 인덱스의 모든 벡터를 삭제합니다. 주의: 이 작업은 되돌릴 수 없습니다!</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modal-clear-pinecone-index">실행</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pinecone_통계_조회</td>
+                                        <td>
+                                            <span class="badge bg-success">GET</span>
+                                        </td>
+                                        <td>Pinecone 및 Django DB에 저장된 데이터의 통계 현황을 조회합니다 (파라미터 설정 가능)</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modal-pinecone-stats">실행</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달들을 테이블 밖으로 이동 -->
+    {% for api in apis %}
+    <div class="modal fade" id="modal-{{ api.id }}" tabindex="-1" aria-labelledby="modal-{{ api.id }}-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-{{ api.id }}-label">{{ api.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>메소드: <span class="badge {% if api.method == 'GET' %}bg-success{% elif api.method == 'POST' %}bg-primary{% elif api.method == 'PUT' %}bg-warning{% elif api.method == 'DELETE' %}bg-danger{% endif %}">{{ api.method }}</span></p>
+                    <p>엔드포인트: {{ api.url }}</p>
+                    
+                    {% if api.method == 'GET' %}
+                    <button class="btn btn-success execute-get" data-url="{{ api.url }}">실행</button>
+                    
+                    {% elif api.method == 'POST' or api.method == 'PUT' %}
+                    
+                    <!-- 카페 데이터 인덱싱인 경우 특별 처리 -->
+                    {% if api.id == 'index-cafe-data' %}
+                    <div class="alert alert-info">
+                        <p>이 작업은 다음 조건을 충족하는 데이터만 처리합니다:</p>
+                        <ul>
+                            <li>아직 벡터화되지 않은 데이터 (vectorized=False)</li>
+                            <li>허용된 카테고리에 속한 데이터</li>
+                            <li>허용된 저자가 작성한 데이터</li>
+                        </ul>
+                        <p>계속 진행하시겠습니까?</p>
+                    </div>
+                    <div class="text-center mt-3 mb-3">
+                        <button class="btn btn-primary execute-indexing">인덱싱 실행</button>
+                    </div>
+                    {% else %}
+                    <!-- 일반적인 POST/PUT 요청 처리 -->
+                    <form class="api-form" data-url="{{ api.url }}" data-method="{{ api.method }}">
+                        <!-- PUT 요청일 때만 ID 입력 필드 표시 (data-param-name 속성 제거) -->
+                        {% if api.method == 'PUT' %}
+                        <div class="mb-3">
+                            <label class="form-label">수정할 프롬프트 ID (필수)</label>
+                            <input type="text" class="form-control prompt-id-input" required>
+                            <div class="form-text">URL의 {id} 부분에 사용될 ID를 입력하세요.</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-fields mb-3">
+                            {% for param_name, param_desc in api.params.items %}
+                            <div class="mb-3">
+                                <label class="form-label">{{ param_name }} ({{ param_desc }})</label>
+                                <input type="text" class="form-control" name="{{ param_name }}" data-param-name="{{ param_name }}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- JSON 예시를 토글 형태로 변경 -->
+                        {% if api.example_json %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <p class="mb-1" style="margin-left: auto; margin-right: 10px;">JSON 예시 : </p>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#example-json-{{ api.id }}" aria-expanded="false" aria-controls="example-json-{{ api.id }}">
+                                    <span class="toggle-text">보기</span>
+                                </button>
+                            </div>
+                            <div class="collapse" id="example-json-{{ api.id }}">
+                                <pre class="bg-light p-2 rounded example-json mt-2">{{ api.example_json }}</pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">JSON 데이터</label>
+                            <textarea class="form-control json-input" rows="5">{{ api.params|safe }}</textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary execute-post-put">제출</button>
+                    </form>
+                    {% endif %}
+                    
+                    {% elif api.method == 'DELETE' %}
+                    <div class="mb-3">
+                        <label class="form-label">삭제할 프롬프트 ID (필수)</label>
+                        <input type="text" class="form-control delete-id" required>
+                        <div class="form-text">URL의 {id} 부분에 사용될 ID를 입력하세요.</div>
+                    </div>
+                    <button class="btn btn-danger execute-delete" data-url="{{ api.url }}">삭제</button>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <div class="loading-spinner text-center" style="display: none;">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                        <div class="result-container" style="display: none;">
+                            <h6>응답 결과:</h6>
+                            <pre class="result-display bg-light p-3 rounded"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pinecone 인덱스 초기화 모달 -->
+    <div class="modal fade" id="modal-clear-pinecone-index" tabindex="-1" aria-labelledby="modal-clear-pinecone-index-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-clear-pinecone-index-label">Pinecone 인덱스 초기화</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>메소드: <span class="badge bg-danger">POST</span></p>
+                    <p>엔드포인트: /chatbot/clear-pinecone-index/</p>
+                    
+                    <div class="alert alert-danger">
+                        <strong>주의!</strong> 이 작업은 Pinecone 인덱스의 모든 벡터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+                    </div>
+                    
+                    <button class="btn btn-danger confirm-clear-index">인덱스 초기화 실행</button>
+                    
+                    <div class="mt-4">
+                        <div class="loading-spinner text-center" style="display: none;">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                        <div class="result-container" style="display: none;">
+                            <h6>응답 결과:</h6>
+                            <pre class="result-display bg-light p-3 rounded"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pinecone 통계 모달 추가 -->
+    <div class="modal fade" id="modal-pinecone-stats" tabindex="-1" aria-labelledby="modal-pinecone-stats-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-pinecone-stats-label">Pinecone 통계 조회</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>메소드: <span class="badge bg-success">GET</span></p>
+                    <p>엔드포인트: /chatbot/pinecone-stats/</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">파라미터 설정</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="vectorized-param" checked>
+                            <label class="form-check-label" for="vectorized-param">
+                                vectorized (벡터화된 데이터만 포함)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowed-category-param" checked>
+                            <label class="form-check-label" for="allowed-category-param">
+                                allowed_category (허용된 카테고리만 포함)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="allowed-author-param" checked>
+                            <label class="form-check-label" for="allowed-author-param">
+                                allowed_author (허용된 저자만 포함)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-success execute-pinecone-stats">통계 조회</button>
+                    
+                    <div class="mt-4">
+                        <div class="loading-spinner text-center" style="display: none;">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                        <div class="result-container" style="display: none;">
+                            <h6>응답 결과:</h6>
+                            <pre class="result-display bg-light p-3 rounded"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // GET 요청 처리
+        document.querySelectorAll('.execute-get').forEach(button => {
+            button.addEventListener('click', function() {
+                const url = this.dataset.url;
+                const modal = this.closest('.modal');
+                executeApi(url, 'GET', null, modal);
+            });
+        });
+
+        // POST/PUT 요청 처리
+        document.querySelectorAll('.execute-post-put').forEach(button => {
+            button.addEventListener('click', function() {
+                const form = this.closest('form');
+                let url = form.dataset.url;
+                const method = form.dataset.method;
+                const jsonInput = form.querySelector('.json-input');
+                const modal = this.closest('.modal');
+                
+                try {
+                    const data = JSON.parse(jsonInput.value);
+                    
+                    // PUT 요청일 경우 URL의 {id} 부분을 실제 ID로 대체
+                    if (method === 'PUT' && url.includes('{id}')) {
+                        // ID 입력 필드에서 값 가져오기
+                        const idInput = modal.querySelector('.prompt-id-input');
+                        if (!idInput || !idInput.value.trim()) {
+                            showResult(modal, {error: '프롬프트 ID를 입력해주세요.'});
+                            return;
+                        }
+                        
+                        // URL 업데이트
+                        url = url.replace('{id}', idInput.value.trim());
+                    }
+                    
+                    executeApi(url, method, data, modal);
+                } catch (error) {
+                    showResult(modal, {error: 'JSON 형식이 올바르지 않습니다: ' + error.message});
+                }
+            });
+        });
+
+        // DELETE 요청 처리
+        document.querySelectorAll('.execute-delete').forEach(button => {
+            button.addEventListener('click', function() {
+                const modal = this.closest('.modal');
+                const deleteId = modal.querySelector('.delete-id').value.trim();
+                let url = this.dataset.url;
+                
+                if (!deleteId) {
+                    showResult(modal, {error: '삭제할 프롬프트 ID를 입력해주세요'});
+                    return;
+                }
+                
+                if (confirm('정말 삭제하시겠습니까?')) {
+                    // URL의 {id} 부분을 실제 ID로 대체
+                    const finalUrl = url.replace('{id}', deleteId);
+                    executeApi(finalUrl, 'DELETE', null, modal);
+                }
+            });
+        });
+
+        // 입력 필드 변경 시 JSON 업데이트
+        document.querySelectorAll('.form-fields input').forEach(input => {
+            input.addEventListener('input', function() {
+                const form = this.closest('form');
+                const jsonInput = form.querySelector('.json-input');
+                const data = JSON.parse(jsonInput.value);
+                data[this.dataset.paramName] = this.value;
+                jsonInput.value = JSON.stringify(data, null, 2);
+            });
+        });
+
+        // JSON 입력 변경 시 필드 업데이트
+        document.querySelectorAll('.json-input').forEach(textarea => {
+            try {
+                // 현재 텍스트를 객체로 파싱
+                const data = JSON.parse(textarea.value || '{}');
+                // 다시 예쁘게 포맷팅된 JSON 문자열로 변환
+                textarea.value = JSON.stringify(data, null, 2);
+            } catch (error) {
+                textarea.value = '{}';
+            }
+        });
+
+        // Pinecone 인덱스 초기화 실행 버튼
+        document.querySelector('.confirm-clear-index').addEventListener('click', function() {
+            if (confirm('정말로 Pinecone 인덱스를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                const modal = this.closest('.modal');
+                executeApi('/chatbot/clear-pinecone-index/', 'POST', {}, modal);
+            }
+        });
+
+        // 카페 데이터 인덱싱 실행 버튼 이벤트 추가
+        document.querySelectorAll('.execute-indexing').forEach(button => {
+            button.addEventListener('click', function() {
+                const modal = this.closest('.modal');
+                executeApi('/chatbot/index-cafe-data/', 'POST', {}, modal);
+            });
+        });
+
+        // Pinecone 통계 조회 실행 버튼
+        document.querySelector('.execute-pinecone-stats').addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            const vectorized = document.getElementById('vectorized-param').checked ? 'true' : 'false';
+            const allowedCategory = document.getElementById('allowed-category-param').checked ? 'true' : 'false';
+            const allowedAuthor = document.getElementById('allowed-author-param').checked ? 'true' : 'false';
+            
+            // URL 구성
+            const url = `/chatbot/pinecone-stats/?vectorized=${vectorized}&allowed_category=${allowedCategory}&allowed_author=${allowedAuthor}`;
+            
+            executePineconeStatsApi(url, modal);
+        });
+
+        // Pinecone 통계 API 실행 함수
+        function executePineconeStatsApi(url, modal) {
+            const spinner = modal.querySelector('.loading-spinner');
+            const resultContainer = modal.querySelector('.result-container');
+            
+            spinner.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => showResult(modal, data))
+            .catch(error => showResult(modal, {error: error.message}))
+            .finally(() => {
+                spinner.style.display = 'none';
+            });
+        }
+
+        // API 실행 함수
+        function executeApi(url, method, data, modal) {
+            const spinner = modal.querySelector('.loading-spinner');
+            const resultContainer = modal.querySelector('.result-container');
+            
+            spinner.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            };
+            
+            if (data && (method === 'POST' || method === 'PUT')) {
+                options.body = JSON.stringify(data);
+            }
+            
+            fetch(url, options)
+                .then(response => response.json())
+                .then(data => showResult(modal, data))
+                .catch(error => showResult(modal, {error: error.message}))
+                .finally(() => {
+                    spinner.style.display = 'none';
+                });
+        }
+
+        // 결과 표시 함수
+        function showResult(modal, data) {
+            const resultContainer = modal.querySelector('.result-container');
+            const resultDisplay = modal.querySelector('.result-display');
+            resultDisplay.textContent = JSON.stringify(data, null, 2);
+            resultContainer.style.display = 'block';
+        }
+
+        // CSRF 토큰 쿠키 가져오기
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    });
+    </script>
+</body>
+</html>
