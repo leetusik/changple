@@ -180,9 +180,6 @@
                 // Add user message to chat
                 addMessageToChat('user', query);
                 
-                // Clear input
-                this.value = ''; // 입력 필드 비우기
-                
                 // 로딩 메시지 추가
                 const loadingId = addLoadingMessage();
                 
@@ -237,24 +234,25 @@
                         
                         // 검색 결과로 카드 업데이트
                         if (data.search_results && data.search_results.length > 0) {
+                            console.log("Received search results:", data.search_results);
                             updateSearchCards(data.search_results);
                         }
                             
                         // 무료 사용 횟수 감소 및 표시
-                            if (remainingFreeCount > 0) {
-                                remainingFreeCount--;
-                            }
-                            addFreeUseCount(remainingFreeCount);
+                        if (remainingFreeCount > 0) {
+                            remainingFreeCount--;
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        // 로딩 메시지 제거
-                        removeLoadingMessage(loadingId);
-                        // 오류 메시지 추가
-                        addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
-                        addFreeUseCount(remainingFreeCount); // 에러 발생 시에도 카운트 표시
-                    });
+                        addFreeUseCount(remainingFreeCount);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // 로딩 메시지 제거
+                    removeLoadingMessage(loadingId);
+                    // 오류 메시지 추가
+                    addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
+                    addFreeUseCount(remainingFreeCount); // 에러 발생 시에도 카운트 표시
+                });
             }
             
             // 무료 사용 카운트 추가 함수
@@ -273,9 +271,6 @@
                 `;
                 
                 promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
-                
-                // 새로 추가된 요소 찾기
-                const counterElement = document.getElementById(counterId);
             }
             
             // 대화 메시지를 화면에 추가하는 함수
@@ -354,7 +349,7 @@
                     
                     for (let i = 0; i < maxCardsToShow; i++) {
                         const result = searchResults[i];
-                        const title = result.metadata.title || '제목 없음';
+                        const title = result.metadata && result.metadata.title || '제목 없음';
                         // 타이틀 25자로 제한
                         const shortTitle = title.length > 25
                             ? title.substring(0, 25) + '...' 
@@ -366,7 +361,7 @@
                             ? content.substring(0, 15) + '...' 
                             : content;
                         
-                        const url = result.metadata.url || 'https://cafe.naver.com';
+                        const url = result.metadata && result.metadata.url || 'https://cafe.naver.com';
                         
                         // 카드 요소 생성
                         const cardHTML = `

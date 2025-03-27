@@ -243,13 +243,28 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         run_name="GenerateResponse"
     )
 
+    # Function to format the final response including source documents
+    def format_response(result):
+        if isinstance(result, dict) and "docs" in result:
+            # Structure the response to include both the answer and source documents
+            return {
+                "answer": result.get("text", ""),
+                "source_documents": result.get("docs", []),
+            }
+        return result
+
     # Combine all chains into the final RAG chain
     return (
         RunnablePassthrough.assign(
             chat_history=serialize_history
         )  # Convert chat history
         | context  # Retrieve and format documents
-        | response_synthesizer  # Generate the final response
+        | RunnablePassthrough.assign(
+            text=response_synthesizer  # Generate the final response
+        )
+        | RunnableLambda(
+            format_response
+        )  # Format the response to include source documents
     )
 
 

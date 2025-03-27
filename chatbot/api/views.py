@@ -213,7 +213,55 @@ def chat(request):
         )
 
         # Run the chain and get the response
-        response = answer_chain.invoke(chain_input)
+        chain_response = answer_chain.invoke(chain_input)
+
+        # Extract response text
+        if isinstance(chain_response, dict):
+            response = chain_response.get("answer", chain_response)
+            # Extract search results if they exist in the response
+            search_results = chain_response.get("search_results", [])
+            # Extract source documents if they exist
+            source_docs = chain_response.get("source_documents", [])
+        else:
+            response = chain_response
+            search_results = []
+            source_docs = []
+
+        # If source_docs is available but search_results is not, convert source_docs to search_results format
+        if not search_results and source_docs:
+            search_results = []
+            for i, doc in enumerate(source_docs):
+                search_results.append(
+                    {
+                        "metadata": {
+                            "title": doc.metadata.get("title", f"Source {i+1}"),
+                            "url": doc.metadata.get("url", ""),
+                        },
+                        "content": doc.page_content[:200],  # Limit content length
+                    }
+                )
+
+        # If chain.py's retriever_chain was used, try to extract the docs that were retrieved
+        if not search_results:
+            try:
+                # Get the docs from context
+                docs = chain_input.get("docs", [])
+                if docs:
+                    search_results = []
+                    for i, doc in enumerate(docs):
+                        search_results.append(
+                            {
+                                "metadata": {
+                                    "title": doc.metadata.get("title", f"Source {i+1}"),
+                                    "url": doc.metadata.get("url", ""),
+                                },
+                                "content": doc.page_content[
+                                    :200
+                                ],  # Limit content length
+                            }
+                        )
+            except Exception as e:
+                logger.info(f"Could not extract docs from context: {str(e)}")
 
         # Save the messages to the database
         ChatMessage.objects.create(session=chat_session, role="user", content=query)
@@ -224,10 +272,6 @@ def chat(request):
         # Update chain history with this interaction
         updated_history = list(chain_history)  # Make a copy
         updated_history.append({"human": query, "ai": response})
-
-        # For simplicity, we'll pretend we have search results (empty for now)
-        # If your chain.py actually returns search results, you can extract them
-        search_results = []
 
         return Response(
             {
