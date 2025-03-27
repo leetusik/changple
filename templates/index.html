@@ -92,6 +92,8 @@
         </div>
     </div>
 
+    {% csrf_token %}
+
     {% if user.is_authenticated %}
     <script src="{% static 'js/index.js' %}"></script>
     <script>
@@ -99,6 +101,11 @@
             const inputBox = document.querySelector('.input-box-unlocked');
             const sendBtn = document.querySelector('.send-btn');
             const changpleBtn = document.querySelector('.changple-btn');
+            
+            // Reset input field state on page load
+            inputBox.disabled = false;
+            inputBox.placeholder = "창업의 모든 것을 물어보세요";
+            inputBox.value = "";
             
             // Show/hide the appropriate button based on input content
             inputBox.addEventListener('input', function() {
@@ -130,8 +137,51 @@
             function sendChatMessage() {
                 const message = inputBox.value.trim();
                 if (message) {
-                    // Redirect to chat view with the message
-                    window.location.href = `/chatbot/chat-view/?message=${encodeURIComponent(message)}`;
+                    console.log("Sending message:", message);
+                    
+                    // Get CSRF token
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    console.log("CSRF token obtained:", csrfToken ? "Yes" : "No");
+                    
+                    // Do not disable input - just clear it
+                    inputBox.value = "";
+                    inputBox.dispatchEvent(new Event('input'));
+                    
+                    // Simple approach - just use FormData
+                    const formData = new FormData();
+                    formData.append('message', message);
+                    
+                    fetch('/chat/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log("Response status:", response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Response data:", data);
+                        if (data.error) {
+                            alert(`오류가 발생했습니다: ${data.error}`);
+                            return;
+                        }
+                        
+                        if (data.redirect_url) {
+                            // Redirect to the new session URL
+                            console.log("Redirecting to:", data.redirect_url);
+                            window.location.href = data.redirect_url;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert("요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+                    });
                 }
             }
             
