@@ -257,7 +257,7 @@ PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME")
 
 # 임베딩 모델 설정
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
 
 # 텍스트 분할 설정
 TEXT_SPLITTER_CHUNK_SIZE = 1000

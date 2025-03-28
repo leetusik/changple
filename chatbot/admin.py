@@ -1,19 +1,26 @@
 from django.contrib import admin
-from .models import Prompt, ABTest
 
-# Register your models here.
+from .models import ChatMessage, ChatSession
 
-@admin.register(Prompt)
-class PromptAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'score', 'num_exposure', 'updated_at', 'description')
-    search_fields = ('name', 'content', 'description')
-    # list_filter = ('updated_at', 'created_at')
 
-@admin.register(ABTest)
-class ABTestAdmin(admin.ModelAdmin):
-    list_display = ('query', 'prompt_a', 'prompt_b', 'llm_model', 'winner', 'created_at')
-    search_fields = ('query', 'winner')
-    # list_filter = ('winner', 'llm_model')
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request)
+@admin.register(ChatSession)
+class ChatSessionAdmin(admin.ModelAdmin):
+    list_display = ("session_id", "created_at", "updated_at")
+    search_fields = ("session_id",)
+    readonly_fields = ("session_nonce",)
+    list_filter = ("created_at", "updated_at")
+    date_hierarchy = "created_at"
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ("session", "role", "short_content", "created_at")
+    list_filter = ("role", "created_at")
+    search_fields = ("content", "session__session_id")
+    readonly_fields = ("created_at",)
+    date_hierarchy = "created_at"
+
+    def short_content(self, obj):
+        return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content
+
+    short_content.short_description = "Content"

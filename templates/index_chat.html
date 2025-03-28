@@ -126,18 +126,32 @@
             // 무료 사용 횟수 초기화 (총 10회)
             let remainingFreeCount = 10;
             
-            // URL에서 message 파라미터 가져오기
-            const urlParams = new URLSearchParams(window.location.search);
-            const userMessage = urlParams.get('message');
+            // Get the initial message from Django context
+            const initialMessage = "{{ initial_message|escapejs }}";
             
-            if (userMessage) {
-                // 사용자 메시지가 있으면 chat API 호출
-                callChatAPI(userMessage);
+            if (initialMessage) {
+                // Process the initial message if available
+                callChatAPI(initialMessage);
             }
             
             // 입력 필드와 전송 버튼 가져오기
             const inputBox = document.querySelector('.input-box-unlocked');
             const sendBtn = document.querySelector('.send-btn');
+            const changpleBtn = document.querySelector('.changple-btn');
+            
+            // Show/hide the appropriate button based on input content
+            inputBox.addEventListener('input', function() {
+                if (this.value.trim() !== '') {
+                    changpleBtn.style.display = 'none';
+                    sendBtn.style.display = 'flex';
+                } else {
+                    changpleBtn.style.display = 'flex';
+                    sendBtn.style.display = 'none';
+                }
+            });
+            
+            // Trigger input event to set initial state
+            inputBox.dispatchEvent(new Event('input'));
             
             // 전송 버튼 클릭 이벤트
             sendBtn.addEventListener('click', function() {
@@ -145,6 +159,7 @@
                 if (message) {
                     callChatAPI(message);
                     inputBox.value = ''; // 입력 필드 비우기
+                    inputBox.dispatchEvent(new Event('input')); // Update button display
                 }
             });
             
@@ -155,19 +170,20 @@
                     if (message) {
                         callChatAPI(message);
                         this.value = ''; // 입력 필드 비우기
+                        this.dispatchEvent(new Event('input')); // Update button display
                     }
                 }
             });
             
             // Chat API 호출 함수
             function callChatAPI(query) {
-                // 사용자 메시지를 대화 영역에 추가
+                // Add user message to chat
                 addMessageToChat('user', query);
                 
                 // 로딩 메시지 추가
                 const loadingId = addLoadingMessage();
                 
-                fetch('/chatbot/chat/', {
+                fetch('/api/chat/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -175,6 +191,7 @@
                     },
                     body: JSON.stringify({
                         query: query,
+                        session_nonce: "{{ chat_session.session_nonce }}",
                         history: chatHistory // 대화 기록 전송
                     })
                 })
@@ -183,17 +200,44 @@
                     // 로딩 메시지 제거
                     removeLoadingMessage(loadingId);
                     
+                    // Check for errors first
+                    if (data.error) {
+                        addMessageToChat('assistant', `오류가 발생했습니다: ${data.error}`);
+                        addFreeUseCount(remainingFreeCount);
+                        return;
+                    }
+                    
                     // API 응답 처리
                     if (data.response) {
                         // 응답을 대화 영역에 추가
                         addMessageToChat('assistant', data.response);
                         
-                        // 대화 기록 업데이트
-                        chatHistory = data.history || [];
+                        // 대화 기록 업데이트 - Format to match what chain.py expects
+                        if (chatHistory.length === 0) {
+                            // First message - create initial entry
+                            chatHistory.push({
+                                "human": query,
+                                "ai": data.response
+                            });
+                        } else {
+                            // Follow-up - ensure correct format for rephrasing
+                            chatHistory.push({
+                                "human": query,
+                                "ai": data.response
+                            });
+                        }
+                        
+                        // If server sent back history, use that instead
+                        if (data.history && data.history.length > 0) {
+                            chatHistory = data.history;
+                        }
                         
                         // 검색 결과로 카드 업데이트
-                        updateSearchCards(data.search_results);
-                        
+                        if (data.search_results && data.search_results.length > 0) {
+                            console.log("Received search results:", data.search_results);
+                            updateSearchCards(data.search_results);
+                        }
+                            
                         // 무료 사용 횟수 감소 및 표시
                         if (remainingFreeCount > 0) {
                             remainingFreeCount--;
@@ -227,9 +271,6 @@
                 `;
                 
                 promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
-                
-                // 새로 추가된 요소 찾기
-                const counterElement = document.getElementById(counterId);
             }
             
             // 대화 메시지를 화면에 추가하는 함수
@@ -308,7 +349,7 @@
                     
                     for (let i = 0; i < maxCardsToShow; i++) {
                         const result = searchResults[i];
-                        const title = result.metadata.title || '제목 없음';
+                        const title = result.metadata && result.metadata.title || '제목 없음';
                         // 타이틀 25자로 제한
                         const shortTitle = title.length > 25
                             ? title.substring(0, 25) + '...' 
@@ -320,7 +361,7 @@
                             ? content.substring(0, 15) + '...' 
                             : content;
                         
-                        const url = result.metadata.url || 'https://cafe.naver.com';
+                        const url = result.metadata && result.metadata.url || 'https://cafe.naver.com';
                         
                         // 카드 요소 생성
                         const cardHTML = `
