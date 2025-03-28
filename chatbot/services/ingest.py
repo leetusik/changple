@@ -1,11 +1,18 @@
-"""Load posts from CSV, clean up, split, ingest into Pinecone for RAG chatbot."""
+"""Load posts from database, clean up, split, ingest into Pinecone for RAG chatbot."""
 
 import logging
 import os
 from typing import List
 
-import pandas as pd
+import django
 from dotenv import load_dotenv
+
+# Setup Django environment
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+django.setup()
+
+# Now import Django models after setting up Django
+from scraper.models import AllowedAuthor, NaverCafeData
 
 load_dotenv()
 
@@ -28,59 +35,56 @@ def get_embeddings_model() -> Embeddings:
     return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
 
 
-def load_posts_from_csv(csv_path: str = "posts.csv") -> List[Document]:
+def load_posts_from_database() -> List[Document]:
     """
-    Load posts from CSV file and convert to documents.
-
-    Args:
-        csv_path: Path to the CSV file
+    Load posts from database and convert to documents.
+    Only retrieve posts from allowed authors and where vectorized=False.
 
     Returns:
         List of Documents
     """
     try:
-        df = pd.read_csv(csv_path)
-        logger.info(f"Loaded {len(df)} posts from {csv_path}")
+        # Get allowed authors
+        allowed_authors = list(
+            AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
+        )
+
+        # Query posts from allowed authors and not yet vectorized
+        posts = NaverCafeData.objects.filter(
+            author__in=allowed_authors, vectorized=False
+        )
+
+        logger.info(f"Loaded {posts.count()} posts from database")
 
         documents = []
-        for _, row in df.iterrows():
+        for post in posts:
             # Only use the content for the document text, title is in metadata
-            text = row["content"]
+            text = post.content
 
             # Create document with metadata
             doc = Document(
                 page_content=text,
                 metadata={
-                    "title": row["title"],
-                    "author": (
-                        row["author"]
-                        if "author" in row and pd.notna(row["author"])
-                        else ""
-                    ),
-                    "category": (
-                        row["category"]
-                        if "category" in row and pd.notna(row["category"])
-                        else ""
-                    ),
-                    "published_date": (
-                        row["published_date"]
-                        if "published_date" in row and pd.notna(row["published_date"])
-                        else ""
-                    ),
-                    "url": row["url"] if "url" in row and pd.notna(row["url"]) else "",
+                    "post_id": post.post_id,  # Keep track of post_id for later updating
+                    "title": post.title or "",
+                    "author": post.author or "",
+                    "category": post.category or "",
+                    "published_date": post.published_date or "",
+                    "url": post.url or "",
                 },
             )
             documents.append(doc)
 
         return documents
     except Exception as e:
-        logger.error(f"Error loading posts from CSV: {e}")
+        logger.error(f"Error loading posts from database: {e}")
         return []
 
 
 def ingest_docs():
     """
-    Load posts from CSV, split into chunks, and ingest into Pinecone.
+    Load posts from database, split into chunks, and ingest into Pinecone.
+    Only ingests posts from allowed authors and where vectorized=False.
     """
     PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
     PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
@@ -115,13 +119,13 @@ def ingest_docs():
         logger.info(f"Created new Pinecone index: {PINECONE_INDEX_NAME}")
 
     # Load posts
-    raw_docs = load_posts_from_csv()
+    raw_docs = load_posts_from_database()
 
     if not raw_docs:
-        logger.error("No documents loaded from CSV")
+        logger.error("No documents loaded from database")
         return
 
-    logger.info(f"Loaded {len(raw_docs)} documents from posts.csv")
+    logger.info(f"Loaded {len(raw_docs)} documents from database")
 
     # Process each document to ensure title is preserved in each chunk
     all_chunks = []
@@ -154,14 +158,19 @@ def ingest_docs():
     stats = index.describe_index_stats()
     logger.info(f"Vector store now has {stats.total_vector_count} vectors")
 
-    # Update vectorized flag in CSV (optional)
+    # Update vectorized flag in database
     try:
-        df = pd.read_csv("posts.csv")
-        df["vectorized"] = True
-        df.to_csv("posts.csv", index=False)
-        logger.info("Updated vectorized flag in posts.csv")
+        # Extract post_ids from the documents we processed
+        post_ids = [doc.metadata.get("post_id") for doc in raw_docs]
+
+        # Update all processed posts as vectorized=True
+        updated_count = NaverCafeData.objects.filter(post_id__in=post_ids).update(
+            vectorized=True
+        )
+
+        logger.info(f"Updated vectorized flag for {updated_count} posts in database")
     except Exception as e:
-        logger.warning(f"Could not update vectorized flag in CSV: {e}")
+        logger.warning(f"Could not update vectorized flag in database: {e}")
 
 
 if __name__ == "__main__":
