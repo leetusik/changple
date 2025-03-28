@@ -66,11 +66,11 @@ def load_posts_from_database() -> List[Document]:
                 page_content=text,
                 metadata={
                     "post_id": post.post_id,  # Keep track of post_id for later updating
-                    "title": post.title,
-                    "author": post.author,
-                    "category": post.category,
-                    "published_date": post.published_date,
-                    "url": post.url,
+                    "title": post.title or "",
+                    "author": post.author or "",
+                    "category": post.category or "",
+                    "published_date": post.published_date or "",
+                    "url": post.url or "",
                 },
             )
             documents.append(doc)
