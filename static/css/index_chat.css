@@ -1,14 +1,22 @@
+@font-face {
+    font-family: 'SpoqaHanSansNeo-Regular';
+    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SpoqaHanSansNeo-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'SUIT', sans-serif;
+    /* font-family: 'Spoqa Han Sans Neo'; */
 }
 
 body {
     min-height: 100vh;
     overflow-x: hidden;
     overflow-y: hidden; /* Disable scrolling */
+    font-family: 'SpoqaHanSansNeo-Regular', sans-serif;
 
 }
 
@@ -127,6 +135,7 @@ body {
     align-items: flex-start;
     padding-left: 10px;
     padding-bottom: 100px;
+    gap: 10px;
     
 }
 
@@ -145,6 +154,24 @@ body {
     margin: 0; /* 기본 마진 제거 */
     color: #617DAE;
 }
+
+
+.pay-use-btn {
+    display: inline-block; /* 컨테이너를 내용물 크기에 맞게 조절 */
+    height: 40px;
+    /* background-color: white; */
+    border-radius: 10px;
+    outline: 1px solid #8097C0;
+    padding: 0 4px; /* 좌우 4px 패딩 추가 */
+}
+
+.pay-use-btn p {
+    line-height: 40px; /* 수직 중앙 정렬을 위해 컨테이너 높이와 동일하게 설정 */
+    white-space: nowrap; /* 텍스트를 한 줄로 유지 */
+    margin: 0; /* 기본 마진 제거 */
+    color: #617DAE;
+}
+
 
 .prompt-p {
     width: 1040px;
@@ -180,13 +207,42 @@ body {
     top: 0;
     left: 0;
     width: 100%;
+    height: 80px;
     z-index: 1000;
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: 10px;
     padding: 20px;
 }
+
+.cp-logo-container {
+    /* width: 100px; */
+    /* height: auto; */
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    /* background-color: #0366d6; */
+}
+
+.cp-logo {
+    /* color: red; */
+    height: auto;
+    width: 140px;
+    /* fill: #617DAE; */
+}
+
+
+.right-menu {
+    /* background-color: #0366d6; */
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    /* align-items: center; */
+    gap: 10px; /* 기존보다 더 좁은 간격 */
+}
+
 
 .login-btn, .mypage-btn {
     width: auto;
@@ -350,6 +406,7 @@ body {
     border: 0;
     outline: 1px solid #8097C0;
     color: #A4A4A4;
+    font-family: 'SpoqaHanSansNeo-Regular', sans-serif;
     font-size: 20px;
     font-weight: 400;
     padding-bottom: 90px;
@@ -617,6 +674,56 @@ body {
 
 
 
+/* ------------마크다운 렌더링을 위한 스타일------------- */
+
+
+.prompt-p h1, .prompt-p h2, .prompt-p h3 {
+    margin: 10px 0;
+    text-align: left;
+}
+
+.prompt-p code {
+    background-color: #f4f4f4;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.prompt-p pre {
+    background-color: #f4f4f4;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+    text-align: left;
+}
+
+.prompt-p blockquote {
+    border-left: 4px solid #ccc;
+    margin-left: 0;
+    padding-left: 10px;
+    color: #666;
+    text-align: left;
+}
+
+.prompt-p a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.prompt-p a:hover {
+    text-decoration: underline;
+}
+
+.prompt-p ul, .prompt-p ol {
+    text-align: left;
+    padding-left: 20px;
+}
+
+.prompt-p hr {
+    border: 0;
+    height: 1px;
+    background: #ccc;
+    margin: 10px 0;
+}
 
 
 
