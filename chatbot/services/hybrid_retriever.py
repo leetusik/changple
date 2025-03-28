@@ -57,12 +57,12 @@ class HybridRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager=None
     ) -> List[Document]:
-        # vector search - k 대신 2*k 사용
+        # vector search
         vector_results = self.vectorstore.vectorstore.similarity_search_with_relevance_scores(
-            query, k=self.k * 2
+            query, k=self.k * 3
         )
         
-        # BM25 search - k 대신 2*k 사용
+        # BM25 search
         with self.whoosh_ix.searcher(weighting=scoring.BM25F(
             title_B=2.0,
             content_B=1.0,
@@ -71,7 +71,7 @@ class HybridRetriever(BaseRetriever):
         )) as searcher:
             whoosh_query = MultifieldParser(["title", "content", "category", "author"], 
                                           self.whoosh_ix.schema).parse(query)
-            whoosh_results = searcher.search(whoosh_query, limit=self.k * 2)  # 2*k로 변경
+            whoosh_results = searcher.search(whoosh_query, limit=self.k * 3) 
             
             # Whoosh results (Document, score) 
             bm25_results = [
@@ -124,7 +124,7 @@ class HybridRetriever(BaseRetriever):
             reverse=True
         )
         
-        return [item["doc"] for item in sorted_results[:self.k]]  # k개만 반환
+        return [item["doc"] for item in sorted_results[:self.k]]  # pick top k
 
     async def _aget_relevant_documents(
         self, query: str, *, run_manager=None

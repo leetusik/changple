@@ -48,6 +48,16 @@ def index(request):
     # 메인 페이지 렌더링
     return render(request, "index.html")
 
+class HomeView(View):
+    """
+    홈페이지 뷰
+    사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
+    """
+
+    def get(self, request):
+        # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
+        return render(request, "index.html")
+
 
 def chat_no_nonce_view(request):
     # Handle POST request (creating a session with initial message)
@@ -172,18 +182,6 @@ def chat_view(request, session_nonce=None):
 
     # index_chat.html 템플릿 렌더링
     return render(request, "index_chat.html", context)
-
-
-class HomeView(View):
-    """
-    홈페이지 뷰
-    사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
-    """
-
-    def get(self, request):
-        # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
-        return render(request, "index.html")
-
 
 @api_view(["POST"])
 def chat(request):
