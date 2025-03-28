@@ -1,10 +1,12 @@
 import logging
 import os
 import uuid
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
 from dotenv import load_dotenv
@@ -138,11 +140,34 @@ def chat_view(request, session_nonce=None):
         # Redirect to the new session URL
         return redirect(chat_session.get_absolute_url())
 
+    # Get user's remaining query count if user is authenticated
+    remaining_queries = 0
+    query_limit = 10  # Default limit
+    is_premium = False
+
+    if request.user.is_authenticated:
+        # Check if user has available queries and get remaining count
+        user = request.user
+
+        # Reset counter if it's a new day
+        if user.has_available_queries():
+            remaining_queries = user.daily_query_limit - user.daily_queries_used
+
+        query_limit = user.daily_query_limit
+        is_premium = (
+            user.is_premium
+            and user.premium_until
+            and user.premium_until > timezone.now()
+        )
+
     # 템플릿에 전달할 기본 컨텍스트
     context = {
         "chat_session": chat_session,
         "chat_history": chat_history,
         "initial_message": initial_message,  # Pass initial message to template
+        "remaining_queries": remaining_queries,
+        "query_limit": query_limit,
+        "is_premium": is_premium,
     }
 
     # index_chat.html 템플릿 렌더링
@@ -170,6 +195,42 @@ def chat(request):
 
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
+
+    # Check if user has available queries
+    remaining_queries = 0
+    query_limit = 10
+    is_premium = False
+
+    if request.user.is_authenticated:
+        user = request.user
+
+        # Check if user has available queries
+        if not user.has_available_queries():
+            return Response(
+                {
+                    "error": "일일 질문 한도에 도달했습니다. 내일 다시 시도하거나 프리미엄으로 업그레이드하세요.",
+                    "remaining_queries": 0,
+                    "query_limit": user.daily_query_limit,
+                    "is_premium": user.is_premium,
+                },
+                status=403,
+            )
+
+        # Get remaining queries before incrementing
+        remaining_queries = user.daily_query_limit - user.daily_queries_used
+        query_limit = user.daily_query_limit
+        is_premium = (
+            user.is_premium
+            and user.premium_until
+            and user.premium_until > timezone.now()
+        )
+
+        # Only increment if not premium
+        if not is_premium:
+            # Increment query count
+            user.increment_query_count()
+            # Update remaining count
+            remaining_queries = user.daily_query_limit - user.daily_queries_used
 
     # Get or create chat session
     try:
@@ -276,28 +337,40 @@ def chat(request):
                             }
                         )
             except Exception as e:
-                logger.info(f"Could not extract docs from context: {str(e)}")
+                logger.warning(f"Error extracting search results: {str(e)}")
 
-        # Save the messages to the database
-        ChatMessage.objects.create(session=chat_session, role="user", content=query)
-        ChatMessage.objects.create(
+        # Save user message to database
+        user_msg = ChatMessage.objects.create(
+            session=chat_session, role="user", content=query
+        )
+        # Save AI response to database
+        ai_msg = ChatMessage.objects.create(
             session=chat_session, role="assistant", content=response
         )
 
-        # Update chain history with this interaction
-        updated_history = list(chain_history)  # Make a copy
-        updated_history.append({"human": query, "ai": response})
-
+        # Add query count info to response
         return Response(
             {
                 "response": response,
                 "search_results": search_results,
-                "history": updated_history,
-                "session_nonce": str(chat_session.session_nonce),
+                "history": chain_history,
+                "remaining_queries": remaining_queries,
+                "query_limit": query_limit,
+                "is_premium": is_premium,
             }
         )
 
     except Exception as e:
-        logger.error(f"Error in chat API: {str(e)}")
-        print(f"Error in chat API: {str(e)}")
-        return Response({"error": str(e)}, status=500)
+        import traceback
+
+        logger.error(f"Error in chatbot API: {str(e)}")
+        logger.error(traceback.format_exc())
+        return Response(
+            {
+                "error": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                "remaining_queries": remaining_queries,
+                "query_limit": query_limit,
+                "is_premium": is_premium,
+            },
+            status=500,
+        )
