@@ -24,6 +24,7 @@ from pinecone import Pinecone
 from pydantic import BaseModel
 
 from chatbot.services.ingest import get_embeddings_model
+from chatbot.services.hybrid_retriever import HybridRetriever
 
 # System prompt template that instructs the LLM how to respond to user questions
 # It defines the response format, tone, and how to handle citations
@@ -84,11 +85,12 @@ def get_retriever() -> BaseRetriever:
 
     Returns:
         BaseRetriever: A retriever that searches Pinecone for relevant documents
+        hybrid retriever connected to the Pinecone vector database.
     """
     # Initialize Pinecone
     pc = Pinecone(api_key=PINECONE_API_KEY)
 
-    # Get embeddings model from ingest.py
+    # Get embeddings model
     embedding = get_embeddings_model()
 
     # Create Langchain Pinecone vectorstore connected to our existing index
@@ -101,7 +103,14 @@ def get_retriever() -> BaseRetriever:
 
     # Return as retriever with k=3 (retrieve 3 most relevant chunks)
     # K=3 is a good balance for Korean text, providing enough context without too much noise
-    return vectorstore.as_retriever(search_kwargs={"k": 3})
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    
+    return HybridRetriever(
+        vector_store=vector_retriever,
+        whoosh_index_dir="chatbot/data/whoosh_index",
+        alpha=0.5,   #  weight between vector and BM25 scores (1: vector, 0: BM25)
+        k=3        #  number of documents to return
+    )
 
 
 def create_retriever_chain(
@@ -246,10 +255,12 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     # Function to format the final response including source documents
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
-            # Structure the response to include both the answer and source documents
+            
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
+                # 유사도 점수가 필요하면 docs에서 메타데이터를 추출하거나 다른 방식으로 대체
+                "similarity_scores": [0.0] * len(result.get("docs", []))  # 임시 점수
             }
         return result
 
