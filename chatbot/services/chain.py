@@ -80,7 +80,7 @@ def get_retriever() -> BaseRetriever:
     Creates and returns a retriever connected to the Pinecone vector database.
 
     The retriever is responsible for finding relevant documents based on the user's query.
-    It uses the text-embedding-3-small model to convert queries to vectors.
+    It uses the text-embedding-3-large model to convert queries to vectors.
 
     Returns:
         BaseRetriever: A retriever that searches Pinecone for relevant documents
