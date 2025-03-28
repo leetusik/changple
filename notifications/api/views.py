@@ -106,6 +106,9 @@ class ConsultationRequestAPIView(APIView):
                 additional_message=additional_message,
             )
 
+            chat_session.request_sent = True
+            chat_session.save()
+
             return Response(
                 {
                     "status": "success",
