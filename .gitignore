@@ -179,3 +179,7 @@ cython_debug/
 
 # plus
 *.rdb
+
+# Whoosh index files
+whoosh_index/
+**/whoosh_index/

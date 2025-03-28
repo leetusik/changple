@@ -21,7 +21,7 @@ class HybridRetriever(BaseRetriever):
         vector_store,
         whoosh_index_dir: str = "chatbot/data/whoosh_index",
         alpha: float = 0.5,
-        k: int = 4  # default value
+        k: int = 4
     ):
         """
         Args:
@@ -33,24 +33,23 @@ class HybridRetriever(BaseRetriever):
         super().__init__()
         self.vectorstore = vector_store
         
-        # create or open Whoosh index
+        # Whoosh 인덱스 확인 및 열기
+        if not os.path.exists(whoosh_index_dir):
+            raise FileNotFoundError(
+                "Whoosh 인덱스를 찾을 수 없습니다. "
+                "다음 명령어를 실행하여 인덱스를 생성해주세요:\n"
+                "python manage.py run_whoosh_index"
+            )
+        
         try:
             self.whoosh_ix = open_dir(whoosh_index_dir)
-        except:
-            # if index doesn't exist, create it
-            schema = Schema(
-                post_id=ID(stored=True),           # 원래 문서의 post_id 
-                title=TEXT(stored=True),           # 제목 필드
-                content=TEXT(stored=True),         # 본문 내용
-                author=TEXT(stored=True),          # 작성자
-                category=TEXT(stored=True),        # 카테고리
-                published_date=STORED(),           # 발행일
-                url=ID(stored=True)                # URL
+        except Exception as e:
+            raise Exception(
+                f"Whoosh 인덱스를 여는 중 오류가 발생했습니다: {str(e)}\n"
+                "인덱스가 손상되었을 수 있습니다. 다음 명령어로 재생성해주세요:\n"
+                "python manage.py run_whoosh_index"
             )
-            if not os.path.exists(whoosh_index_dir):
-                os.makedirs(whoosh_index_dir)
-            self.whoosh_ix = create_in(whoosh_index_dir, schema)
-            
+        
         self.alpha = alpha
         self.k = k
 
