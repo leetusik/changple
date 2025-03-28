@@ -13,6 +13,7 @@ class ChatSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     session_nonce = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    request_sent = models.BooleanField(default=False)
 
     def __str__(self):
         return f"채팅 세션 {self.session_id}"

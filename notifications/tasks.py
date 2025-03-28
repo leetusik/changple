@@ -63,3 +63,27 @@ def send_subscription_confirmation_email(
             f"Failed to send subscription confirmation email to {user_email}: {str(e)}"
         )
         raise
+
+
+@django_rq.job("default", timeout=60)
+def send_consultation_request_email(
+    host_email, user_email, chat_history, additional_message=""
+):
+    """Send 1:1 consultation request email with chat history to host"""
+    try:
+        logger.info(f"Sending consultation request from {user_email} to {host_email}")
+        subject = f"1:1 상담 요청 - {user_email}"
+
+        return EmailService.send_template_email(
+            subject=subject,
+            template="notifications/email/consultation_request.html",
+            context={
+                "user_email": user_email,
+                "chat_history": chat_history,
+                "additional_message": additional_message,
+            },
+            recipients=[host_email],
+        )
+    except Exception as e:
+        logger.error(f"Failed to send consultation request email: {str(e)}")
+        raise
