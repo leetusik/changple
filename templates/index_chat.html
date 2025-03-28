@@ -59,6 +59,84 @@
             background: #ccc;
             margin: 10px 0;
         }
+        
+        /* 상담 요청 관련 스타일 */
+        .modal {
+            display: block;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .submit-btn {
+            background-color: #889DC4;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .submit-btn:hover {
+            background-color: #617DAE;
+        }
+        .consultation-btn {
+            background-color: #889DC4;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        .consultation-btn:hover {
+            background-color: #617DAE;
+        }
+        .consultation-request-button {
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .free-use-count-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -123,8 +201,10 @@
             // 대화 기록을 저장할 배열 추가
             let chatHistory = [];
             
-            // 무료 사용 횟수 초기화 (총 10회)
-            let remainingFreeCount = 10;
+            // Initialize query count from server data
+            let remainingQueries = {{ remaining_queries|default:0 }};
+            let queryLimit = {{ query_limit|default:10 }};
+            let isPremium = {{ is_premium|default:"false" }};
             
             // Get the initial message from Django context
             const initialMessage = "{{ initial_message|escapejs }}";
@@ -203,7 +283,15 @@
                     // Check for errors first
                     if (data.error) {
                         addMessageToChat('assistant', `오류가 발생했습니다: ${data.error}`);
-                        addFreeUseCount(remainingFreeCount);
+                        
+                        // Update query count from server data if available
+                        if (data.remaining_queries !== undefined) {
+                            remainingQueries = data.remaining_queries;
+                            queryLimit = data.query_limit || queryLimit;
+                            isPremium = data.is_premium || isPremium;
+                        }
+                        
+                        addFreeUseCount(remainingQueries, queryLimit);
                         return;
                     }
                     
@@ -238,11 +326,15 @@
                             updateSearchCards(data.search_results);
                         }
                             
-                        // 무료 사용 횟수 감소 및 표시
-                        if (remainingFreeCount > 0) {
-                            remainingFreeCount--;
+                        // Update query count from server data
+                        if (data.remaining_queries !== undefined) {
+                            remainingQueries = data.remaining_queries;
+                            queryLimit = data.query_limit || queryLimit;
+                            isPremium = data.is_premium || isPremium;
                         }
-                        addFreeUseCount(remainingFreeCount);
+                        
+                        // Display updated count
+                        addFreeUseCount(remainingQueries, queryLimit);
                     }
                 })
                 .catch(error => {
@@ -251,27 +343,47 @@
                     removeLoadingMessage(loadingId);
                     // 오류 메시지 추가
                     addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
-                    addFreeUseCount(remainingFreeCount); // 에러 발생 시에도 카운트 표시
+                    addFreeUseCount(remainingQueries, queryLimit);
                 });
             }
             
             // 무료 사용 카운트 추가 함수
-            function addFreeUseCount(count) {
+            function addFreeUseCount(remainingCount, totalLimit) {
+                // Use function parameters or default to global variables
+                const count = remainingCount !== undefined ? remainingCount : remainingQueries;
+                const limit = totalLimit !== undefined ? totalLimit : queryLimit;
+                
                 const promptContainer = document.querySelector('.prompt-wrapper');
                 
                 // 고유 ID 생성
                 const counterId = 'free-use-count-' + Date.now();
+                // Create unique ID for consultation button
+                const buttonId = 'open-consultation-modal-' + Date.now();
+                
+                let displayText = `무료 사용(${count}/${limit})`;
+                if (isPremium) {
+                    displayText = "프리미엄 이용자";
+                }
                 
                 const freeUseCountHTML = `
                     <div id="${counterId}" class="free-use-count-container">
                         <div class="free-use-count">
-                            <p>무료 사용(${count}/10)</p>
-                        </div>  
+                            <p>${displayText}</p>
+                        </div>
+                        <div class="consultation-request-button">
+                            <button id="${buttonId}" class="consultation-btn">1:1 상담 신청</button>
+                        </div>
                     </div>
                 `;
                 
                 promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
+                
+                // Add event listener to the specific button using the unique ID
+                document.getElementById(buttonId).addEventListener('click', function() {
+                    openConsultationModal();
+                });
             }
+
             
             // 대화 메시지를 화면에 추가하는 함수
             function addMessageToChat(role, content) {
@@ -398,6 +510,156 @@
                     }
                 }
                 return cookieValue;
+            }
+            
+            // Call addFreeUseCount initially to show the counter when page loads
+            addFreeUseCount(remainingQueries, queryLimit);
+            
+            // 상담 신청 모달 열기 함수
+            function openConsultationModal() {
+                console.log("Opening consultation modal"); // Debug log
+                
+                // 모달이 이미 있는지 확인
+                if (document.getElementById('consultation-modal')) {
+                    console.log("Modal already exists, showing it");
+                    document.getElementById('consultation-modal').style.display = 'block';
+                    return;
+                }
+                
+                console.log("Creating new modal");
+                
+                // 모달 HTML 생성
+                const modalHTML = `
+                    <div id="consultation-modal" class="modal">
+                        <div class="modal-content">
+                            <span class="close">&times;</span>
+                            <h2>1:1 상담 신청</h2>
+                            <p>상담 요청을 위해 이메일 주소를 입력해주세요.</p>
+                            <form id="consultation-form">
+                                <div class="form-group">
+                                    <label for="user-email">이메일 주소</label>
+                                    <input type="email" id="user-email" name="user-email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="additional-message">추가 메시지 (선택사항)</label>
+                                    <textarea id="additional-message" name="additional-message" rows="4"></textarea>
+                                </div>
+                                <button type="submit" class="submit-btn">상담 신청하기</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                
+                // 모달을 body에 추가
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                
+                // 닫기 버튼 이벤트 리스너
+                document.querySelector('.close').addEventListener('click', function() {
+                    document.getElementById('consultation-modal').style.display = 'none';
+                });
+                
+                // 모달 외부 클릭시 닫기
+                window.addEventListener('click', function(event) {
+                    if (event.target == document.getElementById('consultation-modal')) {
+                        document.getElementById('consultation-modal').style.display = 'none';
+                    }
+                });
+                
+                // 폼 제출 이벤트 리스너
+                document.getElementById('consultation-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    sendConsultationRequest();
+                });
+            }
+            
+            // 상담 신청 요청 보내기
+            function sendConsultationRequest() {
+                console.log("Sending consultation request");
+                const userEmail = document.getElementById('user-email').value;
+                const additionalMessage = document.getElementById('additional-message').value;
+                console.log("Email:", userEmail);
+                
+                // 모달 내용을 로딩 상태로 변경
+                const modalContent = document.querySelector('.modal-content');
+                const originalContent = modalContent.innerHTML;
+                modalContent.innerHTML = '<div style="text-align: center; padding: 20px;"><p>상담 요청을 전송 중입니다...</p></div>';
+                
+                const requestData = {
+                    user_email: userEmail,
+                    session_nonce: "{{ chat_session.session_nonce }}",
+                    message: additionalMessage
+                };
+                console.log("Request data:", requestData);
+                
+                // API 요청 보내기
+                fetch('/notifications/api/consultation-request/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    console.log("Response status:", response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Response data:", data);
+                    // 성공 또는 오류 메시지 표시
+                    if (data.status === 'success') {
+                        modalContent.innerHTML = `
+                            <div style="text-align: center; padding: 20px;">
+                                <h3>상담 요청이 성공적으로 전송되었습니다</h3>
+                                <p>이메일 주소로 답변을 보내드리겠습니다: ${userEmail}</p>
+                                <button id="close-success-modal" class="submit-btn">닫기</button>
+                            </div>
+                        `;
+                        document.getElementById('close-success-modal').addEventListener('click', function() {
+                            document.getElementById('consultation-modal').style.display = 'none';
+                        });
+                    } else {
+                        modalContent.innerHTML = `
+                            <div style="text-align: center; padding: 20px;">
+                                <h3>오류가 발생했습니다</h3>
+                                <p>${data.error || '상담 요청을 처리하는 중 오류가 발생했습니다.'}</p>
+                                <button id="try-again-btn" class="submit-btn">다시 시도하기</button>
+                            </div>
+                        `;
+                        document.getElementById('try-again-btn').addEventListener('click', function() {
+                            modalContent.innerHTML = originalContent;
+                            // 이벤트 리스너 다시 추가
+                            document.querySelector('.close').addEventListener('click', function() {
+                                document.getElementById('consultation-modal').style.display = 'none';
+                            });
+                            document.getElementById('consultation-form').addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                sendConsultationRequest();
+                            });
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error("Fetch error:", error);
+                    modalContent.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <h3>오류가 발생했습니다</h3>
+                            <p>상담 요청을 처리하는 중 오류가 발생했습니다.</p>
+                            <button id="try-again-btn" class="submit-btn">다시 시도하기</button>
+                        </div>
+                    `;
+                    document.getElementById('try-again-btn').addEventListener('click', function() {
+                        modalContent.innerHTML = originalContent;
+                        // 이벤트 리스너 다시 추가
+                        document.querySelector('.close').addEventListener('click', function() {
+                            document.getElementById('consultation-modal').style.display = 'none';
+                        });
+                        document.getElementById('consultation-form').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            sendConsultationRequest();
+                        });
+                    });
+                });
             }
         });
     </script>
