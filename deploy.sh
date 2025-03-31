@@ -57,7 +57,7 @@ docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
                 certbot/certbot certonly --standalone \
                 --non-interactive --agree-tos \
                 --email admin@example.com \
-                --domains 134.185.116.242 \
+                --domains ggulmae.com \
                 --http-01-port=80
 
 # Copy the generated certificate for Nginx
@@ -90,6 +90,6 @@ docker-compose exec web python manage.py schedule_crawler start --hour 15 --minu
 echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
-echo -e "${YELLOW}Your application is now available at https://134.185.116.242${NC}"
+echo -e "${YELLOW}Your application is now available at https://ggulmae.com${NC}"
 echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
 echo -e "${YELLOW}Database backups will be stored in the db_backups directory daily${NC}" 

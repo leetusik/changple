@@ -27,7 +27,7 @@ Review and update the `.env` file:
 ```
 DEBUG=0
 SECRET_KEY=your_django_secret_key_here_change_this_to_a_new_secure_random_string
-ALLOWED_HOSTS=134.185.116.242
+ALLOWED_HOSTS=ggulmae.com
 DJANGO_SETTINGS_MODULE=config.settings_production
 ```
 
