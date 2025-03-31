@@ -33,6 +33,10 @@ class HybridRetriever(BaseRetriever):
         super().__init__()
         self.vectorstore = vector_store
         
+        # 결과를 저장할 인스턴스 변수 추가
+        self.vector_results = []
+        self.bm25_results = []
+        
         # Whoosh 인덱스 확인 및 열기
         if not os.path.exists(whoosh_index_dir):
             raise FileNotFoundError(
@@ -57,23 +61,23 @@ class HybridRetriever(BaseRetriever):
         self, query: str, *, run_manager=None
     ) -> List[Document]:
         # vector search
-        vector_results = self.vectorstore.vectorstore.similarity_search_with_relevance_scores(
+        self.vector_results = self.vectorstore.vectorstore.similarity_search_with_relevance_scores(
             query, k=self.k * 3
         )
         
         # BM25 search
         with self.whoosh_ix.searcher(weighting=scoring.BM25F(
             title_B=2.0,
-            content_B=1.0,
-            author_B=0.5,
-            category_B=0.8
+            content_B=1.0
         )) as searcher:
-            whoosh_query = MultifieldParser(["title", "content", "category", "author"], 
+            whoosh_query = MultifieldParser(["title", "content"], 
                                           self.whoosh_ix.schema).parse(query)
+            print("BM25 검색 query: ", whoosh_query)
             whoosh_results = searcher.search(whoosh_query, limit=self.k * 3) 
-            
+            print("BM25 검색 결과: ", whoosh_results)
+
             # Whoosh results (Document, score) 
-            bm25_results = [
+            self.bm25_results = [
                 (Document(
                     page_content=r["content"], 
                     metadata={
@@ -92,9 +96,9 @@ class HybridRetriever(BaseRetriever):
         combined_scores = {}
         
         # vector search results
-        if vector_results:  # 결과가 있는 경우에만 정규화
-            max_vector_score = max(score for _, score in vector_results)
-            for doc, score in vector_results:
+        if self.vector_results:  # 결과가 있는 경우에만 정규화
+            max_vector_score = max(score for _, score in self.vector_results)
+            for doc, score in self.vector_results:
                 doc_id = doc.metadata.get("post_id")
                 normalized_score = score / max_vector_score if max_vector_score > 0 else 0
                 combined_scores[doc_id] = {
@@ -103,9 +107,9 @@ class HybridRetriever(BaseRetriever):
                 }
 
         # BM25 results
-        if bm25_results:  # 결과가 있는 경우에만 정규화
-            max_bm25_score = max(score for _, score in bm25_results)
-            for doc, score in bm25_results:
+        if self.bm25_results:  # 결과가 있는 경우에만 정규화
+            max_bm25_score = max(score for _, score in self.bm25_results)
+            for doc, score in self.bm25_results:
                 doc_id = doc.metadata.get("post_id")
                 normalized_score = score / max_bm25_score if max_bm25_score > 0 else 0
                 if doc_id in combined_scores:
