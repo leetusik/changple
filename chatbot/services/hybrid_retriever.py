@@ -14,14 +14,16 @@ class HybridRetriever(BaseRetriever):
     vectorstore: Any = Field(None, description="Vector store instance")
     whoosh_ix: Any = Field(None, description="Whoosh index instance")
     alpha: float = Field(0.5, description="Weight between vector and BM25 scores")
-    k: int = Field(4, description="Number of documents to return")
+    k: int = Field(3, description="Number of documents to return")
+    vector_results: List = Field(default_factory=list, description="Vector search results")
+    bm25_results: List = Field(default_factory=list, description="BM25 search results")
     
     def __init__(
         self,
         vector_store,
         whoosh_index_dir: str = "chatbot/data/whoosh_index",
         alpha: float = 0.5,
-        k: int = 4
+        k: int = 3
     ):
         """
         Args:
@@ -60,9 +62,12 @@ class HybridRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager=None
     ) -> List[Document]:
+        
+        MULTIPLIER = 5
+
         # vector search
         self.vector_results = self.vectorstore.vectorstore.similarity_search_with_relevance_scores(
-            query, k=self.k * 3
+            query, k=self.k * MULTIPLIER
         )
         
         # BM25 search
@@ -72,10 +77,8 @@ class HybridRetriever(BaseRetriever):
         )) as searcher:
             whoosh_query = MultifieldParser(["title", "content"], 
                                           self.whoosh_ix.schema).parse(query)
-            print("BM25 검색 query: ", whoosh_query)
-            whoosh_results = searcher.search(whoosh_query, limit=self.k * 3) 
-            print("BM25 검색 결과: ", whoosh_results)
-
+            whoosh_results = searcher.search(whoosh_query, limit=self.k * MULTIPLIER) 
+            
             # Whoosh results (Document, score) 
             self.bm25_results = [
                 (Document(
@@ -86,7 +89,9 @@ class HybridRetriever(BaseRetriever):
                         "author": r.get("author", ""),
                         "category": r.get("category", ""),
                         "published_date": r.get("published_date", ""),
-                        "url": r.get("url", "")
+                        "url": r.get("url", ""),
+                        "vector_score": 0,  # 초기값 추가
+                        "bm25_score": r.score  # BM25 원본 점수 저장
                     }
                 ), r.score) 
                 for r in whoosh_results
@@ -99,7 +104,17 @@ class HybridRetriever(BaseRetriever):
         if self.vector_results:  # 결과가 있는 경우에만 정규화
             max_vector_score = max(score for _, score in self.vector_results)
             for doc, score in self.vector_results:
-                doc_id = doc.metadata.get("post_id")
+                # 메타데이터에 vector_score와 bm25_score 초기값 추가
+                if "vector_score" not in doc.metadata:
+                    doc.metadata["vector_score"] = 0
+                if "bm25_score" not in doc.metadata:
+                    doc.metadata["bm25_score"] = 0
+                
+                # 벡터 검색 원본 점수 저장
+                doc.metadata["vector_score"] = score
+                
+                # post_id를 문자열로 통일
+                doc_id = str(int(doc.metadata.get("post_id"))) if doc.metadata.get("post_id") is not None else None
                 normalized_score = score / max_vector_score if max_vector_score > 0 else 0
                 combined_scores[doc_id] = {
                     "doc": doc,
@@ -114,6 +129,8 @@ class HybridRetriever(BaseRetriever):
                 normalized_score = score / max_bm25_score if max_bm25_score > 0 else 0
                 if doc_id in combined_scores:
                     combined_scores[doc_id]["score"] += (1 - self.alpha) * normalized_score
+                    # 기존 문서에 BM25 점수 추가
+                    combined_scores[doc_id]["doc"].metadata["bm25_score"] = score
                 else:
                     combined_scores[doc_id] = {
                         "doc": doc,
@@ -127,6 +144,21 @@ class HybridRetriever(BaseRetriever):
             reverse=True
         )
         
+        # 최종 점수를 metadata에 저장하는 코드 추가
+        for item in sorted_results[:self.k]:
+            # 이미 계산된 combined score를 문서 메타데이터에 저장
+            item["doc"].metadata["combined_score"] = item["score"]
+
+        # 벡터 검색 결과의 post_id 확인
+        print("Vector 결과 post_id:")
+        for doc, _ in self.vector_results:
+            print(f"  - {doc.metadata.get('post_id', '없음')} (타입: {type(doc.metadata.get('post_id', ''))})")
+
+        # BM25 검색 결과의 post_id 확인
+        print("BM25 결과 post_id:")
+        for doc, _ in self.bm25_results:
+            print(f"  - {doc.metadata.get('post_id', '없음')} (타입: {type(doc.metadata.get('post_id', ''))})")
+
         return [item["doc"] for item in sorted_results[:self.k]]  # pick top k
 
     async def _aget_relevant_documents(

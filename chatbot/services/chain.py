@@ -101,15 +101,17 @@ def get_retriever() -> BaseRetriever:
         text_key="text",  # Field name where document text is stored
     )
 
+    # number of retrieved documents
+    NUM_DOCS = 5 
+
     # Return as retriever with k=3 (retrieve 3 most relevant chunks)
-    # K=3 is a good balance for Korean text, providing enough context without too much noise
-    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
     
     return HybridRetriever(
         vector_store=vector_retriever,
         whoosh_index_dir="chatbot/data/whoosh_index",
-        alpha=0.5,   #  weight between vector and BM25 scores (1: vector, 0: BM25)
-        k=3        #  number of documents to return
+        alpha=0.5,    #  weight between vector and BM25 scores (1: vector, 0: BM25)
+        k=NUM_DOCS    #  number of documents to return
     )
 
 
@@ -255,12 +257,13 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     # Function to format the final response including source documents
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
+            # 이미 HybridRetriever에서 계산하여 저장된 점수 사용
+            scores = [doc.metadata.get("combined_score", 0.0) for doc in result.get("docs", [])]
             
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
-                # 유사도 점수가 필요하면 docs에서 메타데이터를 추출하거나 다른 방식으로 대체
-                "similarity_scores": [0.0] * len(result.get("docs", []))  # 임시 점수
+                "similarity_scores": scores
             }
         return result
 
