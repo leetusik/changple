@@ -90,6 +90,34 @@ docker-compose build --no-cache
 echo -e "${GREEN}Starting all services...${NC}"
 docker-compose up -d
 
+# Create directory with proper permissions for Whoosh index
+echo -e "${YELLOW}Setting up Whoosh index directory with proper permissions...${NC}"
+docker-compose exec web mkdir -p /app/chatbot/data/whoosh_index
+docker-compose exec web chmod -R 777 /app/chatbot/data
+
+# Create an empty Whoosh index schema file before migrations
+echo -e "${YELLOW}Creating empty Whoosh index before migrations...${NC}"
+docker-compose exec web python -c "
+import os
+from whoosh.index import create_in
+from whoosh.fields import Schema, TEXT, ID, STORED
+# Create directory
+os.makedirs('/app/chatbot/data/whoosh_index', exist_ok=True)
+# Define schema
+schema = Schema(
+    post_id=ID(stored=True),
+    title=TEXT(stored=True),
+    content=TEXT(stored=True),
+    author=TEXT(stored=True),
+    category=TEXT(stored=True),
+    published_date=STORED(),
+    url=ID(stored=True)
+)
+# Create index
+create_in('/app/chatbot/data/whoosh_index', schema)
+print('Empty Whoosh index created successfully')
+"
+
 # Apply migrations
 echo -e "${YELLOW}Applying database migrations...${NC}"
 docker-compose exec web python manage.py migrate
@@ -98,14 +126,12 @@ docker-compose exec web python manage.py migrate
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
 docker-compose exec web playwright install chromium
 
-# Create Whoosh index directory in container
-echo -e "${YELLOW}Ensuring Whoosh index directory exists in container...${NC}"
-docker-compose exec web mkdir -p /app/chatbot/data/whoosh_index
-docker-compose exec web chmod -R 777 /app/chatbot/data
-
-# Run ingest (which also creates Whoosh index)
-echo -e "${YELLOW}Running ingest (creates Whoosh index and ingests documents)...${NC}"
-docker-compose exec web python manage.py run_ingest
+# Run ingest to populate the index after migrations
+echo -e "${YELLOW}Running ingest to populate index with documents...${NC}"
+docker-compose exec web python manage.py run_ingest || {
+    echo -e "${RED}Warning: Ingest failed, but continuing deployment...${NC}"
+    echo -e "${YELLOW}You may need to run 'docker-compose exec web python manage.py run_ingest' manually later${NC}"
+}
 
 # Create logs directory inside the container
 docker-compose exec web mkdir -p /app/logs
