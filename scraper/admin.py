@@ -5,7 +5,7 @@ from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData, PostSt
 
 class NaverCafeDataAdmin(admin.ModelAdmin):
     list_display = ("title", "author", "published_date", "url", "post_id", "vectorized")
-    list_filter = ("author", "published_date", "vectorized")
+    list_filter = ("vectorized",)
     search_fields = ("title", "content")
     list_per_page = 20
 
