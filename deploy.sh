@@ -92,6 +92,10 @@ docker-compose exec web python manage.py migrate
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
 docker-compose exec web playwright install chromium
 
+# run ingest
+echo -e "${YELLOW}Running ingest...${NC}"
+docker-compose exec web python manage.py run_ingest
+
 # Create logs directory inside the container
 docker-compose exec web mkdir -p /app/logs
 
@@ -109,10 +113,10 @@ CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(d
 # docker-compose exec web python manage.py schedule_crawler start --hour 15 --minute 0
 # echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
-# Schedule the scraper to run daily at midnight KST (11:10 UTC)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 12:10 KST...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 12 --minute 10
-echo -e "${GREEN}Crawler scheduled to run daily at 12:10 KST (12:10 UTC)${NC}"
+# Schedule the scraper to run daily at midnight KST (13:10 UTC)
+echo -e "${YELLOW}Setting up daily crawler schedule to run at 13:10 KST...${NC}"
+docker-compose exec web python manage.py schedule_crawler start --hour 13 --minute 10
+echo -e "${GREEN}Crawler scheduled to run daily at 22:10 KST (13:10 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
