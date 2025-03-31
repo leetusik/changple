@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import uuid
@@ -9,8 +10,9 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
 from dotenv import load_dotenv
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, ensure_csrf_cookie
 from rest_framework.response import Response
 
 from chatbot.models import ChatMessage, ChatSession
@@ -49,6 +51,7 @@ def index(request):
     return render(request, "index.html")
 
 
+@ensure_csrf_cookie
 def chat_no_nonce_view(request):
     # Handle POST request (creating a session with initial message)
     if request.method == "POST":
@@ -101,6 +104,7 @@ def chat_no_nonce_view(request):
     return chat_view(request, None)
 
 
+@ensure_csrf_cookie
 def chat_view(request, session_nonce=None):
     # If no session_nonce is provided (URL path is just /chat/), create a new session
     if session_nonce is None:

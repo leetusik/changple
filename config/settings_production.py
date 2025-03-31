@@ -9,6 +9,10 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
+# Add these settings for SameSite cookie behavior
+CSRF_COOKIE_SAMESITE = "Lax"  # Allows the cookie to be sent with top-level navigations
+SESSION_COOKIE_SAMESITE = "Lax"
+
 # Set the static root for collectstatic
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
 
