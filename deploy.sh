@@ -11,6 +11,12 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting deployment for Changple app...${NC}"
 
+# Clean up existing containers and volumes
+echo -e "${YELLOW}Cleaning up existing deployment...${NC}"
+docker-compose down
+# Uncomment the next line if you want to remove unused Docker resources
+# docker system prune -f --volumes
+
 # Create necessary directories
 echo -e "${YELLOW}Creating necessary directories...${NC}"
 mkdir -p nginx/conf.d
@@ -45,24 +51,28 @@ if grep -q "your_django_secret_key_here" .env; then
     echo -e "${GREEN}Secret key generated and updated in .env file${NC}"
 fi
 
-# Start nginx container for initial setup
-echo -e "${YELLOW}Starting nginx for initial setup...${NC}"
-docker-compose up -d nginx
+# Check for domain name
+DOMAIN="ggulmae.com"
+echo -e "${YELLOW}Deploying for domain: $DOMAIN${NC}"
+
+# Ensure port 80 is free for certbot
+echo -e "${YELLOW}Ensuring port 80 is available for certbot...${NC}"
+if netstat -tuln | grep -q ":80 "; then
+    echo -e "${RED}Warning: Port 80 is in use. Certbot may fail.${NC}"
+    echo -e "${YELLOW}Trying to stop any services using port 80...${NC}"
+    docker-compose down
+fi
 
 # Get SSL certificates with certbot
 echo -e "${YELLOW}Setting up SSL certificates with certbot...${NC}"
 docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
                 -v "$(pwd)/nginx/certbot/www:/var/www/certbot" \
-                --network host \
+                -p 80:80 \
                 certbot/certbot certonly --standalone \
                 --non-interactive --agree-tos \
                 --email swangle2100@gmail.com \
-                --domains ggulmae.com \
+                --domains $DOMAIN \
                 --http-01-port=80
-
-# Copy the generated certificate for Nginx
-echo -e "${YELLOW}Configuring SSL certificates for Nginx...${NC}"
-docker-compose down
 
 # Start all services
 echo -e "${GREEN}Starting all services...${NC}"
@@ -90,6 +100,6 @@ docker-compose exec web python manage.py schedule_crawler start --hour 15 --minu
 echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
-echo -e "${YELLOW}Your application is now available at https://ggulmae.com${NC}"
+echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
 echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
 echo -e "${YELLOW}Database backups will be stored in the db_backups directory daily${NC}" 
