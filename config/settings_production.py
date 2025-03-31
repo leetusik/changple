@@ -45,12 +45,6 @@ DATABASES = {
         "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
         "OPTIONS": {
             "timeout": 30,  # in seconds
-            "pragmas": {
-                "journal_mode": "wal",  # Use Write-Ahead Logging
-                "synchronous": "normal",  # Synchronous setting for better performance with reasonable safety
-                "cache_size": -1024 * 32,  # 32MB cache
-                "foreign_keys": 1,  # Enforce foreign keys
-            },
         },
     }
 }
