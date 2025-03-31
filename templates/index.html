@@ -232,6 +232,7 @@
                         headers: {
                             'X-CSRFToken': csrfToken
                         },
+                        credentials: 'same-origin',
                         body: formData
                     })
                     .then(response => {

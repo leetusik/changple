@@ -190,6 +190,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCookie('csrftoken') // CSRF 토큰 가져오기
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         query: query,
                         session_nonce: "{{ chat_session.session_nonce }}",
