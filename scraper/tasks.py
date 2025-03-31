@@ -5,7 +5,7 @@ import sys
 from typing import Optional
 
 from django.conf import settings
-from django_rq import job
+from django_rq import get_queue, job
 from rq import get_current_job
 
 from chatbot.tasks import run_ingest_task
@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 
 @job
 def run_scheduled_crawler(
-    start_id: Optional[int] = None, end_id: Optional[int] = None, batch_size: int = 100
+    start_id: Optional[int] = None,
+    end_id: Optional[int] = None,
+    batch_size: int = 100,
+    run_ingest: bool = True,
 ):
     """
     RQ job to run the crawler with the given parameters.
@@ -37,6 +40,7 @@ def run_scheduled_crawler(
         start_id: Starting post ID (optional)
         end_id: Ending post ID (optional)
         batch_size: Number of posts to collect before saving to database (default: 100)
+        run_ingest: Whether to run the ingest process after scraping (default: True)
     """
     # Get the current job ID safely
     current_job = get_current_job()
@@ -59,6 +63,16 @@ def run_scheduled_crawler(
 
         logger.info(f"Scheduled crawler job completed successfully")
         print(f"\n✅ [Job {job_id}] Crawler job completed successfully\n")
+
+        # Queue the ingest task if requested
+        if run_ingest:
+            logger.info("Queueing ingest task to process new documents")
+            print(f"\n▶️ [Job {job_id}] Queueing ingest task to process new documents\n")
+            ingest_job = get_queue().enqueue(run_ingest_task)
+            logger.info(f"Ingest task queued with job ID: {ingest_job.id}")
+            print(
+                f"\n🔄 [Job {job_id}] Ingest task queued with job ID: {ingest_job.id}\n"
+            )
 
         # Trigger the ingestion process to vectorize new data
         logger.info("Triggering document ingestion task to vectorize new data...")

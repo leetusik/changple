@@ -20,7 +20,7 @@ def get_scheduler():
     return Scheduler(connection=django_rq.get_connection("default"))
 
 
-def schedule_crawler(hour=3, minute=0, batch_size=100):
+def schedule_crawler(hour=3, minute=0, batch_size=100, run_ingest=True):
     """
     Schedule the crawler to run daily at the specified time in UTC
 
@@ -28,6 +28,7 @@ def schedule_crawler(hour=3, minute=0, batch_size=100):
         hour: Hour of day to run in UTC (0-23, default 3 = 3 AM UTC)
         minute: Minute of hour to run (0-59, default 0)
         batch_size: Number of posts to collect before saving to database (default: 100)
+        run_ingest: Whether to run the ingest process after scraping (default: True)
     """
     scheduler = get_scheduler()
 
@@ -46,13 +47,13 @@ def schedule_crawler(hour=3, minute=0, batch_size=100):
         target_time_utc = target_time_utc + timedelta(days=1)
 
     logger.info(
-        f"Scheduling daily crawler job to run at {hour:02d}:{minute:02d} UTC with batch size {batch_size}"
+        f"Scheduling daily crawler job to run at {hour:02d}:{minute:02d} UTC with batch size {batch_size}, run_ingest={run_ingest}"
     )
     job = scheduler.schedule(
         scheduled_time=target_time_utc,  # First execution time
         func=run_scheduled_crawler,  # Function to call
         args=[],  # No fixed args
-        kwargs={"batch_size": batch_size},  # Pass batch_size parameter
+        kwargs={"batch_size": batch_size, "run_ingest": run_ingest},  # Pass parameters
         interval=86400,  # 24 hours in seconds
         repeat=None,  # Repeat indefinitely
         meta={"job_name": "daily_crawler"},  # Metadata for job identification
@@ -71,6 +72,7 @@ def schedule_custom_crawler(
     interval=None,
     immediate=False,
     batch_size=100,
+    run_ingest=True,
 ):
     """
     Schedule a custom crawler job
@@ -82,19 +84,25 @@ def schedule_custom_crawler(
         interval: Repeat interval in seconds (default: None = no repeat)
         immediate: If True, run immediately instead of scheduling (default: False)
         batch_size: Number of posts to collect before saving to database (default: 100)
+        run_ingest: Whether to run the ingest process after scraping (default: True)
     """
     scheduler = get_scheduler()
     queue = django_rq.get_queue("default")
     schedule_time = schedule_time or datetime.utcnow()
 
     # Set up the job parameters
-    kwargs = {"start_id": start_id, "end_id": end_id, "batch_size": batch_size}
+    kwargs = {
+        "start_id": start_id,
+        "end_id": end_id,
+        "batch_size": batch_size,
+        "run_ingest": run_ingest,
+    }
     meta = {"job_name": "custom_crawler"}
 
     if immediate:
         # Run immediately by enqueueing directly in the queue
         logger.info(
-            f"Enqueueing custom crawler job immediately with start_id={start_id}, end_id={end_id}, batch_size={batch_size}"
+            f"Enqueueing custom crawler job immediately with start_id={start_id}, end_id={end_id}, batch_size={batch_size}, run_ingest={run_ingest}"
         )
         job = queue.enqueue(run_scheduled_crawler, kwargs=kwargs, meta=meta)
         logger.info(
@@ -103,7 +111,7 @@ def schedule_custom_crawler(
     else:
         # Schedule for later execution
         logger.info(
-            f"Scheduling custom crawler job with start_id={start_id}, end_id={end_id}, batch_size={batch_size}"
+            f"Scheduling custom crawler job with start_id={start_id}, end_id={end_id}, batch_size={batch_size}, run_ingest={run_ingest}"
         )
         job = scheduler.schedule(
             scheduled_time=schedule_time,

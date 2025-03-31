@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 # Try to import answer_chain, handle import errors gracefully
 try:
-    from chatbot.services.chain import answer_chain
-
-    logger.info("Successfully imported answer_chain")
+    from chatbot.services.chain import initialize_chain
+    answer_chain = initialize_chain()
+    logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
     logger.error(f"Failed to import answer_chain: {str(e)}")
 
@@ -283,7 +283,7 @@ def chat(request):
         # Run the chain and get the response
         chain_response = answer_chain.invoke(chain_input)
 
-        # Extract response text
+        # Extract response text and relevance scores
         if isinstance(chain_response, dict):
             response = chain_response.get("answer", chain_response)
             # Extract search results if they exist in the response

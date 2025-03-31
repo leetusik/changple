@@ -33,7 +33,7 @@ from users.views import NaverCallbackView, NaverLoginView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("django-rq/", include("django_rq.urls")),  # Add RQ dashboard URLs
-    path("chatbot/", include("chatbot.api.urls")),
+    # path("chatbot/", include("chatbot.api.urls")),
     path("users/", include("users.urls")),  # Include users app URLs
     path(
         "social-auth/", include("social_django.urls", namespace="social")
