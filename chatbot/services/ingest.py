@@ -129,48 +129,93 @@ def ingest_docs():
 
     # Process each document to ensure title is preserved in each chunk
     all_chunks = []
-    for doc in raw_docs:
-        # Create a temporary document with the content for chunking
-        temp_doc = Document(page_content=doc.page_content, metadata=doc.metadata)
+    # Keep track of post_ids and their processed chunks
+    processed_post_ids = []
 
-        # Split the content into chunks
-        content_chunks = text_splitter.split_documents([temp_doc])
+    # Use a transaction to ensure either all posts are updated or none
+    from django.db import transaction
 
-        # Add each chunk to the final list
-        all_chunks.extend(content_chunks)
-
-    logger.info(
-        f"Split into {len(all_chunks)} chunks, each preserving the post metadata"
-    )
-
-    # Create vectorstore and directly add documents
-    vectorstore = LangchainPinecone.from_documents(
-        documents=all_chunks,
-        embedding=embedding,
-        index_name=PINECONE_INDEX_NAME,
-        text_key="text",
-    )
-
-    logger.info(f"Successfully added {len(all_chunks)} document chunks to Pinecone")
-
-    # Get stats from Pinecone with new API
-    index = pc.Index(PINECONE_INDEX_NAME)
-    stats = index.describe_index_stats()
-    logger.info(f"Vector store now has {stats.total_vector_count} vectors")
-
-    # Update vectorized flag in database
     try:
-        # Extract post_ids from the documents we processed
-        post_ids = [doc.metadata.get("post_id") for doc in raw_docs]
+        with transaction.atomic():
+            for doc in raw_docs:
+                post_id = doc.metadata.get("post_id")
+                processed_post_ids.append(post_id)
 
-        # Update all processed posts as vectorized=True
-        updated_count = NaverCafeData.objects.filter(post_id__in=post_ids).update(
-            vectorized=True
-        )
+                # Create a temporary document with the content for chunking
+                temp_doc = Document(
+                    page_content=doc.page_content, metadata=doc.metadata
+                )
 
-        logger.info(f"Updated vectorized flag for {updated_count} posts in database")
+                # Split the content into chunks
+                content_chunks = text_splitter.split_documents([temp_doc])
+
+                # Create unique IDs for each chunk based on post_id to avoid duplicates
+                for i, chunk in enumerate(content_chunks):
+                    # Add a unique ID to each chunk's metadata
+                    chunk.metadata["chunk_id"] = f"{post_id}_{i}"
+
+                # Add each chunk to the final list
+                all_chunks.extend(content_chunks)
+
+            logger.info(
+                f"Split into {len(all_chunks)} chunks, each preserving the post metadata"
+            )
+
+            # Set up the Pinecone client separately to use explicit IDs
+            # Create vectorstore and directly add documents with explicit IDs
+            index = pc.Index(PINECONE_INDEX_NAME)
+
+            # Batch vectors for upload
+            batch_size = 100
+            for i in range(0, len(all_chunks), batch_size):
+                batch = all_chunks[i : i + batch_size]
+
+                # Get embeddings for this batch
+                texts = [doc.page_content for doc in batch]
+                embeddings = embedding.embed_documents(texts)
+
+                # Prepare vectors with explicit IDs
+                vectors_to_upsert = []
+                for j, (doc, emb) in enumerate(zip(batch, embeddings)):
+                    # Use the chunk_id as the vector ID to ensure uniqueness and idempotence
+                    vector_id = doc.metadata["chunk_id"]
+
+                    # Copy metadata and add the text for retrieval
+                    metadata = doc.metadata.copy()
+                    metadata["text"] = doc.page_content
+
+                    vectors_to_upsert.append(
+                        {"id": vector_id, "values": emb, "metadata": metadata}
+                    )
+
+                # Upsert vectors to Pinecone
+                index.upsert(vectors=vectors_to_upsert)
+                logger.info(
+                    f"Upserted batch {i//batch_size + 1}/{(len(all_chunks) + batch_size - 1)//batch_size}"
+                )
+
+            logger.info(
+                f"Successfully added {len(all_chunks)} document chunks to Pinecone"
+            )
+
+            # Get stats from Pinecone with new API
+            stats = index.describe_index_stats()
+            logger.info(f"Vector store now has {stats.total_vector_count} vectors")
+
+            # Update vectorized flag in database
+            # Extract post_ids from the documents we processed
+            # Update all processed posts as vectorized=True
+            updated_count = NaverCafeData.objects.filter(
+                post_id__in=processed_post_ids
+            ).update(vectorized=True)
+
+            logger.info(
+                f"Updated vectorized flag for {updated_count} posts in database"
+            )
     except Exception as e:
-        logger.warning(f"Could not update vectorized flag in database: {e}")
+        logger.error(f"Transaction failed: {e}")
+        # The transaction will roll back automatically
+        raise
 
 
 if __name__ == "__main__":
