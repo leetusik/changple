@@ -12,16 +12,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Starting Whoosh indexing...')
         try:
-            # 인덱스 디렉토리 생성
+            # create index directory
             self.stdout.write('Creating index directory...')
             
-            # 스키마 생성
+            # create schema
             self.stdout.write('Creating schema...')
             
-            # 문서 인덱싱
+            # index documents
             self.stdout.write('Indexing documents...')
             
-            # Whoosh 인덱스 생성 - 매개변수 없이 호출
+            # create Whoosh index - call without parameters
             create_whoosh_index()
             
             self.stdout.write(self.style.SUCCESS('Successfully created Whoosh index'))

@@ -2,14 +2,16 @@ from typing import List, Any
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from whoosh import scoring
-from whoosh.index import create_in, open_dir
-from whoosh.qparser import QueryParser, MultifieldParser
+from whoosh.index import open_dir
+from whoosh.qparser import MultifieldParser
 from pydantic import Field
-from whoosh.fields import Schema, TEXT, ID, STORED
 import os
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 class HybridRetriever(BaseRetriever):
-    """Vector Store와 BM25를 결합한 하이브리드 검색 리트리버"""
+    """Hybrid Retriever using Vector Search and BM25"""
     
     vectorstore: Any = Field(None, description="Vector store instance")
     whoosh_ix: Any = Field(None, description="Whoosh index instance")
@@ -18,32 +20,39 @@ class HybridRetriever(BaseRetriever):
     vector_results: List = Field(default_factory=list, description="Vector search results")
     bm25_results: List = Field(default_factory=list, description="BM25 search results")
     
+    # 새로 추가할 필드들
+    keyword_llm: Any = Field(None, description="LLM for keyword extraction")
+    keyword_prompt: Any = Field(None, description="Prompt template for keyword extraction")
+    keyword_chain: Any = Field(None, description="Chain for keyword extraction")
+    
     def __init__(
         self,
         vector_store,
         whoosh_index_dir: str = "chatbot/data/whoosh_index",
         alpha: float = 0.5,
-        k: int = 3
+        k: int = 3,
+        keyword_model: str = "gpt-4o-mini"  # llm for keyword extraction
     ):
         """
         Args:
-            vector_store: 벡터 스토어 인스턴스
-            whoosh_index_dir: Whoosh 인덱스 디렉토리 경로
-            alpha: 벡터 검색과 BM25 점수의 가중치 (0~1)
-            k: 반환할 문서 수
+            vector_store: vector store instance
+            whoosh_index_dir: path to Whoosh index directory
+            alpha: weight between vector and BM25 scores (0~1)
+            k: number of documents to return
+            keyword_model: llm for keyword extraction
         """
         super().__init__()
         self.vectorstore = vector_store
         
-        # 결과를 저장할 인스턴스 변수 추가
+        # add instance variables to store results
         self.vector_results = []
         self.bm25_results = []
         
-        # Whoosh 인덱스 확인 및 열기
+        # check and open Whoosh index
         if not os.path.exists(whoosh_index_dir):
             raise FileNotFoundError(
-                "Whoosh 인덱스를 찾을 수 없습니다. "
-                "다음 명령어를 실행하여 인덱스를 생성해주세요:\n"
+                "Whoosh index not found. "
+                "Please run the following command to create the index:\n"
                 "python manage.py run_whoosh_index"
             )
         
@@ -58,6 +67,40 @@ class HybridRetriever(BaseRetriever):
         
         self.alpha = alpha
         self.k = k
+        
+        # 키워드 추출용 LLM 모델 초기화
+        self.keyword_llm = ChatOpenAI(model=keyword_model, temperature=0)
+        self.keyword_prompt = PromptTemplate.from_template(
+            "당신은 BM25 검색에 적합한 키워드 추출 전문가입니다."
+            "다음 문장에서 질문의 의도를 가장 잘 나타내는 중요한 BM25 검색 키워드를 2개 이내로 추출하세요. "
+            "키워드만 공백으로 구분하여 출력하세요. 접속사, 조사 등은 제거하세요.\n\n"
+            "문장: {query}\n\n"
+            "키워드:"
+        )
+        self.keyword_chain = self.keyword_prompt | self.keyword_llm | StrOutputParser()
+    
+    def extract_keywords(self, query: str) -> str:
+        """
+        Convert a sentence-based query into a BM25-search-friendly keyword format.
+        
+        Args:
+            query: user input query sentence
+            
+        Returns:
+            str: extracted keywords (separated by spaces)
+        """
+        try:
+            # use LLM to extract keywords
+            keywords = self.keyword_chain.invoke({"query": query})
+            
+            # return original query if result is empty or error occurs
+            if not keywords or len(keywords.strip()) == 0:
+                return query
+                
+            return keywords.strip()
+        except Exception as e:# return original query if error occurs
+            print(f"Error occurred during keyword extraction: {str(e)}")
+            return query
 
     def _get_relevant_documents(
         self, query: str, *, run_manager=None
@@ -70,14 +113,25 @@ class HybridRetriever(BaseRetriever):
             query, k=self.k * MULTIPLIER
         )
         
-        # BM25 search
+        # BM25 search - use keyword-converted query
+        bm25_query = self.extract_keywords(query)
+        print(f"Original query: '{query}'\n → BM25 keywords: '{bm25_query}'")
+        
         with self.whoosh_ix.searcher(weighting=scoring.BM25F(
             title_B=2.0,
             content_B=1.0
         )) as searcher:
-            whoosh_query = MultifieldParser(["title", "content"], 
-                                          self.whoosh_ix.schema).parse(query)
-            whoosh_results = searcher.search(whoosh_query, limit=self.k * MULTIPLIER) 
+            parser = MultifieldParser(["title", "content"], self.whoosh_ix.schema)
+            whoosh_query = parser.parse(f'({bm25_query})')
+            print(f"Whoosh AND 쿼리: {whoosh_query}")
+            whoosh_results = searcher.search(whoosh_query, limit=self.k * MULTIPLIER)
+            
+            # if results are less than half of k, use OR search
+            if len(whoosh_results) < self.k * 0.5:
+                print(f"AND 검색 결과 부족 ({len(whoosh_results)}개). OR 검색으로 전환")
+                whoosh_query = parser.parse(' OR '.join(bm25_query.split()))
+                print(f"Whoosh OR 쿼리: {whoosh_query}")
+                whoosh_results = searcher.search(whoosh_query, limit=self.k * MULTIPLIER)
             
             # Whoosh results (Document, score) 
             self.bm25_results = [
@@ -90,8 +144,8 @@ class HybridRetriever(BaseRetriever):
                         "category": r.get("category", ""),
                         "published_date": r.get("published_date", ""),
                         "url": r.get("url", ""),
-                        "vector_score": 0,  # 초기값 추가
-                        "bm25_score": r.score  # BM25 원본 점수 저장
+                        "vector_score": 0,
+                        "bm25_score": r.score
                     }
                 ), r.score) 
                 for r in whoosh_results
@@ -101,19 +155,19 @@ class HybridRetriever(BaseRetriever):
         combined_scores = {}
         
         # vector search results
-        if self.vector_results:  # 결과가 있는 경우에만 정규화
+        if self.vector_results:  # if results exist, normalize
             max_vector_score = max(score for _, score in self.vector_results)
             for doc, score in self.vector_results:
-                # 메타데이터에 vector_score와 bm25_score 초기값 추가
+                # add initial values to metadata
                 if "vector_score" not in doc.metadata:
                     doc.metadata["vector_score"] = 0
                 if "bm25_score" not in doc.metadata:
                     doc.metadata["bm25_score"] = 0
                 
-                # 벡터 검색 원본 점수 저장
+                # save original vector search score
                 doc.metadata["vector_score"] = score
                 
-                # post_id를 문자열로 통일
+                # post_id to string
                 doc_id = str(int(doc.metadata.get("post_id"))) if doc.metadata.get("post_id") is not None else None
                 normalized_score = score / max_vector_score if max_vector_score > 0 else 0
                 combined_scores[doc_id] = {
@@ -121,15 +175,17 @@ class HybridRetriever(BaseRetriever):
                     "score": self.alpha * normalized_score
                 }
 
+        
         # BM25 results
-        if self.bm25_results:  # 결과가 있는 경우에만 정규화
+        print(f"BM25 search document count: {len(self.bm25_results)}")
+        if self.bm25_results:  # if results exist, normalize
             max_bm25_score = max(score for _, score in self.bm25_results)
             for doc, score in self.bm25_results:
                 doc_id = doc.metadata.get("post_id")
                 normalized_score = score / max_bm25_score if max_bm25_score > 0 else 0
                 if doc_id in combined_scores:
                     combined_scores[doc_id]["score"] += (1 - self.alpha) * normalized_score
-                    # 기존 문서에 BM25 점수 추가
+                    # add BM25 score to existing document
                     combined_scores[doc_id]["doc"].metadata["bm25_score"] = score
                 else:
                     combined_scores[doc_id] = {
@@ -144,20 +200,9 @@ class HybridRetriever(BaseRetriever):
             reverse=True
         )
         
-        # 최종 점수를 metadata에 저장하는 코드 추가
+        # save final score to metadata
         for item in sorted_results[:self.k]:
-            # 이미 계산된 combined score를 문서 메타데이터에 저장
             item["doc"].metadata["combined_score"] = item["score"]
-
-        # 벡터 검색 결과의 post_id 확인
-        print("Vector 결과 post_id:")
-        for doc, _ in self.vector_results:
-            print(f"  - {doc.metadata.get('post_id', '없음')} (타입: {type(doc.metadata.get('post_id', ''))})")
-
-        # BM25 검색 결과의 post_id 확인
-        print("BM25 결과 post_id:")
-        for doc, _ in self.bm25_results:
-            print(f"  - {doc.metadata.get('post_id', '없음')} (타입: {type(doc.metadata.get('post_id', ''))})")
 
         return [item["doc"] for item in sorted_results[:self.k]]  # pick top k
 

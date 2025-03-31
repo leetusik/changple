@@ -103,6 +103,8 @@ def get_retriever() -> BaseRetriever:
 
     # number of retrieved documents
     NUM_DOCS = 5 
+    #  weight between vector and BM25 scores (1: vector, 0: BM25)
+    ALPHA = 0.5
 
     # Return as retriever with k=3 (retrieve 3 most relevant chunks)
     vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
@@ -110,8 +112,8 @@ def get_retriever() -> BaseRetriever:
     return HybridRetriever(
         vector_store=vector_retriever,
         whoosh_index_dir="chatbot/data/whoosh_index",
-        alpha=0.5,    #  weight between vector and BM25 scores (1: vector, 0: BM25)
-        k=NUM_DOCS    #  number of documents to return
+        alpha=ALPHA,    
+        k=NUM_DOCS    
     )
 
 
@@ -227,6 +229,15 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     Returns:
         Runnable: The complete RAG chain
     """
+
+    # Condense question chain
+    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
+    condense_question_chain = (
+        CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+    ).with_config(
+        run_name="CondenseQuestion",
+    )
+
     # Chain that handles retrieval logic (direct questions vs. follow-ups)
     retriever_chain = create_retriever_chain(
         llm,
@@ -235,17 +246,20 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
     # Chain that takes retrieved documents and formats them
     context = (
-        RunnablePassthrough.assign(docs=retriever_chain)  # Store docs for later use
-        .assign(context=lambda x: format_docs(x["docs"]))  # Format docs as context
+        RunnablePassthrough.assign(
+            condense_question=lambda x: condense_question_chain.invoke(x) if x.get("chat_history") else x["question"]
+        )
+        .assign(docs=retriever_chain)
+        .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
 
     # Create the chat prompt that includes system instructions, chat history, and user question
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", RESPONSE_TEMPLATE),  # System instructions
-            MessagesPlaceholder(variable_name="chat_history"),  # Chat history
-            ("human", "{question}"),  # Current question
+            ("system", RESPONSE_TEMPLATE),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{condense_question}"),  # 변환된 질문 사용
         ]
     )
 
@@ -257,7 +271,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     # Function to format the final response including source documents
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
-            # 이미 HybridRetriever에서 계산하여 저장된 점수 사용
+            # use scores already calculated by HybridRetriever
             scores = [doc.metadata.get("combined_score", 0.0) for doc in result.get("docs", [])]
             
             return {

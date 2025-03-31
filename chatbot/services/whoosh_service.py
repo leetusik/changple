@@ -9,18 +9,18 @@ from scraper.models import AllowedAuthor, NaverCafeData
 
 def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
     """
-    Whoosh 인덱스 생성
+    Create Whoosh index
     
     Args:
-        index_dir: 인덱스 디렉토리 경로
+        index_dir: index directory path
     """
     schema = Schema(
-        post_id=ID(stored=True),           # 원래 문서의 post_id (고유 식별자)
-        title=TEXT(stored=True),           # 제목 필드 - 검색 가능
-        content=TEXT(stored=True),         # 본문 내용
-        author=TEXT(stored=True),          # 작성자
-        category=TEXT(stored=True),        # 카테고리
-        published_date=STORED(),           # 발행일
+        post_id=ID(stored=True),           # original document's post_id (unique identifier)
+        title=TEXT(stored=True),           # title field - searchable
+        content=TEXT(stored=True),         # content
+        author=TEXT(stored=True),          # author
+        category=TEXT(stored=True),        # category
+        published_date=STORED(),           # published date
         url=ID(stored=True)                # URL
     )
     
@@ -30,27 +30,27 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
     ix = create_in(index_dir, schema)
     writer = ix.writer()
     
-    # 허용된 작성자 목록 가져오기
+    # get allowed authors list
     allowed_authors = list(
         AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
     )
-    print(f"허용된 작성자 수: {len(allowed_authors)}")
+    print(f"Allowed author count: {len(allowed_authors)}")
 
-    # 전체 문서 수 확인
+    # check total document count
     total_docs = NaverCafeData.objects.count()
-    print(f"전체 문서 수: {total_docs}")
+    print(f"Total document count: {total_docs}")
 
-    # 필터링된 문서 가져오기
+    # get filtered documents
     posts = NaverCafeData.objects.filter(
         author__in=allowed_authors,
         vectorized=True
     )
 
     filtered_count = posts.count()
-    print(f"필터링된 문서 수: {filtered_count}")
-    print(f"인덱싱할 문서 수: {posts.count()}")
+    print(f"Filtered document count: {filtered_count}")
+    print(f"Document count to index: {posts.count()}")
     
-    # Document 객체로 변환하고 인덱싱
+    # convert to Document object and index
     indexed_count = 0
     for post in posts:
         writer.add_document(
@@ -64,11 +64,11 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
         )
         indexed_count += 1
 
-        # 진행상황 표시 (1000개마다)
+        # show progress (every 1000 documents)
         if indexed_count % 1000 == 0:
-            print(f"진행 중: {indexed_count}/{posts.count()} 문서 인덱싱 완료")
+            print(f"Progress: {indexed_count}/{posts.count()} documents indexed")
 
     writer.commit()
-    print(f"인덱싱 완료: {indexed_count}개 문서")
+    print(f"Indexing completed: {indexed_count} documents")
     return ix
 
