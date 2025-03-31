@@ -56,7 +56,7 @@ docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
                 --network host \
                 certbot/certbot certonly --standalone \
                 --non-interactive --agree-tos \
-                --email admin@example.com \
+                --email swangle2100@gmail.com \
                 --domains ggulmae.com \
                 --http-01-port=80
 
