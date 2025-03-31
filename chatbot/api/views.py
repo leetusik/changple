@@ -184,12 +184,14 @@ class HomeView(View):
     사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
     """
 
+    @ensure_csrf_cookie
     def get(self, request):
         # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
         return render(request, "index.html")
 
 
 @api_view(["POST"])
+@ensure_csrf_cookie
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
     data = request.data
