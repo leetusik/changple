@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 # Try to import answer_chain, handle import errors gracefully
 try:
     from chatbot.services.chain import initialize_chain
-
-    logger.info("Successfully imported answer_chain")
+    answer_chain = initialize_chain()
+    logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
     logger.error(f"Failed to import answer_chain: {str(e)}")
 
