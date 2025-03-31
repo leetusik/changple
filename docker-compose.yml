@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=134.185.116.242
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  rq_worker:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+      - web
+    command: python manage.py rqworker default high low
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=134.185.116.242
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+    networks:
+      - app_network
+
+  rq_scheduler:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+      - web
+    command: python manage.py rqscheduler
+    environment:
+      - DEBUG=0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=134.185.116.242
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    networks:
+      - app_network
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:
+
+networks:
+  app_network: 
