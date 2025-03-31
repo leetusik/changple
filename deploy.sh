@@ -27,6 +27,8 @@ mkdir -p nginx/certbot/www
 mkdir -p logs
 mkdir -p db_backups
 mkdir -p chatbot/data/whoosh_index
+mkdir -p static_root
+mkdir -p media
 
 # Set proper permissions for the Whoosh index directory
 echo -e "${YELLOW}Setting permissions for Whoosh index directory...${NC}"
@@ -151,9 +153,9 @@ CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(d
 # echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
 # Schedule the scraper to run daily at midnight KST (13:10 UTC)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 17:10 KST...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 17 --minute 10
-echo -e "${GREEN}Crawler scheduled to run daily at 17:10 KST (17:10 UTC)${NC}"
+echo -e "${YELLOW}Setting up daily crawler schedule to run at 17:40 KST...${NC}"
+docker-compose exec web python manage.py schedule_crawler start --hour 17 --minute 40
+echo -e "${GREEN}Crawler scheduled to run daily at 02:40 KST (17:40 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"

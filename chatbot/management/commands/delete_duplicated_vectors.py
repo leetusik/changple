@@ -21,12 +21,19 @@ class Command(BaseCommand):
             action="store_true",
             help="Only report duplicates without deleting them",
         )
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=100,
+            help="Batch size for fetching vectors (default: 100)",
+        )
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS("Starting duplicate vector detection..."))
 
         PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
         PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME")
+        BATCH_SIZE = options["batch_size"]
 
         if not PINECONE_API_KEY or not PINECONE_INDEX_NAME:
             self.stdout.write(
@@ -47,10 +54,6 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"Total vectors in index: {total_vectors}")
         )
 
-        # We'll fetch vectors in batches
-        BATCH_SIZE = 1000
-        next_pagination_token = None
-
         # Track duplicates by post_id AND content
         # Using a tuple of (post_id, content) as the key
         content_vectors = defaultdict(list)
@@ -60,50 +63,96 @@ class Command(BaseCommand):
             self.style.SUCCESS("Fetching vectors and checking for duplicates...")
         )
 
-        # Paginate through all vectors
-        with tqdm(total=total_vectors) as pbar:
-            while True:
-                # Fetch vectors
-                query_response = index.query(
-                    vector=[0] * 3072,  # Dummy vector for fetching
-                    top_k=BATCH_SIZE,
-                    include_metadata=True,
-                    include_values=False,
-                    pagination_token=next_pagination_token,
+        # First, list all vector IDs
+        self.stdout.write(self.style.SUCCESS("Getting all vector IDs..."))
+        try:
+            # Use describe_index_stats namespace to get vector IDs in each namespace
+            all_vector_ids = []
+            namespaces = stats.namespaces
+
+            if not namespaces:
+                # If no namespaces, use default namespace
+                namespace_stats = {"": stats.total_vector_count}
+            else:
+                namespace_stats = {
+                    ns: ns_stats.vector_count for ns, ns_stats in namespaces.items()
+                }
+
+            # Process each namespace
+            for namespace, count in namespace_stats.items():
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Processing namespace '{namespace or 'default'}' with {count} vectors"
+                    )
                 )
 
-                # Process each vector
-                for match in query_response.matches:
-                    if not match.metadata or "post_id" not in match.metadata:
-                        continue
+                # Fetch vector IDs in batches
+                vector_ids = []
+                for i in range(0, count, BATCH_SIZE):
+                    try:
+                        # Fetch vectors from this namespace
+                        fetch_response = index.fetch(
+                            ids=[], namespace=namespace, limit=BATCH_SIZE, offset=i
+                        )
+                        # Add IDs to our list
+                        if fetch_response and fetch_response.vectors:
+                            batch_ids = list(fetch_response.vectors.keys())
+                            vector_ids.extend(batch_ids)
+                            self.stdout.write(
+                                self.style.SUCCESS(
+                                    f"Fetched batch of {len(batch_ids)} vector IDs"
+                                )
+                            )
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(f"Error fetching vectors: {e}")
+                        )
 
-                    post_id = match.metadata.get("post_id")
-                    content = match.metadata.get("text", "")
+                all_vector_ids.extend(vector_ids)
 
-                    # Generate a key based on both post_id and full content
-                    # This ensures we only consider exact content duplicates
-                    vector_key = (post_id, content)
+            self.stdout.write(
+                self.style.SUCCESS(f"Retrieved {len(all_vector_ids)} vector IDs")
+            )
 
-                    # Add to our tracking dictionary
-                    content_vectors[vector_key].append(
-                        {
-                            "id": match.id,
-                            "post_id": post_id,
-                            # Store creation timestamp if available to keep the newest
-                            "timestamp": match.metadata.get("timestamp", ""),
-                        }
-                    )
+            # Now fetch vectors in batches and check for duplicates
+            with tqdm(total=len(all_vector_ids)) as pbar:
+                for i in range(0, len(all_vector_ids), BATCH_SIZE):
+                    batch_ids = all_vector_ids[i : i + BATCH_SIZE]
 
-                # Update progress
-                pbar.update(len(query_response.matches))
+                    try:
+                        # Fetch vector metadata
+                        fetch_response = index.fetch(ids=batch_ids)
 
-                # Check if we need to continue pagination
-                next_pagination_token = query_response.pagination_token
-                if (
-                    not next_pagination_token
-                    or len(query_response.matches) < BATCH_SIZE
-                ):
-                    break
+                        # Process each vector
+                        for vec_id, vector in fetch_response.vectors.items():
+                            if not vector.metadata or "post_id" not in vector.metadata:
+                                continue
+
+                            post_id = vector.metadata.get("post_id")
+                            content = vector.metadata.get("text", "")
+
+                            # Generate a key based on both post_id and full content
+                            vector_key = (post_id, content)
+
+                            # Add to our tracking dictionary
+                            content_vectors[vector_key].append(
+                                {
+                                    "id": vec_id,
+                                    "post_id": post_id,
+                                    "timestamp": vector.metadata.get("timestamp", ""),
+                                }
+                            )
+
+                        # Update progress
+                        pbar.update(len(batch_ids))
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(f"Error processing batch: {e}")
+                        )
+
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error: {e}"))
+            return
 
         # Find duplicates
         self.stdout.write(self.style.SUCCESS("Analyzing vectors to find duplicates..."))
