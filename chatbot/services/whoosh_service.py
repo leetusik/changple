@@ -1,35 +1,53 @@
 import os
 import uuid
-from whoosh.index import create_in, open_dir
-from whoosh.fields import Schema, TEXT, ID, DATETIME, STORED
-from langchain_core.documents import Document
 from typing import List, Optional
+
 from django.db.models import Q
+from langchain_core.documents import Document
+from whoosh.fields import DATETIME, ID, STORED, TEXT, Schema
+from whoosh.index import create_in, open_dir
+
 from scraper.models import AllowedAuthor, NaverCafeData
+
 
 def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
     """
-    Create Whoosh index
-    
+    Create Whoosh index or append to existing index
+
     Args:
         index_dir: index directory path
     """
     schema = Schema(
-        post_id=ID(stored=True),           # original document's post_id (unique identifier)
-        title=TEXT(stored=True),           # title field - searchable
-        content=TEXT(stored=True),         # content
-        author=TEXT(stored=True),          # author
-        category=TEXT(stored=True),        # category
-        published_date=STORED(),           # published date
-        url=ID(stored=True)                # URL
+        post_id=ID(stored=True),  # original document's post_id (unique identifier)
+        title=TEXT(stored=True),  # title field - searchable
+        content=TEXT(stored=True),  # content
+        author=TEXT(stored=True),  # author
+        category=TEXT(stored=True),  # category
+        published_date=STORED(),  # published date
+        url=ID(stored=True),  # URL
     )
-    
+
     if not os.path.exists(index_dir):
         os.makedirs(index_dir)
-    
-    ix = create_in(index_dir, schema)
+
+    # Check if index already exists (by checking for the TOC file)
+    index_exists = os.path.exists(
+        os.path.join(index_dir, "MAIN_WRITELOCK")
+    ) or os.path.exists(os.path.join(index_dir, "TOC.txt"))
+
+    if index_exists:
+        try:
+            print(f"Opening existing index at {index_dir}")
+            ix = open_dir(index_dir)
+        except Exception as e:
+            print(f"Error opening existing index: {e}. Creating new index.")
+            ix = create_in(index_dir, schema)
+    else:
+        print(f"Creating new index at {index_dir}")
+        ix = create_in(index_dir, schema)
+
     writer = ix.writer()
-    
+
     # get allowed authors list
     allowed_authors = list(
         AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
@@ -41,15 +59,12 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
     print(f"Total document count: {total_docs}")
 
     # get filtered documents
-    posts = NaverCafeData.objects.filter(
-        author__in=allowed_authors,
-        vectorized=False
-    )
+    posts = NaverCafeData.objects.filter(author__in=allowed_authors, vectorized=False)
 
     filtered_count = posts.count()
     print(f"Filtered document count: {filtered_count}")
     print(f"Document count to index: {posts.count()}")
-    
+
     # convert to Document object and index
     indexed_count = 0
     for post in posts:
@@ -60,7 +75,7 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
             author=str(post.author) or "",
             category=post.category or "",
             published_date=post.published_date or "",
-            url=post.url or ""
+            url=post.url or "",
         )
         indexed_count += 1
 
@@ -69,6 +84,5 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
             print(f"Progress: {indexed_count}/{posts.count()} documents indexed")
 
     writer.commit()
-    print(f"Indexing completed: {indexed_count} documents")
+    print(f"Indexing completed: {indexed_count} documents added to index")
     return ix
-
