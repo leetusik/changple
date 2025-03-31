@@ -110,9 +110,9 @@ CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(d
 # echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
 # Schedule the scraper to run daily at midnight KST (11:10 UTC)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 11:10 KST...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 11 --minute 10
-echo -e "${GREEN}Crawler scheduled to run daily at 11:10 KST (11:10 UTC)${NC}"
+echo -e "${YELLOW}Setting up daily crawler schedule to run at 12:10 KST...${NC}"
+docker-compose exec web python manage.py schedule_crawler start --hour 12 --minute 10
+echo -e "${GREEN}Crawler scheduled to run daily at 12:10 KST (12:10 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
