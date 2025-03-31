@@ -14,8 +14,10 @@ echo -e "${GREEN}Starting deployment for Changple app...${NC}"
 # Clean up existing containers and volumes
 echo -e "${YELLOW}Cleaning up existing deployment...${NC}"
 docker-compose down
-# Uncomment the next line if you want to remove unused Docker resources
-# docker system prune -f --volumes
+# More aggressive cleanup to avoid cached issues
+echo -e "${YELLOW}Performing deep cleanup of Docker resources...${NC}"
+docker system prune -af --volumes
+docker builder prune -af
 
 # Create necessary directories
 echo -e "${YELLOW}Creating necessary directories...${NC}"
@@ -73,6 +75,10 @@ docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
                 --email swangle2100@gmail.com \
                 --domains $DOMAIN \
                 --http-01-port=80
+
+# Rebuild the Docker containers with the new configuration
+echo -e "${YELLOW}Rebuilding Docker containers...${NC}"
+docker-compose build --no-cache
 
 # Start all services
 echo -e "${GREEN}Starting all services...${NC}"
