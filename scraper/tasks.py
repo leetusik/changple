@@ -8,6 +8,7 @@ from django.conf import settings
 from django_rq import job
 from rq import get_current_job
 
+from chatbot.tasks import run_ingest_task
 from scraper.services.crawler import main as crawler_main
 
 # Configure logging
@@ -58,6 +59,15 @@ def run_scheduled_crawler(
 
         logger.info(f"Scheduled crawler job completed successfully")
         print(f"\n✅ [Job {job_id}] Crawler job completed successfully\n")
+
+        # Trigger the ingestion process to vectorize new data
+        logger.info("Triggering document ingestion task to vectorize new data...")
+        ingest_job = run_ingest_task.delay()
+        logger.info(f"Ingestion task queued with job ID: {ingest_job.id}")
+        print(
+            f"\n🔄 [Job {job_id}] Vectorization task queued (Job ID: {ingest_job.id})\n"
+        )
+
         return True
     except Exception as e:
         logger.error(f"Error in scheduled crawler job: {e}")

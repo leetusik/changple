@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import dotenv
 from asgiref.sync import sync_to_async
 from django.db import transaction
-from playwright.async_api import Browser, BrowserContext, ElementHandle, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 
