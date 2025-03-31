@@ -13,6 +13,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = "Lax"  # Allows the cookie to be sent with top-level navigations
 SESSION_COOKIE_SAMESITE = "Lax"
 
+# Add trusted origins for CSRF
+CSRF_TRUSTED_ORIGINS = ["https://ggulmae.com"]
+
 # Set the static root for collectstatic
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
 
