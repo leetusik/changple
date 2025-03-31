@@ -303,5 +303,11 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
 
 # Initialize retriever and answer chain
 # These are the main components that will be used by the API
-retriever = get_retriever()
-answer_chain = create_chain(llm, retriever)
+
+def initialize_chain():
+    """Initialize retriever and answer chain if not already initialized."""
+    global retriever, answer_chain
+    if retriever is None or answer_chain is None:
+        retriever = get_retriever()
+        answer_chain = create_chain(llm, retriever)
+    return answer_chain

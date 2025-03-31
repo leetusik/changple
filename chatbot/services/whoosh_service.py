@@ -43,7 +43,7 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
     # get filtered documents
     posts = NaverCafeData.objects.filter(
         author__in=allowed_authors,
-        vectorized=True
+        vectorized=False
     )
 
     filtered_count = posts.count()
