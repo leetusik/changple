@@ -88,6 +88,10 @@ docker-compose up -d
 echo -e "${YELLOW}Applying database migrations...${NC}"
 docker-compose exec web python manage.py migrate
 
+# Install Playwright browsers if they're needed for the scraper
+echo -e "${YELLOW}Installing Playwright browsers...${NC}"
+docker-compose exec web playwright install
+
 # Create logs directory inside the container
 docker-compose exec web mkdir -p /app/logs
 
