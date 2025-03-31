@@ -8,6 +8,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -178,20 +179,20 @@ def chat_view(request, session_nonce=None):
     return render(request, "index_chat.html", context)
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class HomeView(View):
     """
     홈페이지 뷰
     사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
     """
 
-    @ensure_csrf_cookie
     def get(self, request):
         # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
         return render(request, "index.html")
 
 
-@api_view(["POST"])
 @ensure_csrf_cookie
+@api_view(["POST"])
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
     data = request.data
