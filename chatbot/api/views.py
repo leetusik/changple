@@ -48,6 +48,16 @@ def index(request):
     # 메인 페이지 렌더링
     return render(request, "index.html")
 
+class HomeView(View):
+    """
+    홈페이지 뷰
+    사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
+    """
+
+    def get(self, request):
+        # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
+        return render(request, "index.html")
+
 
 def chat_no_nonce_view(request):
     # Handle POST request (creating a session with initial message)
@@ -173,18 +183,6 @@ def chat_view(request, session_nonce=None):
     # index_chat.html 템플릿 렌더링
     return render(request, "index_chat.html", context)
 
-
-class HomeView(View):
-    """
-    홈페이지 뷰
-    사용자 인증 상태에 따라 동적으로 렌더링되는 단일 템플릿을 제공합니다.
-    """
-
-    def get(self, request):
-        # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
-        return render(request, "index.html")
-
-
 @api_view(["POST"])
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
@@ -276,13 +274,28 @@ def chat(request):
         # Run the chain and get the response
         chain_response = answer_chain.invoke(chain_input)
 
-        # Extract response text
+        # Extract response text and relevance scores
         if isinstance(chain_response, dict):
             response = chain_response.get("answer", chain_response)
-            # Extract search results if they exist in the response
-            search_results = chain_response.get("search_results", [])
-            # Extract source documents if they exist
             source_docs = chain_response.get("source_documents", [])
+            
+            # similarity scores가 있는 경우 추출
+            if hasattr(chain_response, "similarity_scores"):
+                search_results = []
+                for doc, score in zip(source_docs, chain_response.similarity_scores):
+                    search_results.append({
+                        "metadata": {
+                            "title": doc.metadata.get("title", f"Source {i+1}"),
+                            "url": doc.metadata.get("url", ""),
+                            "similarity_score": f"{score:.2f}"  # 유사도 점수 추가
+                        },
+                        "content": doc.page_content[:200]
+                    })
+            else:
+                # Extract search results if they exist in the response
+                search_results = chain_response.get("search_results", [])
+                # Extract source documents if they exist
+                source_docs = chain_response.get("source_documents", [])
         else:
             response = chain_response
             search_results = []

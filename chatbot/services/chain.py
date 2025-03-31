@@ -24,6 +24,7 @@ from pinecone import Pinecone
 from pydantic import BaseModel
 
 from chatbot.services.ingest import get_embeddings_model
+from chatbot.services.hybrid_retriever import HybridRetriever
 
 # System prompt template that instructs the LLM how to respond to user questions
 # It defines the response format, tone, and how to handle citations
@@ -84,11 +85,12 @@ def get_retriever() -> BaseRetriever:
 
     Returns:
         BaseRetriever: A retriever that searches Pinecone for relevant documents
+        hybrid retriever connected to the Pinecone vector database.
     """
     # Initialize Pinecone
     pc = Pinecone(api_key=PINECONE_API_KEY)
 
-    # Get embeddings model from ingest.py
+    # Get embeddings model
     embedding = get_embeddings_model()
 
     # Create Langchain Pinecone vectorstore connected to our existing index
@@ -99,9 +101,20 @@ def get_retriever() -> BaseRetriever:
         text_key="text",  # Field name where document text is stored
     )
 
+    # number of retrieved documents
+    NUM_DOCS = 5 
+    #  weight between vector and BM25 scores (1: vector, 0: BM25)
+    ALPHA = 0.5
+
     # Return as retriever with k=3 (retrieve 3 most relevant chunks)
-    # K=3 is a good balance for Korean text, providing enough context without too much noise
-    return vectorstore.as_retriever(search_kwargs={"k": 3})
+    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
+    
+    return HybridRetriever(
+        vector_store=vector_retriever,
+        whoosh_index_dir="chatbot/data/whoosh_index",
+        alpha=ALPHA,    
+        k=NUM_DOCS    
+    )
 
 
 def create_retriever_chain(
@@ -216,6 +229,15 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     Returns:
         Runnable: The complete RAG chain
     """
+
+    # Condense question chain
+    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
+    condense_question_chain = (
+        CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+    ).with_config(
+        run_name="CondenseQuestion",
+    )
+
     # Chain that handles retrieval logic (direct questions vs. follow-ups)
     retriever_chain = create_retriever_chain(
         llm,
@@ -224,17 +246,20 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
     # Chain that takes retrieved documents and formats them
     context = (
-        RunnablePassthrough.assign(docs=retriever_chain)  # Store docs for later use
-        .assign(context=lambda x: format_docs(x["docs"]))  # Format docs as context
+        RunnablePassthrough.assign(
+            condense_question=lambda x: condense_question_chain.invoke(x) if x.get("chat_history") else x["question"]
+        )
+        .assign(docs=retriever_chain)
+        .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
 
     # Create the chat prompt that includes system instructions, chat history, and user question
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", RESPONSE_TEMPLATE),  # System instructions
-            MessagesPlaceholder(variable_name="chat_history"),  # Chat history
-            ("human", "{question}"),  # Current question
+            ("system", RESPONSE_TEMPLATE),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{condense_question}"),  # 변환된 질문 사용
         ]
     )
 
@@ -246,10 +271,13 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     # Function to format the final response including source documents
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
-            # Structure the response to include both the answer and source documents
+            # use scores already calculated by HybridRetriever
+            scores = [doc.metadata.get("combined_score", 0.0) for doc in result.get("docs", [])]
+            
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
+                "similarity_scores": scores
             }
         return result
 
