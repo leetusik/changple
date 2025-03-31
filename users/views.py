@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -65,8 +66,19 @@ class NaverLoginView(View):
         """Redirect to Naver OAuth login page."""
         strategy = load_strategy(request)
         try:
-            # Set up the backend with the correct params - no query string
-            redirect_uri = "http://localhost:8000/naver/callback/"
+            # Get the domain from settings or request
+            if hasattr(settings, "ALLOWED_HOSTS") and settings.ALLOWED_HOSTS:
+                domain = settings.ALLOWED_HOSTS[0]
+                # Check if using production settings
+                if hasattr(settings, "SOCIAL_AUTH_NAVER_CALLBACK_URL"):
+                    redirect_uri = settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
+                else:
+                    # Use HTTPS if not in debug mode
+                    protocol = "https" if not settings.DEBUG else "http"
+                    redirect_uri = f"{protocol}://{domain}/naver/callback/"
+            else:
+                # Fallback to localhost for development
+                redirect_uri = "http://localhost:8000/naver/callback/"
 
             # Log what we're about to do
             logger.info(f"Setting up Naver OAuth with redirect_uri: {redirect_uri}")
@@ -123,7 +135,19 @@ class NaverCallbackView(View):
             logger.info("Loading Naver backend")
 
             # Use the exact same redirect_uri as in the login view
-            redirect_uri = "http://localhost:8000/naver/callback/"
+            if hasattr(settings, "ALLOWED_HOSTS") and settings.ALLOWED_HOSTS:
+                domain = settings.ALLOWED_HOSTS[0]
+                # Check if using production settings
+                if hasattr(settings, "SOCIAL_AUTH_NAVER_CALLBACK_URL"):
+                    redirect_uri = settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
+                else:
+                    # Use HTTPS if not in debug mode
+                    protocol = "https" if not settings.DEBUG else "http"
+                    redirect_uri = f"{protocol}://{domain}/naver/callback/"
+            else:
+                # Fallback to localhost for development
+                redirect_uri = "http://localhost:8000/naver/callback/"
+
             logger.info(f"Using redirect_uri: {redirect_uri}")
 
             # Load the backend with our redirect_uri
