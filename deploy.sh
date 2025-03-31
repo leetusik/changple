@@ -26,6 +26,12 @@ mkdir -p nginx/certbot/conf
 mkdir -p nginx/certbot/www
 mkdir -p logs
 mkdir -p db_backups
+mkdir -p chatbot/data/whoosh_index
+
+# Set proper permissions for the Whoosh index directory
+echo -e "${YELLOW}Setting permissions for Whoosh index directory...${NC}"
+chmod -R 755 chatbot/data
+chmod -R 755 chatbot/data/whoosh_index
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -92,8 +98,13 @@ docker-compose exec web python manage.py migrate
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
 docker-compose exec web playwright install chromium
 
-# run ingest
-echo -e "${YELLOW}Running ingest...${NC}"
+# Create Whoosh index directory in container
+echo -e "${YELLOW}Ensuring Whoosh index directory exists in container...${NC}"
+docker-compose exec web mkdir -p /app/chatbot/data/whoosh_index
+docker-compose exec web chmod -R 777 /app/chatbot/data
+
+# Run ingest (which also creates Whoosh index)
+echo -e "${YELLOW}Running ingest (creates Whoosh index and ingests documents)...${NC}"
 docker-compose exec web python manage.py run_ingest
 
 # Create logs directory inside the container
@@ -114,9 +125,9 @@ CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(d
 # echo -e "${GREEN}Crawler scheduled to run daily at midnight KST (15:00 UTC)${NC}"
 
 # Schedule the scraper to run daily at midnight KST (13:10 UTC)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 13:10 KST...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 13 --minute 10
-echo -e "${GREEN}Crawler scheduled to run daily at 22:10 KST (13:10 UTC)${NC}"
+echo -e "${YELLOW}Setting up daily crawler schedule to run at 16:00 KST...${NC}"
+docker-compose exec web python manage.py schedule_crawler start --hour 16 --minute 0
+echo -e "${GREEN}Crawler scheduled to run daily at 01:00 KST (16:00 UTC)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
