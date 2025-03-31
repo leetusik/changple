@@ -34,7 +34,7 @@ RQ_QUEUES = {
 SOCIAL_AUTH_NAVER_CALLBACK_URL = (
     f"https://{ALLOWED_HOSTS[0]}/naver/callback/"
     if ALLOWED_HOSTS
-    else "https://134.185.116.242/naver/callback/"
+    else "https://ggulmae.com/naver/callback/"
 )
 
 # Database - using SQLite for now

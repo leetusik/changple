@@ -9,7 +9,7 @@ services:
     environment:
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=134.185.116.242
+      - ALLOWED_HOSTS=ggulmae.com
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - static_volume:/app/static_root
@@ -36,7 +36,7 @@ services:
     environment:
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=134.185.116.242
+      - ALLOWED_HOSTS=ggulmae.com
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
@@ -53,7 +53,7 @@ services:
     environment:
       - DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=134.185.116.242
+      - ALLOWED_HOSTS=ggulmae.com
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
