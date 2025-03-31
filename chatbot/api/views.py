@@ -12,7 +12,7 @@ from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 from dotenv import load_dotenv
-from rest_framework.decorators import api_view, ensure_csrf_cookie
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from chatbot.models import ChatMessage, ChatSession
