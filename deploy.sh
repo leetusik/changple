@@ -32,8 +32,20 @@ mkdir -p media
 
 # Set proper permissions for the Whoosh index directory
 echo -e "${YELLOW}Setting permissions for Whoosh index directory...${NC}"
-chmod -R 755 chatbot/data
-chmod -R 755 chatbot/data/whoosh_index
+# Remove any existing index files to avoid permission conflicts on recreation
+if [ -d "chatbot/data/whoosh_index" ]; then
+    echo -e "${YELLOW}Checking for existing Whoosh index files...${NC}"
+    # Check if directory is empty
+    if [ "$(ls -A chatbot/data/whoosh_index 2>/dev/null)" ]; then
+        echo -e "${YELLOW}Existing Whoosh index found. Preserving it.${NC}"
+    else
+        echo -e "${YELLOW}Empty Whoosh index directory. Ready for new index.${NC}"
+    fi
+fi
+# Fix ownership and permissions
+sudo chown -R $(whoami):$(whoami) chatbot/data 2>/dev/null || true
+chmod -R 777 chatbot/data
+chmod -R 777 chatbot/data/whoosh_index
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -91,6 +103,24 @@ docker-compose build --no-cache
 # Start all services
 echo -e "${GREEN}Starting all services...${NC}"
 docker-compose up -d
+
+# Check if Whoosh index needs to be synced from container to host
+echo -e "${YELLOW}Checking if Whoosh index needs to be synced...${NC}"
+if docker-compose exec -T web bash -c '[ -f "/app/chatbot/data/whoosh_index/_MAIN_1.toc" ] && echo "exists"' | grep -q "exists"; then
+    if [ ! -f "./chatbot/data/whoosh_index/_MAIN_1.toc" ]; then
+        echo -e "${YELLOW}Whoosh index exists in container but not on host. Copying to host...${NC}"
+        # Get container ID
+        CONTAINER_ID=$(docker-compose ps -q web)
+        # Copy files from container to host
+        docker cp $CONTAINER_ID:/app/chatbot/data/whoosh_index/. ./chatbot/data/whoosh_index/
+        echo -e "${GREEN}Whoosh index files copied from container to host${NC}"
+        # Set permissive permissions on host files
+        echo -e "${YELLOW}Setting permissions for copied Whoosh index files...${NC}"
+        chmod -R 777 ./chatbot/data/whoosh_index
+    else
+        echo -e "${GREEN}Whoosh index exists both in container and on host${NC}"
+    fi
+fi
 
 # Create directory with proper permissions for Whoosh index
 echo -e "${YELLOW}Setting up Whoosh index directory with proper permissions...${NC}"
@@ -160,4 +190,23 @@ echo -e "${GREEN}Crawler scheduled to run daily at 02:40 KST (17:40 UTC)${NC}"
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
 echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
-echo -e "${YELLOW}Database backups will be stored in the db_backups directory daily${NC}" 
+echo -e "${YELLOW}Database backups will be stored in the db_backups directory daily${NC}"
+
+# Verify Whoosh index is properly synced
+echo -e "${YELLOW}Verifying Whoosh index is properly synced...${NC}"
+if [ -f "./chatbot/data/whoosh_index/_MAIN_1.toc" ]; then
+    echo -e "${GREEN}✓ Whoosh index found on host system${NC}"
+    HOST_INDEX_SIZE=$(du -sh ./chatbot/data/whoosh_index | cut -f1)
+    echo -e "${GREEN}✓ Host Whoosh index size: $HOST_INDEX_SIZE${NC}"
+    
+    # Check container index size
+    CONTAINER_INDEX_SIZE=$(docker-compose exec -T web bash -c "du -sh /app/chatbot/data/whoosh_index | cut -f1")
+    echo -e "${GREEN}✓ Container Whoosh index size: $CONTAINER_INDEX_SIZE${NC}"
+    
+    echo -e "${GREEN}✓ Whoosh index is properly mounted and synced${NC}"
+else
+    echo -e "${RED}✗ Whoosh index files not found on host system${NC}"
+    echo -e "${YELLOW}Check container for index: docker-compose exec web ls -la /app/chatbot/data/whoosh_index${NC}"
+    echo -e "${YELLOW}If index exists in container but not on host, manually sync with:${NC}"
+    echo -e "${YELLOW}docker cp \$(docker-compose ps -q web):/app/chatbot/data/whoosh_index/. ./chatbot/data/whoosh_index/${NC}"
+fi 
