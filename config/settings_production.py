@@ -38,10 +38,13 @@ RQ_QUEUES = {
 }
 
 # Social Auth callback URL for production
-SOCIAL_AUTH_NAVER_CALLBACK_URL = (
-    f"https://{ALLOWED_HOSTS[0]}/naver/callback/"
-    if ALLOWED_HOSTS
-    else "https://ggulmae.com/naver/callback/"
+SOCIAL_AUTH_NAVER_CALLBACK_URL = os.environ.get(
+    "SOCIAL_AUTH_NAVER_CALLBACK_URL",
+    (
+        f"https://{ALLOWED_HOSTS[0]}/naver/callback/"
+        if ALLOWED_HOSTS
+        else "https://ggulmae.com/naver/callback/"
+    ),
 )
 
 # Database - using SQLite for now

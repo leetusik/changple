@@ -75,8 +75,9 @@ SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "/"
 SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = "/"
 
 # Naver specific settings
-SOCIAL_AUTH_NAVER_CALLBACK_URL = (
-    "http://localhost:8000/naver/callback/"  # Clean URL without any query params
+SOCIAL_AUTH_NAVER_CALLBACK_URL = os.environ.get(
+    "SOCIAL_AUTH_NAVER_CALLBACK_URL",
+    "http://localhost:8000/naver/callback/",  # Development default
 )
 
 # Social Auth Pipeline
