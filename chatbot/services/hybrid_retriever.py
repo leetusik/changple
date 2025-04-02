@@ -9,6 +9,8 @@ import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+import statistics 
+import math 
 
 class HybridRetriever(BaseRetriever):
     """Hybrid Retriever using Vector Search and BM25"""
@@ -53,16 +55,16 @@ class HybridRetriever(BaseRetriever):
             raise FileNotFoundError(
                 "Whoosh index not found. "
                 "Please run the following command to create the index:\n"
-                "python manage.py run_whoosh_index"
+                "python manage.py run_ingest"
             )
         
         try:
             self.whoosh_ix = open_dir(whoosh_index_dir)
         except Exception as e:
             raise Exception(
-                f"Whoosh 인덱스를 여는 중 오류가 발생했습니다: {str(e)}\n"
-                "인덱스가 손상되었을 수 있습니다. 다음 명령어로 재생성해주세요:\n"
-                "python manage.py run_whoosh_index"
+                f"Whoosh index open error: {str(e)}\n"
+                "Index may be corrupted. Please recreate it using the following command:\n"
+                "python manage.py run_ingest"
             )
         
         self.alpha = alpha
@@ -72,7 +74,8 @@ class HybridRetriever(BaseRetriever):
         self.keyword_llm = ChatOpenAI(model=keyword_model, temperature=0)
         self.keyword_prompt = PromptTemplate.from_template(
             "당신은 BM25 검색에 적합한 키워드 추출 전문가입니다."
-            "다음 문장에서 질문의 의도를 가장 잘 나타내는 중요한 BM25 검색 키워드를 2개 이내로 추출하세요. "
+            "다음 문장에서 질문의 의도를 가장 잘 나타내는 중요한 BM25 검색용 키워드를 2개 이내로 추출하세요."
+            "단, '창업', '사업', '방법', '조언' 이라는 키워드는 제외하고 출력하세요."
             "키워드만 공백으로 구분하여 출력하세요. 접속사, 조사 등은 제거하세요.\n\n"
             "문장: {query}\n\n"
             "키워드:"
@@ -156,41 +159,89 @@ class HybridRetriever(BaseRetriever):
         
         # vector search results
         if self.vector_results:  # if results exist, normalize
-            max_vector_score = max(score for _, score in self.vector_results)
-            for doc, score in self.vector_results:
-                # add initial values to metadata
+            vector_scores = [score for _, score in self.vector_results]
+            
+            # Z-score standardization
+            if len(vector_scores) > 1:  # need at least 2 values to calculate standard deviation
+                vector_mean = statistics.mean(vector_scores)
+                vector_stdev = statistics.stdev(vector_scores)
+                
+                for doc, score in self.vector_results:
+                    # add initial values to metadata
+                    if "vector_score" not in doc.metadata:
+                        doc.metadata["vector_score"] = 0
+                    if "bm25_score" not in doc.metadata:
+                        doc.metadata["bm25_score"] = 0
+                    
+                    # save original vector search score
+                    doc.metadata["vector_score"] = score
+                    
+                    # post_id to string
+                    doc_id = str(int(doc.metadata.get("post_id"))) if doc.metadata.get("post_id") is not None else None
+                    
+                    # Z-score standardization
+                    normalized_score = (score - vector_mean) / vector_stdev if vector_stdev > 0 else 0
+                    
+                    # normalized scores may be too large, so convert to sigmoid function and normalize to 0~1
+                    normalized_score = 1 / (1 + math.exp(-normalized_score))
+                    
+                    combined_scores[doc_id] = {
+                        "doc": doc,
+                        "score": self.alpha * normalized_score
+                    }
+            else:  # if there is only one value, set it to 1
+                doc, score = self.vector_results[0]
                 if "vector_score" not in doc.metadata:
                     doc.metadata["vector_score"] = 0
                 if "bm25_score" not in doc.metadata:
                     doc.metadata["bm25_score"] = 0
                 
-                # save original vector search score
                 doc.metadata["vector_score"] = score
-                
-                # post_id to string
                 doc_id = str(int(doc.metadata.get("post_id"))) if doc.metadata.get("post_id") is not None else None
-                normalized_score = score / max_vector_score if max_vector_score > 0 else 0
                 combined_scores[doc_id] = {
                     "doc": doc,
-                    "score": self.alpha * normalized_score
+                    "score": self.alpha * 1  # single score is set to 1
                 }
 
         
         # BM25 results
         print(f"BM25 search document count: {len(self.bm25_results)}")
         if self.bm25_results:  # if results exist, normalize
-            max_bm25_score = max(score for _, score in self.bm25_results)
-            for doc, score in self.bm25_results:
+            bm25_scores = [score for _, score in self.bm25_results]
+            
+            # Z-score standardization
+            if len(bm25_scores) > 1:  # need at least 2 values to calculate standard deviation
+                bm25_mean = statistics.mean(bm25_scores)
+                bm25_stdev = statistics.stdev(bm25_scores)
+                
+                for doc, score in self.bm25_results:
+                    doc_id = doc.metadata.get("post_id")
+                    
+                    # Z-score standardization
+                    normalized_score = (score - bm25_mean) / bm25_stdev if bm25_stdev > 0 else 0
+                    
+                    # normalized scores may be too large, so convert to sigmoid function and normalize to 0~1
+                    normalized_score = 1 / (1 + math.exp(-normalized_score))
+                    
+                    if doc_id in combined_scores:
+                        combined_scores[doc_id]["score"] += (1 - self.alpha) * normalized_score
+                        # add BM25 score to existing document
+                        combined_scores[doc_id]["doc"].metadata["bm25_score"] = score
+                    else:
+                        combined_scores[doc_id] = {
+                            "doc": doc,
+                            "score": (1 - self.alpha) * normalized_score
+                        }
+            else:  # if there is only one value, set it to 1
+                doc, score = self.bm25_results[0]
                 doc_id = doc.metadata.get("post_id")
-                normalized_score = score / max_bm25_score if max_bm25_score > 0 else 0
                 if doc_id in combined_scores:
-                    combined_scores[doc_id]["score"] += (1 - self.alpha) * normalized_score
-                    # add BM25 score to existing document
+                    combined_scores[doc_id]["score"] += (1 - self.alpha) * 1
                     combined_scores[doc_id]["doc"].metadata["bm25_score"] = score
                 else:
                     combined_scores[doc_id] = {
                         "doc": doc,
-                        "score": (1 - self.alpha) * normalized_score
+                        "score": (1 - self.alpha) * 1  # single score is set to 1
                     }
 
         # final results

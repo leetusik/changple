@@ -25,17 +25,6 @@ class Command(BaseCommand):
             ingest_docs()
             self.stdout.write(self.style.SUCCESS("Pinecone 문서 인제스트 완료"))
             
-            # 3단계: 두 과정이 모두 완료된 후 vectorized 플래그 업데이트
-            self.stdout.write(self.style.SUCCESS("문서의 vectorized 플래그 업데이트 중..."))
-            from scraper.models import AllowedAuthor, NaverCafeData
-            allowed_authors = list(
-                AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
-            )
-            updated_count = NaverCafeData.objects.filter(
-                author__in=allowed_authors, vectorized=False
-            ).update(vectorized=True)
-            self.stdout.write(self.style.SUCCESS(f"vectorized 플래그 업데이트 완료"))
-            
             self.stdout.write(
                 self.style.SUCCESS("Whoosh 인덱스 생성 및 문서 인제스트 완료")
             )

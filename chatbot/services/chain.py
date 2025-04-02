@@ -1,4 +1,5 @@
 import os
+import sys
 from operator import itemgetter
 from typing import Dict, List, Optional, Sequence
 
@@ -308,6 +309,11 @@ answer_chain = None
 
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
+    # run_ingest 명령어 실행 시 초기화 건너뛰기
+    if 'run_ingest' in sys.argv:
+        print("run_ingest 명령어 실행 중, 초기화 건너뛰기")
+        return None
+        
     global retriever, answer_chain
     if retriever is None or answer_chain is None:
         retriever = get_retriever()

@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from whoosh.fields import DATETIME, ID, STORED, TEXT, Schema
 from whoosh.index import create_in, open_dir
 
-from scraper.models import AllowedAuthor, NaverCafeData
+from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData
 
 
 def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
@@ -53,13 +53,23 @@ def create_whoosh_index(index_dir: str = "chatbot/data/whoosh_index"):
         AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
     )
     print(f"Allowed author count: {len(allowed_authors)}")
+    
+    # get allowed categories list
+    allowed_categories = list(
+        AllowedCategory.objects.filter(is_active=True).values_list("name", flat=True)
+    )
+    print(f"Allowed category count: {len(allowed_categories)}")
 
     # check total document count
     total_docs = NaverCafeData.objects.count()
     print(f"Total document count: {total_docs}")
 
     # get filtered documents
-    posts = NaverCafeData.objects.filter(author__in=allowed_authors, vectorized=False)
+    posts = NaverCafeData.objects.filter(
+        author__in=allowed_authors, 
+        category__in=allowed_categories,
+        vectorized=False
+    )
 
     filtered_count = posts.count()
     print(f"Filtered document count: {filtered_count}")

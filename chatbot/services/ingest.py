@@ -12,7 +12,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 # Now import Django models after setting up Django
-from scraper.models import AllowedAuthor, NaverCafeData
+from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData
 
 load_dotenv()
 
@@ -48,10 +48,15 @@ def load_posts_from_database() -> List[Document]:
         allowed_authors = list(
             AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
         )
+        
+        # Get allowed categories
+        allowed_categories = list(
+            AllowedCategory.objects.filter(is_active=True).values_list("name", flat=True)
+        )
 
         # Query posts from allowed authors and not yet vectorized
         posts = NaverCafeData.objects.filter(
-            author__in=allowed_authors, vectorized=False
+            author__in=allowed_authors, category__in=allowed_categories, vectorized=False
         )
 
         logger.info(f"Loaded {posts.count()} posts from database")
