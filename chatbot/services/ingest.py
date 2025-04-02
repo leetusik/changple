@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time  # Added for retry sleep
 from typing import List
 
 import django
@@ -94,10 +95,14 @@ def ingest_docs():
     """
     Load posts from database, split into chunks, check existence in Pinecone,
     and ingest only new chunks using chunk_id as the vector ID.
+    Uses retries for Pinecone fetch operations.
+    Raises RuntimeError if ingestion fails critically (e.g., fetch after retries).
     """
     PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
     PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
     PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
+    MAX_FETCH_RETRIES = 3
+    INITIAL_BACKOFF = 2  # seconds
 
     # Create text splitter optimized for Korean content
     text_splitter = RecursiveCharacterTextSplitter(
@@ -193,31 +198,58 @@ def ingest_docs():
 
     logger.info(f"Generated {len(all_chunks)} potential chunks for ingestion.")
 
-    # Check which chunk IDs already exist in Pinecone
+    # Check which chunk IDs already exist in Pinecone with retries
     chunk_ids_to_check = [chunk.metadata["chunk_id"] for chunk in all_chunks]
     existing_ids = set()
     try:
-        # Fetch in batches if necessary (Pinecone fetch limit might be 1000)
-        batch_size = 1000
+        batch_size = 100  # Reduced batch size from 1000 to 100
         for i in range(0, len(chunk_ids_to_check), batch_size):
             batch_ids = chunk_ids_to_check[i : i + batch_size]
             logger.info(
                 f"Checking existence of {len(batch_ids)} chunk IDs in Pinecone (batch {i//batch_size + 1})..."
             )
-            fetch_response = index.fetch(ids=batch_ids)
-            existing_ids.update(fetch_response.vectors.keys())
+
+            # Retry logic for fetch
+            for attempt in range(MAX_FETCH_RETRIES):
+                try:
+                    fetch_response = index.fetch(ids=batch_ids)
+                    existing_ids.update(fetch_response.vectors.keys())
+                    logger.debug(
+                        f"Batch {i//batch_size + 1} fetch successful on attempt {attempt + 1}"
+                    )
+                    break  # Success, exit retry loop for this batch
+                except Exception as fetch_e:
+                    # Check if it's a server error (e.g., 5xx) potentially worth retrying
+                    is_server_error = (
+                        hasattr(fetch_e, "status") and fetch_e.status >= 500
+                    )
+
+                    logger.warning(
+                        f"Pinecone fetch attempt {attempt + 1}/{MAX_FETCH_RETRIES} failed for batch {i//batch_size + 1}: {fetch_e}"
+                    )
+
+                    if not is_server_error or attempt == MAX_FETCH_RETRIES - 1:
+                        # Final attempt failed or it's not a server error, raise the exception to abort
+                        logger.error(
+                            f"Pinecone fetch failed permanently after {attempt + 1} attempt(s)."
+                        )
+                        raise RuntimeError(
+                            f"Failed to fetch existing IDs from Pinecone after {attempt + 1} retries."
+                        ) from fetch_e
+                    else:
+                        # Wait before retrying server error
+                        sleep_time = INITIAL_BACKOFF * (2**attempt)
+                        logger.info(
+                            f"Retrying fetch in {sleep_time} seconds due to server error..."
+                        )
+                        time.sleep(sleep_time)
+
         logger.info(f"Found {len(existing_ids)} existing chunk IDs in Pinecone.")
     except Exception as e:
-        logger.error(
-            f"Error fetching existing IDs from Pinecone: {e}. Assuming all chunks are new.",
-            exc_info=True,
-        )
-        # Decide on behavior: either stop, or proceed assuming no chunks exist (might lead to duplicates if fetch fails repeatedly)
-        # For now, we'll proceed cautiously and ingest nothing if fetch fails.
-        # To be robust, could implement retries or ingest all and let Pinecone handle potential conflicts if IDs match.
-        # For this implementation, we will stop if fetch fails.
-        logger.error("Aborting ingestion due to Pinecone fetch error.")
-        return
+        # Catch errors during the overall fetch process or the re-raised RuntimeError
+        logger.error(f"Error during Pinecone ID fetch process: {e}", exc_info=True)
+        # Re-raise as a runtime error to signal failure to the caller
+        raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
 
     # Filter out chunks that already exist
     new_chunks = [
@@ -243,6 +275,10 @@ def ingest_docs():
             )
         except Exception as e:
             logger.error(f"Error adding documents to Pinecone: {e}", exc_info=True)
+            # Raise an exception to signal failure to the caller
+            raise RuntimeError(
+                "Pinecone ingestion failed during document addition."
+            ) from e
 
     # Get final stats from Pinecone
     try:
@@ -255,4 +291,10 @@ def ingest_docs():
 
 
 if __name__ == "__main__":
-    ingest_docs()
+    # Basic test execution - consider more robust testing
+    try:
+        ingest_docs()
+        print("Ingestion script finished.")
+    except Exception as main_e:
+        print(f"Ingestion script failed: {main_e}")
+        # In a real scenario, sys.exit(1) might be appropriate here
