@@ -31,6 +31,7 @@ mkdir -p nginx/conf.d
 mkdir -p nginx/certbot/conf
 mkdir -p nginx/certbot/www
 mkdir -p logs
+chmod 777 ./logs # Make logs directory world-writable for Nginx container
 mkdir -p db_backups
 
 # Check if .env file exists
@@ -82,6 +83,11 @@ docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
                 --email swangle2100@gmail.com \
                 --domains $DOMAIN \
                 --http-01-port=80
+
+# --- Add ownership change ---
+echo -e "${YELLOW}Fixing permissions for certbot files...${NC}"
+sudo chown -R $(id -u):$(id -g) ./nginx/certbot/conf
+# --- End ownership change ---
 
 # Rebuild the Docker containers with the new configuration
 echo -e "${YELLOW}Rebuilding Docker containers...${NC}"
