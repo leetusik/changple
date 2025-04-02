@@ -12,7 +12,6 @@ class NaverCafeData(models.Model):
     )  # Store as original string from Naver
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
-    vectorized = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
