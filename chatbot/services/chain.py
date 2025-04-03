@@ -76,9 +76,9 @@ class ChatRequest(BaseModel):
     question: str  # The current user question
     chat_history: Optional[List[Dict[str, str]]] = None  # Previous conversation history
 
-    # Pydantic v2 설정 방식으로 변경
-    # 기존: allow_population_by_field_name
-    # 새로운: populate_by_name
+    # Pydantic v2 settings
+    # old: allow_population_by_field_name
+    # new: populate_by_name
     class Config:
         populate_by_name = True
 
@@ -197,25 +197,16 @@ def format_docs(docs: Sequence[Document]) -> str:
 def serialize_history(request: ChatRequest):
     """
     Converts the chat history from dict format to LangChain message objects.
-
-    This is necessary because LangChain uses specific message objects
-    (HumanMessage, AIMessage) for its chat models.
-
-    Args:
-        request: The chat request containing history
-
-    Returns:
-        List: Converted chat history as LangChain message objects
     """
     chat_history = request["chat_history"] or []
     converted_chat_history = []
     for message in chat_history:
-        # Convert user messages
-        if message.get("human") is not None:
-            converted_chat_history.append(HumanMessage(content=message["human"]))
-        # Convert AI messages
-        if message.get("ai") is not None:
-            converted_chat_history.append(AIMessage(content=message["ai"]))
+        # Convert user messages - "human" instead of "user"
+        if message.get("user") is not None:
+            converted_chat_history.append(HumanMessage(content=message["user"]))
+        # Convert AI messages - "ai" instead of "assistant"
+        if message.get("assistant") is not None:
+            converted_chat_history.append(AIMessage(content=message["assistant"]))
     return converted_chat_history
 
 
@@ -266,7 +257,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         [
             ("system", RESPONSE_TEMPLATE),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{condense_question}"),  # 변환된 질문 사용
+            ("human", "{condense_question}"),  # use converted question
         ]
     )
 
@@ -315,9 +306,9 @@ answer_chain = None
 
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
-    # run_ingest 명령어 실행 시 초기화 건너뛰기
+    # skip initialization when run_ingest command is executed
     if 'run_ingest' in sys.argv:
-        print("run_ingest 명령어 실행 중, 초기화 건너뛰기")
+        print("run_ingest command is executed, skip initialization")
         return None
         
     global retriever, answer_chain

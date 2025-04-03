@@ -25,14 +25,12 @@ try:
     logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
     logger.critical(f"Failed to import answer_chain: {str(e)}")
-    # 서버 시작을 중단하거나 명확한 예외 발생
     raise RuntimeError("챗봇 서비스 초기화 실패. 서버를 시작할 수 없습니다.")
 
-# 파일 시작 부분에 .env 로드
+# load_dotenv()
 load_dotenv()
 
 def index(request):
-    # 메인 페이지 렌더링
     return render(request, "index.html")
 
 class HomeView(View):
@@ -42,7 +40,6 @@ class HomeView(View):
     """
 
     def get(self, request):
-        # 통합된 템플릿 사용 - 템플릿 내에서 인증 상태에 따라 조건부 렌더링
         return render(request, "index.html")
 
 
@@ -157,7 +154,6 @@ def chat_view(request, session_nonce=None):
             and user.premium_until > timezone.now()
         )
 
-    # 템플릿에 전달할 기본 컨텍스트
     context = {
         "chat_session": chat_session,
         "chat_history": chat_history,
@@ -167,7 +163,6 @@ def chat_view(request, session_nonce=None):
         "is_premium": is_premium,
     }
 
-    # index_chat.html 템플릿 렌더링
     return render(request, "index_chat.html", context)
 
 @api_view(["POST"])
@@ -227,35 +222,38 @@ def chat(request):
                 session_id=f"session_{uuid.uuid4().hex[:8]}", session_nonce=uuid.uuid4()
             )
 
-        # Log the input
-        if client_history:
-            logger.info(f"With client history of {len(client_history)} entries")
-
-        # Convert database history to the format expected by chain.py
         chain_history = []
 
-        # If client sent history, use that instead of rebuilding from database
-        # This ensures follow-up question handling works properly with recent context
-        if client_history:
-            chain_history = client_history
+        # chat_history from database
+        messages = chat_session.messages.all().order_by("created_at")
+        print(f"불러온 메시지 수: {len(messages)}")
+
+        db_history = []
+        i = 0
+        while i < len(messages):
+            # check if there is one more message and user-assistant order
+            if i + 1 < len(messages) and messages[i].role == "user" and messages[i + 1].role == "assistant":
+                db_history.append(
+                    {"user": messages[i].content, "assistant": messages[i + 1].content}
+                )
+                i += 2  # user-assistant pair found, skip 2
+            else:
+                i += 1  # not a pair, skip 1
+
+        if client_history and len(client_history) > 0:
+            print(f"클라이언트에서 받은 대화 기록 사용: {len(client_history)}개")
+            print(f"데이터베이스 대화 기록: {len(db_history)}개")
+            
+            # use longer history
+            if len(client_history) >= len(db_history):
+                chain_history = client_history
+            else:
+                chain_history = db_history
         else:
-            # If no client history, build from database
-            messages = chat_session.messages.all().order_by("created_at")
-            i = 0
-            while i < len(messages) - 1:
-                if messages[i].role == "user" and messages[i + 1].role == "assistant":
-                    chain_history.append(
-                        {"human": messages[i].content, "ai": messages[i + 1].content}
-                    )
-                i += 2
+            chain_history = db_history
 
         # Prepare input for the chain
         chain_input = {"question": query, "chat_history": chain_history}
-
-        # Log what's being sent to the chain
-        logger.info(
-            f"Chain input: question_length={len(query)}, history_length={len(chain_history)}"
-        )
 
         # Run the chain and get the response
         chain_response = answer_chain.invoke(chain_input)
@@ -265,7 +263,7 @@ def chat(request):
             response = chain_response.get("answer", chain_response)
             source_docs = chain_response.get("source_documents", [])
             
-            # similarity scores가 있는 경우 추출
+            # if there is similarity scores
             if hasattr(chain_response, "similarity_scores"):
                 search_results = []
                 for doc, score in zip(source_docs, chain_response.similarity_scores):
@@ -273,7 +271,7 @@ def chat(request):
                         "metadata": {
                             "title": doc.metadata.get("title", f"Source {i+1}"),
                             "url": doc.metadata.get("url", ""),
-                            "similarity_score": f"{score:.2f}"  # 유사도 점수 추가
+                            "similarity_score": f"{score:.2f}"  # add similarity score
                         },
                         "content": doc.page_content[:200]
                     })
@@ -331,8 +329,7 @@ def chat(request):
         ai_msg = ChatMessage.objects.create(
             session=chat_session, role="assistant", content=response
         )
-
-        # Add query count info to response
+        
         return Response(
             {
                 "response": response,

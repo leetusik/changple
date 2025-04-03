@@ -15,7 +15,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# 파일 시작 부분에 .env 로드
+# load .env file
 load_dotenv()
 
 
@@ -253,22 +253,22 @@ RQ_QUEUES = {
 # Specify the Redis client to be used
 RQ_SHOW_ADMIN_LINK = True
 
-# Pinecone 설정 추가
+# Pinecone settings
 PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME")
 
-# 임베딩 모델 설정
+# embedding model settings
 EMBEDDING_MODEL = "text-embedding-3-large"
 
-# 텍스트 분할 설정
+# text splitter settings
 TEXT_SPLITTER_CHUNK_SIZE = 1000
 TEXT_SPLITTER_CHUNK_OVERLAP = 200
 
-# LLM 모델 설정
+# LLM model settings
 LLM_MODEL = "gpt-4o-mini"
 LLM_TEMPERATURE = 0.7
-LLM_TOP_K = 5
-PROMPT_ID = 1  # Django DB에서 불러올 프롬프트 ID
+LLM_TOP_K = 1
+PROMPT_ID = 1  # prompt id from django db
 
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
