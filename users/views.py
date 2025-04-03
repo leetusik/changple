@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -65,8 +66,8 @@ class NaverLoginView(View):
         """Redirect to Naver OAuth login page."""
         strategy = load_strategy(request)
         try:
-            # Set up the backend with the correct params - no query string
-            redirect_uri = "http://localhost:8000/naver/callback/"
+            # Get the callback URL from settings
+            redirect_uri = settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
 
             # Log what we're about to do
             logger.info(f"Setting up Naver OAuth with redirect_uri: {redirect_uri}")
@@ -122,8 +123,8 @@ class NaverCallbackView(View):
             # Use the social auth backend to complete the authentication
             logger.info("Loading Naver backend")
 
-            # Use the exact same redirect_uri as in the login view
-            redirect_uri = "http://localhost:8000/naver/callback/"
+            # Get the callback URL from settings
+            redirect_uri = settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
             logger.info(f"Using redirect_uri: {redirect_uri}")
 
             # Load the backend with our redirect_uri
