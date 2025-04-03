@@ -47,17 +47,10 @@ def chat_no_nonce_view(request):
     # Handle POST request (creating a session with initial message)
     if request.method == "POST":
         try:
-            # Log request details for debugging
-            logger.info(f"Received POST to chat_no_nonce_view")
-            logger.info(f"Content type: {request.content_type}")
-            logger.info(f"POST data keys: {list(request.POST.keys())}")
-
             # Get message from form data
             initial_message = request.POST.get("message", "").strip()
-            logger.info(f"Extracted message: '{initial_message}'")
 
             if not initial_message:
-                logger.warning("Empty message received")
                 return JsonResponse({"error": "Message is required"}, status=400)
 
             # Create a new chat session
@@ -171,8 +164,10 @@ def chat(request):
     data = request.data
     query = data.get("query", "")
     session_nonce = data.get("session_nonce", "")
-    client_history = data.get("history", [])
-
+    
+    # 여기에 사용자 질문 로깅 코드 추가
+    logger.info(f"User query (session: {session_nonce}): \n{query}")
+    
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
 
@@ -222,45 +217,36 @@ def chat(request):
                 session_id=f"session_{uuid.uuid4().hex[:8]}", session_nonce=uuid.uuid4()
             )
 
-        chain_history = []
-
-        # chat_history from database
+        # 데이터베이스에서 대화 내역 가져오기
         messages = chat_session.messages.all().order_by("created_at")
-        print(f"불러온 메시지 수: {len(messages)}")
-
         db_history = []
         i = 0
         while i < len(messages):
-            # check if there is one more message and user-assistant order
             if i + 1 < len(messages) and messages[i].role == "user" and messages[i + 1].role == "assistant":
                 db_history.append(
                     {"user": messages[i].content, "assistant": messages[i + 1].content}
                 )
-                i += 2  # user-assistant pair found, skip 2
+                i += 2
             else:
-                i += 1  # not a pair, skip 1
-
-        if client_history and len(client_history) > 0:
-            print(f"클라이언트에서 받은 대화 기록 사용: {len(client_history)}개")
-            print(f"데이터베이스 대화 기록: {len(db_history)}개")
-            
-            # use longer history
-            if len(client_history) >= len(db_history):
-                chain_history = client_history
-            else:
-                chain_history = db_history
-        else:
-            chain_history = db_history
-
-        # Prepare input for the chain
-        chain_input = {"question": query, "chat_history": chain_history}
-
-        # Run the chain and get the response
+                i += 1
+        
+        # 세션 ID와 대화 기록을 포함한 체인 입력 구성
+        chain_input = {
+            "question": query,
+            "session_id": str(chat_session.session_nonce),  # 세션 식별자
+            "db_history": db_history  # 데이터베이스에서 가져온 대화 기록
+        }
+        
+        # 체인 실행
         chain_response = answer_chain.invoke(chain_input)
 
         # Extract response text and relevance scores
         if isinstance(chain_response, dict):
-            response = chain_response.get("answer", chain_response)
+            # 응답은 answer 필드에서 우선 가져오고, 없으면 text 필드에서 가져옴
+            response = chain_response.get("answer", "")
+            if not response and "text" in chain_response:
+                response = chain_response.get("text", "")
+                
             source_docs = chain_response.get("source_documents", [])
             
             # if there is similarity scores
@@ -329,17 +315,14 @@ def chat(request):
         ai_msg = ChatMessage.objects.create(
             session=chat_session, role="assistant", content=response
         )
-        
-        return Response(
-            {
-                "response": response,
-                "search_results": search_results,
-                "history": chain_history,
-                "remaining_queries": remaining_queries,
-                "query_limit": query_limit,
-                "is_premium": is_premium,
-            }
-        )
+
+        return Response({
+            "response": response,
+            "search_results": search_results,
+            "remaining_queries": remaining_queries,
+            "query_limit": query_limit,
+            "is_premium": is_premium,
+        })
 
     except Exception as e:
         import traceback

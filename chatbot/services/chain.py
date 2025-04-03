@@ -20,10 +20,11 @@ from langchain_core.runnables import (
     RunnableLambda,
     RunnablePassthrough,
 )
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pinecone import Pinecone
 from pydantic import BaseModel
 from django.conf import settings
+from langchain.memory import ConversationTokenBufferMemory
 
 from chatbot.services.ingest import get_embeddings_model
 from chatbot.services.hybrid_retriever import HybridRetriever
@@ -211,24 +212,52 @@ def serialize_history(request: ChatRequest):
     return converted_chat_history
 
 
+# 세션별 메모리를 저장할 딕셔너리 추가
+session_memories = {}
+
 def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     """
-    Creates the main RAG (Retrieval-Augmented Generation) chain.
-
-    This chain handles the entire process:
-    1. Processes chat history
-    2. Retrieves relevant documents
-    3. Formats documents
-    4. Generates a response using the LLM
-
-    Args:
-        llm: The language model for generating responses
-        retriever: The retriever for finding relevant documents
-
-    Returns:
-        Runnable: The complete RAG chain
+    LangChain RAG 체인을 생성합니다.
+    각 세션별로 ConversationTokenBufferMemory를 관리합니다.
     """
-
+    # 기본 메모리 생성 (실제 메모리는 호출 시 세션별로 관리됨)
+    default_memory = ConversationTokenBufferMemory(
+        llm=llm,
+        max_token_limit=2000,
+        memory_key="chat_history",
+        return_messages=True,
+        output_key="answer",
+        input_key="question"
+    )
+    
+    # 세션별 메모리를 가져오는 함수
+    def get_session_memory(inputs):
+        session_id = inputs.get("session_id", "default")
+        
+        if session_id not in session_memories:
+            # 새 세션이면 새 메모리 객체 생성
+            session_memories[session_id] = ConversationTokenBufferMemory(
+                llm=llm,
+                max_token_limit=2000,
+                memory_key="chat_history",
+                return_messages=True,
+                output_key="answer",
+                input_key="question"
+            )
+            
+            # 데이터베이스에서 기존 대화 내용 불러오기 (옵션)
+            if "db_history" in inputs and inputs["db_history"]:
+                for msg_pair in inputs["db_history"]:
+                    if "user" in msg_pair and "assistant" in msg_pair:
+                        session_memories[session_id].save_context(
+                            {"question": msg_pair["user"]},
+                            {"answer": msg_pair["assistant"]}
+                        )
+                        
+        memory_content = session_memories[session_id].load_memory_variables({})
+        chat_history = memory_content.get("chat_history", [])
+        return chat_history
+    
     # Condense question chain
     CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
     condense_question_chain = (
@@ -236,38 +265,34 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     ).with_config(
         run_name="CondenseQuestion",
     )
-
-    # Chain that handles retrieval logic (direct questions vs. follow-ups)
-    retriever_chain = create_retriever_chain(
-        llm,
-        retriever,
-    ).with_config(run_name="FindDocs")
-
-    # Chain that takes retrieved documents and formats them
+    
+    # 이후 체인 구성 (메모리를 동적으로 가져옴)
     context = (
         RunnablePassthrough.assign(
-            condense_question=lambda x: condense_question_chain.invoke(x) if x.get("chat_history") else x["question"]
+            chat_history=get_session_memory,
+            condense_question=lambda x: condense_question_chain.invoke(
+                {"chat_history": get_session_memory(x), "question": x["question"]}
+            ) if get_session_memory(x) else x["question"]
         )
-        .assign(docs=retriever_chain)
+        .assign(docs=lambda x: retriever.invoke(x["condense_question"]))
         .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
-
-    # Create the chat prompt that includes system instructions, chat history, and user question
+    
+    # 나머지 체인 코드...
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", RESPONSE_TEMPLATE),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{condense_question}"),  # use converted question
+            ("human", "{condense_question}"),
         ]
     )
 
-    # Chain that takes context and generates a response
     response_synthesizer = (prompt | llm | StrOutputParser()).with_config(
         run_name="GenerateResponse"
     )
-
-    # Function to format the final response including source documents
+    
+    # 결과 형식화 함수 (기존과 동일)
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
             # use scores already calculated by HybridRetriever
@@ -276,23 +301,55 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
-                "similarity_scores": scores
+                "similarity_scores": scores,
+                "session_id": result.get("session_id", "default"),  # 세션 ID 보존
+                "question": result.get("question", "")  # 원본 질문 보존
             }
         return result
-
-    # Combine all chains into the final RAG chain
-    return (
+    
+    # 최종 체인 구성 - 원래 질문과 세션 ID 유지
+    final_chain = (
         RunnablePassthrough.assign(
-            chat_history=serialize_history
-        )  # Convert chat history
-        | context  # Retrieve and format documents
-        | RunnablePassthrough.assign(
-            text=response_synthesizer  # Generate the final response
+            chat_history=get_session_memory,
+            # 다른 필드들은 그대로 유지
         )
-        | RunnableLambda(
-            format_response
-        )  # Format the response to include source documents
+        | context
+        | RunnablePassthrough.assign(
+            text=response_synthesizer
+        )
+        | RunnableLambda(format_response)
     )
+    
+    # 메모리 업데이트 함수 개선
+    def update_memory_and_return(result):
+        try:
+            session_id = result.get("session_id", "default")
+            
+            if session_id in session_memories:
+                # 질문과 답변 추출
+                question = result.get("question", "")
+                answer = result.get("answer", "")
+                
+                # 답변이 없는 경우 text 필드에서 가져옴
+                if not answer and "text" in result:
+                    answer = result["text"]
+                
+                # 메모리 업데이트
+                if question and answer:
+                    session_memories[session_id].save_context(
+                        {"question": question},
+                        {"answer": answer}
+                    )
+        except Exception as e:
+            pass
+            
+        return result
+    
+    return RunnablePassthrough.assign(
+        # 원본 입력 값 유지를 위한 패스스루 추가
+        session_id=lambda x: x.get("session_id", "default"),
+        question=lambda x: x.get("question", "")
+    ) | final_chain | RunnableLambda(update_memory_and_return)
 
 
 # Initialize LLM with settings from settings.py

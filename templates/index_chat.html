@@ -203,8 +203,7 @@
                     },
                     body: JSON.stringify({
                         query: query,
-                        session_nonce: "{{ chat_session.session_nonce }}",
-                        history: chatHistory // 대화 기록 전송
+                        session_nonce: "{{ chat_session.session_nonce }}"
                     })
                 })
                 .then(response => response.json())
@@ -231,30 +230,6 @@
                     if (data.response) {
                         // 응답을 대화 영역에 추가
                         addMessageToChat('assistant', data.response);
-                        
-                        // 대화 기록 업데이트
-                        if (data.history && data.history.length > 0) {
-                            // 서버에서 보낸 history 사용
-                            console.log("서버에서 받은 대화 기록으로 업데이트:", data.history.length, "개");
-                            chatHistory = data.history;
-                        } else {
-                            // 서버에서 history를 보내지 않으면 기존 대화 기록에 새로운 대화 추가
-                            chatHistory.push({
-                                "user": query,
-                                "assistant": data.response
-                            });
-                            console.log("챗 히스토리 수동 업데이트:", chatHistory.length, "개");
-                        }
-                        
-                        // 디버깅용 로그 추가
-                        console.log("현재 대화 기록 상태:", JSON.stringify(chatHistory));
-                        
-                        // 세션 스토리지에 대화 기록 저장
-                        try {
-                            sessionStorage.setItem('chatHistory_{{ chat_session.session_nonce }}', JSON.stringify(chatHistory));
-                        } catch (error) {
-                            console.error("대화 기록 저장 오류:", error);
-                        }
                         
                         // 검색 결과로 카드 업데이트
                         if (data.search_results && data.search_results.length > 0) {

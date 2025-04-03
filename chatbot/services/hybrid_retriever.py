@@ -1,4 +1,4 @@
-import logging  # Added logging
+import logging
 import math
 import os
 import statistics
@@ -140,7 +140,6 @@ class HybridRetriever(BaseRetriever):
                     query, k=self.k * MULTIPLIER
                 )
             )
-            logger.info(f"Vector search found {len(self.vector_results)} results.")
         except Exception as e:
             logger.error(f"Error during vector search: {e}")
             self.vector_results = []  # Ensure it's empty on error
@@ -162,18 +161,13 @@ class HybridRetriever(BaseRetriever):
 
                     # Try AND search first
                     whoosh_query_and = parser.parse(f"({bm25_query})")
-                    logger.info(f"Whoosh AND 쿼리: {whoosh_query_and}")
                     whoosh_results = searcher.search(
                         whoosh_query_and, limit=self.k * MULTIPLIER
                     )
 
                     # if results are less than half of k *and* there are multiple keywords, use OR search
                     if len(whoosh_results) < self.k * 0.5 and " " in bm25_query.strip():
-                        logger.info(
-                            f"AND 검색 결과 부족 ({len(whoosh_results)}개). OR 검색으로 전환"
-                        )
                         whoosh_query_or = parser.parse(" OR ".join(bm25_query.split()))
-                        logger.info(f"Whoosh OR 쿼리: {whoosh_query_or}")
                         whoosh_results = searcher.search(
                             whoosh_query_or, limit=self.k * MULTIPLIER
                         )
@@ -200,7 +194,6 @@ class HybridRetriever(BaseRetriever):
                         )
                         for r in whoosh_results
                     ]
-                    logger.info(f"BM25 search found {len(self.bm25_results)} results.")
             except Exception as e:
                 logger.error(f"Error during BM25 search: {e}")
                 self.bm25_results = []  # Ensure empty on error
@@ -233,9 +226,7 @@ class HybridRetriever(BaseRetriever):
                         try:
                             doc_id = str(int(post_id_val))
                         except (ValueError, TypeError):
-                            logger.warning(
-                                f"Could not convert vector doc post_id '{post_id_val}' to int/string."
-                            )
+                            pass
 
                     if doc_id:  # Only process if doc_id exists and is valid string
                         # Z-score standardization
@@ -253,9 +244,7 @@ class HybridRetriever(BaseRetriever):
                             "score": self.alpha * normalized_score,
                         }
                     else:
-                        logger.warning(
-                            f"Skipping vector doc due to missing or invalid post_id: {doc.metadata}"
-                        )
+                        pass
 
             elif (
                 len(vector_scores) == 1
@@ -271,9 +260,7 @@ class HybridRetriever(BaseRetriever):
                     try:
                         doc_id = str(int(post_id_val))
                     except (ValueError, TypeError):
-                        logger.warning(
-                            f"Could not convert vector doc post_id '{post_id_val}' to int/string."
-                        )
+                        pass
 
                 if doc_id:  # Only process if doc_id exists and is valid string
                     combined_scores[doc_id] = {
@@ -281,14 +268,9 @@ class HybridRetriever(BaseRetriever):
                         "score": self.alpha * 1,  # single score is normalized to 1
                     }
                 else:
-                    logger.warning(
-                        f"Skipping vector doc due to missing or invalid post_id: {doc.metadata}"
-                    )
+                    pass
 
         # BM25 results
-        logger.info(
-            f"BM25 search document count (before combining): {len(self.bm25_results)}"
-        )
         if self.bm25_results:
             bm25_scores = [score for _, score in self.bm25_results]
 
@@ -334,10 +316,7 @@ class HybridRetriever(BaseRetriever):
                                 "score": (1 - self.alpha) * normalized_score,
                             }
                     else:
-                        # This case should ideally not happen if Whoosh schema enforces post_id
-                        logger.warning(
-                            f"Skipping BM25 doc due to missing post_id: {doc.metadata}"
-                        )
+                        pass
 
             elif (
                 len(bm25_scores) == 1
@@ -359,9 +338,7 @@ class HybridRetriever(BaseRetriever):
                             * 1,  # single score is normalized to 1
                         }
                 else:
-                    logger.warning(
-                        f"Skipping BM25 doc due to missing post_id: {doc.metadata}"
-                    )
+                    pass
 
         # final results
         sorted_results = sorted(
@@ -374,7 +351,6 @@ class HybridRetriever(BaseRetriever):
             item["doc"].metadata["combined_score"] = item["score"]
             final_docs.append(item["doc"])
 
-        logger.info(f"Hybrid search returning {len(final_docs)} documents.")
         return final_docs
 
     async def _aget_relevant_documents(
@@ -382,5 +358,4 @@ class HybridRetriever(BaseRetriever):
     ) -> List[Document]:
         # Simple async wrapper for now
         # TODO: Implement true async calls if IO bound operations support it
-        logger.warning("Using synchronous implementation for async retrieval.")
         return self._get_relevant_documents(query, run_manager=run_manager)
