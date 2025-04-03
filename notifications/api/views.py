@@ -91,7 +91,7 @@ class ConsultationRequestAPIView(APIView):
                     "content": message.content,
                     "created_at": message.created_at,
                 }
-                for message in chat_messages[1:]  # to avoid duplicated initial message.
+                for message in chat_messages
             ]
             host_email = os.getenv("EMAIL_HOST_USER")
             # Host email address (you can set this in settings.py or .env)
