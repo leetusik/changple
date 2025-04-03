@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Try to import answer_chain, handle import errors gracefully
 try:
     from chatbot.services.chain import initialize_chain
+
     answer_chain = initialize_chain()
     logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
@@ -47,6 +48,7 @@ load_dotenv()
 def index(request):
     # 메인 페이지 렌더링
     return render(request, "index.html")
+
 
 class HomeView(View):
     """
@@ -183,6 +185,7 @@ def chat_view(request, session_nonce=None):
     # index_chat.html 템플릿 렌더링
     return render(request, "index_chat.html", context)
 
+
 @api_view(["POST"])
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
@@ -278,19 +281,21 @@ def chat(request):
         if isinstance(chain_response, dict):
             response = chain_response.get("answer", chain_response)
             source_docs = chain_response.get("source_documents", [])
-            
+
             # similarity scores가 있는 경우 추출
             if hasattr(chain_response, "similarity_scores"):
                 search_results = []
                 for doc, score in zip(source_docs, chain_response.similarity_scores):
-                    search_results.append({
-                        "metadata": {
-                            "title": doc.metadata.get("title", f"Source {i+1}"),
-                            "url": doc.metadata.get("url", ""),
-                            "similarity_score": f"{score:.2f}"  # 유사도 점수 추가
-                        },
-                        "content": doc.page_content[:200]
-                    })
+                    search_results.append(
+                        {
+                            "metadata": {
+                                "title": doc.metadata.get("title", f"Source {i+1}"),
+                                "url": doc.metadata.get("url", ""),
+                                "similarity_score": f"{score:.2f}",  # 유사도 점수 추가
+                            },
+                            "content": doc.page_content[:200],
+                        }
+                    )
             else:
                 # Extract search results if they exist in the response
                 search_results = chain_response.get("search_results", [])
