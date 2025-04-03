@@ -266,9 +266,16 @@ TEXT_SPLITTER_CHUNK_OVERLAP = 200
 
 # LLM model settings
 LLM_MODEL = "gpt-4o-mini"
-LLM_TEMPERATURE = 0.7
-LLM_TOP_K = 1
-PROMPT_ID = 1  # prompt id from django db
+LLM_TEMPERATURE = 0
+LLM_STREAMING = True
+LLM_TOP_K = 5
+
+# Retriever Settings
+NUM_DOCS = 1 # number of retrieved documents
+HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
+WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
+KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction
+
 
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
@@ -287,3 +294,5 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Your App <noreply@yourapp.com>")
+
+

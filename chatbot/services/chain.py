@@ -23,6 +23,7 @@ from langchain_core.runnables import (
 from langchain_openai import ChatOpenAI
 from pinecone import Pinecone
 from pydantic import BaseModel
+from django.conf import settings
 
 from chatbot.services.ingest import get_embeddings_model
 from chatbot.services.hybrid_retriever import HybridRetriever
@@ -108,18 +109,18 @@ def get_retriever() -> BaseRetriever:
         text_key="text",  # Field name where document text is stored
     )
 
-    # number of retrieved documents
-    NUM_DOCS = 5 
-    #  weight between vector and BM25 scores (1: vector, 0: BM25)
-    ALPHA = 0.5
+    # number of retrieved documents from settings
+    NUM_DOCS = settings.NUM_DOCS
+    #  weight between vector and BM25 scores from settings
+    HYBRID_ALPHA = settings.HYBRID_ALPHA
 
-    # Return as retriever with k=3 (retrieve 3 most relevant chunks)
+    # Return as retriever with k=NUM_DOCS (retrieve NUM_DOCS most relevant chunks)
     vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
     
     return HybridRetriever(
         vector_store=vector_retriever,
-        whoosh_index_dir="chatbot/data/whoosh_index",
-        alpha=ALPHA,    
+        whoosh_index_dir=settings.WHOOSH_INDEX_DIR,
+        alpha=HYBRID_ALPHA,    
         k=NUM_DOCS    
     )
 
@@ -294,10 +295,12 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     )
 
 
-# Initialize only GPT-4o-mini for all operations
-# We use temperature=0 for more deterministic responses
-# Streaming=True allows for incremental response generation
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
+# Initialize LLM with settings from settings.py
+llm = ChatOpenAI(
+    model=settings.LLM_MODEL, 
+    temperature=settings.LLM_TEMPERATURE, 
+    streaming=settings.LLM_STREAMING
+)
 
 # Initialize retriever and answer chain
 # These are the main components that will be used by the API

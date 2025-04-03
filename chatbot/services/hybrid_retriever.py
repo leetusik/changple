@@ -13,6 +13,7 @@ from pydantic import Field
 from whoosh import scoring
 from whoosh.index import EmptyIndexError, open_dir
 from whoosh.qparser import MultifieldParser
+from django.conf import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,10 +42,10 @@ class HybridRetriever(BaseRetriever):
     def __init__(
         self,
         vector_store,
-        whoosh_index_dir: str = "chatbot/data/whoosh_index",
-        alpha: float = 0.5,
-        k: int = 3,
-        keyword_model: str = "gpt-4o-mini",  # llm for keyword extraction
+        whoosh_index_dir: str = settings.WHOOSH_INDEX_DIR,
+        alpha: float = settings.HYBRID_ALPHA,
+        k: int = settings.NUM_DOCS,
+        keyword_model: str = settings.KEYWORD_MODEL,  # llm for keyword extraction
     ):
         """
         Args:
