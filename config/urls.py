@@ -20,12 +20,7 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 # 새로 만든 HomeView 임포트
-from chatbot.api.views import (  # Import chat views directly
-    HomeView,
-    chat,
-    chat_no_nonce_view,
-    chat_view,
-)
+from chatbot.api.views import HomeView, chat, chat_view  # Import chat views directly
 
 # Import NaverCallbackView directly
 from users.views import NaverCallbackView, NaverLoginView
@@ -49,7 +44,7 @@ urlpatterns = [
     path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
     path("notifications/", include("notifications.urls", namespace="notifications")),
     # Add chat URLs at the root level
-    path("chat/", chat_no_nonce_view, name="root_chat_view_with_no_nonce"),
+    path("chat/", chat_view, name="root_chat_view_with_no_nonce"),
     path("chat/<str:session_nonce>/", chat_view, name="root_chat_view_with_nonce"),
     path("api/chat/", chat, name="root_chat_api"),
 ]

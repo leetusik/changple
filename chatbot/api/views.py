@@ -46,9 +46,9 @@ class HomeView(View):
         return render(request, "index.html")
 
 
-def chat_no_nonce_view(request):
+def chat_view(request, session_nonce=None):
     # Handle POST request (creating a session with initial message)
-    if request.method == "POST":
+    if request.method == "POST" and session_nonce is None:
         try:
             # Get message from form data
             initial_message = request.POST.get("message", "").strip()
@@ -68,6 +68,10 @@ def chat_no_nonce_view(request):
                 session=chat_session, role="user", content=initial_message
             )
             logger.info(f"Saved user message (ID: {user_message.id}) to database")
+            # Mark this session as having its initial message already saved
+            chat_session.request_sent = True
+            chat_session.save()
+            logger.info(f"Marked session as having initial message saved")
 
             # Return clean URL without query parameters
             redirect_url = chat_session.get_absolute_url()
@@ -77,7 +81,7 @@ def chat_no_nonce_view(request):
         except Exception as e:
             import traceback
 
-            logger.error(f"CRITICAL ERROR in chat_no_nonce_view: {str(e)}")
+            logger.error(f"CRITICAL ERROR in chat_view: {str(e)}")
             logger.error(traceback.format_exc())
             return JsonResponse(
                 {
@@ -87,12 +91,7 @@ def chat_no_nonce_view(request):
                 status=500,
             )
 
-    # Handle GET request (regular redirect)
-    return chat_view(request, None)
-
-
-def chat_view(request, session_nonce=None):
-    # If no session_nonce is provided (URL path is just /chat/), create a new session
+    # If no session_nonce is provided (URL path is just /chat/) and not a POST, create a new session
     if session_nonce is None:
         # Create a new chat session
         chat_session = ChatSession.objects.create(
@@ -317,10 +316,29 @@ def chat(request):
             except Exception as e:
                 logger.warning(f"Error extracting search results: {str(e)}")
 
-        # Save user message to database
-        user_msg = ChatMessage.objects.create(
-            session=chat_session, role="user", content=query
-        )
+        # Check if this is the initial message for a session that has request_sent=True
+        if chat_session.request_sent and chat_session.messages.count() == 1:
+            logger.info(
+                f"Session {chat_session.session_id} already has initial message saved, skipping user message creation"
+            )
+            # Get the existing user message
+            user_msg = chat_session.messages.get(role="user")
+
+            # If the content is different, update it (unlikely but just to be safe)
+            if user_msg.content != query:
+                user_msg.content = query
+                user_msg.save()
+                logger.info(
+                    f"Updated existing user message content from '{user_msg.content}' to '{query}'"
+                )
+        else:
+            # This is not the initial message or the session doesn't have request_sent=True
+            # Save user message to database
+            user_msg = ChatMessage.objects.create(
+                session=chat_session, role="user", content=query
+            )
+            logger.info(f"Created new user message (ID: {user_msg.id})")
+
         # Save AI response to database
         ai_msg = ChatMessage.objects.create(
             session=chat_session, role="assistant", content=response
