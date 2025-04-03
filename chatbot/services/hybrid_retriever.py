@@ -149,7 +149,7 @@ class HybridRetriever(BaseRetriever):
             try:
                 bm25_query = self.extract_keywords(query)
                 logger.info(
-                    f"Original query: '{query}'\n → BM25 keywords: '{bm25_query}'"
+                    f"BM25 keywords: '{bm25_query}'"
                 )
 
                 with self.whoosh_ix.searcher(

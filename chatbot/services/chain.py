@@ -74,7 +74,13 @@ PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
 # Pydantic model defining the structure of chat requests
 class ChatRequest(BaseModel):
     question: str  # The current user question
-    chat_history: Optional[List[Dict[str, str]]]  # Previous conversation history
+    chat_history: Optional[List[Dict[str, str]]] = None  # Previous conversation history
+
+    # Pydantic v2 설정 방식으로 변경
+    # 기존: allow_population_by_field_name
+    # 새로운: populate_by_name
+    class Config:
+        populate_by_name = True
 
 
 def get_retriever() -> BaseRetriever:

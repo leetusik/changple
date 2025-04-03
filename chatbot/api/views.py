@@ -24,25 +24,12 @@ try:
     answer_chain = initialize_chain()
     logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
-    logger.error(f"Failed to import answer_chain: {str(e)}")
-
-    # Create a dummy function that will be used if the real one is not available
-    def dummy_answer_chain():
-        def invoke(input_data):
-            logger.warning(
-                "Using dummy answer_chain because the real one couldn't be imported"
-            )
-            return "죄송합니다. 현재 AI 서비스를 사용할 수 없습니다. 나중에 다시 시도해주세요."
-
-        return type("DummyChain", (), {"invoke": staticmethod(invoke)})()
-
-    answer_chain = dummy_answer_chain()
+    logger.critical(f"Failed to import answer_chain: {str(e)}")
+    # 서버 시작을 중단하거나 명확한 예외 발생
+    raise RuntimeError("챗봇 서비스 초기화 실패. 서버를 시작할 수 없습니다.")
 
 # 파일 시작 부분에 .env 로드
 load_dotenv()
-
-# Create your views here.
-
 
 def index(request):
     # 메인 페이지 렌더링
@@ -241,7 +228,6 @@ def chat(request):
             )
 
         # Log the input
-        logger.info(f"Received question: {query}")
         if client_history:
             logger.info(f"With client history of {len(client_history)} entries")
 
@@ -268,7 +254,7 @@ def chat(request):
 
         # Log what's being sent to the chain
         logger.info(
-            f"Chain input: question={query}, history_length={len(chain_history)}"
+            f"Chain input: question_length={len(query)}, history_length={len(chain_history)}"
         )
 
         # Run the chain and get the response
