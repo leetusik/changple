@@ -119,26 +119,51 @@
     <script src="{% static 'js/index.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 대화 기록을 저장할 배열 추가
-            let chatHistory = [];
+            // Load chat history from Django context if available
+            {% if chat_history_json %}
+                let chatHistory = {{ chat_history_json|safe }};
+            {% else %}
+                // Initialize empty chat history if none exists
+                let chatHistory = [];
+            {% endif %}
+            
+            // Load existing chat history from Django context and render messages
+            {% if chat_history %}
+                // Render existing chat messages from the server
+                {% for message in chat_history %}
+                    addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`);
+                {% endfor %}
+            {% endif %}
             
             // Initialize query count from server data
             let remainingQueries = {{ remaining_queries|default:0 }};
             let queryLimit = {{ query_limit|default:10 }};
             let isPremium = {{ is_premium|default:"false" }};
             
-            // Get the initial message from Django context
-            const initialMessage = "{{ initial_message|escapejs }}";
-            
-            if (initialMessage) {
-                // Process the initial message if available
-                callChatAPI(initialMessage);
-            }
+            // Process initial message in these cases:
+            // 1. When redirected from index.html (has initial_message but no AI response yet)
+            // 2. When the session has only one user message but no AI response
+            {% if initial_message %}
+                // Check if we have an initial user message but no AI response yet
+                {% if chat_history|length == 1 and chat_history.0.role == 'user' %}
+                    const initialMessage = "{{ initial_message|escapejs }}";
+                    if (initialMessage) {
+                        callChatAPI(initialMessage, true);
+                    }
+                {% endif %}
+            {% endif %}
             
             // 입력 필드와 전송 버튼 가져오기
             const inputBox = document.querySelector('.input-box-unlocked');
             const sendBtn = document.querySelector('.send-btn');
             const changpleBtn = document.querySelector('.changple-btn');
+            
+            // Change placeholder text based on whether we have existing chat history
+            {% if chat_history %}
+            inputBox.placeholder = "추가 질문을 입력하세요";
+            {% else %}
+            inputBox.placeholder = "창업의 모든 것을 물어보세요";
+            {% endif %}
             
             // Show/hide the appropriate button based on input content
             inputBox.addEventListener('input', function() {
@@ -177,9 +202,12 @@
             });
             
             // Chat API 호출 함수
-            function callChatAPI(query) {
-                // Add user message to chat
-                addMessageToChat('user', query);
+            function callChatAPI(query, isInitialMessage = false) {
+                // Only add user message to the UI if it's not the initial message
+                // Initial messages are already rendered from the server-side chat_history
+                if (!isInitialMessage) {
+                    addMessageToChat('user', query);
+                }
                 
                 // 로딩 메시지 추가
                 const loadingId = addLoadingMessage();

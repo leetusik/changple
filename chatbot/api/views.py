@@ -138,6 +138,23 @@ def chat_view(request, session_nonce=None):
             for message in chat_messages
         ]
 
+        # Format the chat history for JavaScript chain format
+        chat_history_json = []
+        i = 0
+        messages_list = list(chat_messages.order_by("created_at"))
+        while i < len(messages_list) - 1:
+            if (
+                messages_list[i].role == "user"
+                and messages_list[i + 1].role == "assistant"
+            ):
+                chat_history_json.append(
+                    {
+                        "human": messages_list[i].content,
+                        "ai": messages_list[i + 1].content,
+                    }
+                )
+            i += 2
+
         # Check if there's an initial message already in the database
         initial_message = None
         if chat_messages.filter(role="user").exists():
@@ -175,6 +192,7 @@ def chat_view(request, session_nonce=None):
     context = {
         "chat_session": chat_session,
         "chat_history": chat_history,
+        "chat_history_json": chat_history_json,
         "initial_message": initial_message,  # Pass initial message to template
         "remaining_queries": remaining_queries,
         "query_limit": query_limit,
