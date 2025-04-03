@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Try to import answer_chain, handle import errors gracefully
 try:
     from chatbot.services.chain import initialize_chain
+
     answer_chain = initialize_chain()
     logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
@@ -30,8 +31,10 @@ except ImportError as e:
 # load_dotenv()
 load_dotenv()
 
+
 def index(request):
     return render(request, "index.html")
+
 
 class HomeView(View):
     """
@@ -158,16 +161,17 @@ def chat_view(request, session_nonce=None):
 
     return render(request, "index_chat.html", context)
 
+
 @api_view(["POST"])
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
     data = request.data
     query = data.get("query", "")
     session_nonce = data.get("session_nonce", "")
-    
+
     # 여기에 사용자 질문 로깅 코드 추가
     logger.info(f"User query (session: {session_nonce}): \n{query}")
-    
+
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
 
@@ -222,21 +226,25 @@ def chat(request):
         db_history = []
         i = 0
         while i < len(messages):
-            if i + 1 < len(messages) and messages[i].role == "user" and messages[i + 1].role == "assistant":
+            if (
+                i + 1 < len(messages)
+                and messages[i].role == "user"
+                and messages[i + 1].role == "assistant"
+            ):
                 db_history.append(
                     {"user": messages[i].content, "assistant": messages[i + 1].content}
                 )
                 i += 2
             else:
                 i += 1
-        
+
         # 세션 ID와 대화 기록을 포함한 체인 입력 구성
         chain_input = {
             "question": query,
             "session_id": str(chat_session.session_nonce),  # 세션 식별자
-            "db_history": db_history  # 데이터베이스에서 가져온 대화 기록
+            "db_history": db_history,  # 데이터베이스에서 가져온 대화 기록
         }
-        
+
         # 체인 실행
         chain_response = answer_chain.invoke(chain_input)
 
@@ -246,21 +254,23 @@ def chat(request):
             response = chain_response.get("answer", "")
             if not response and "text" in chain_response:
                 response = chain_response.get("text", "")
-                
+
             source_docs = chain_response.get("source_documents", [])
-            
-            # if there is similarity scores
+
+            # similarity scores가 있는 경우 추출
             if hasattr(chain_response, "similarity_scores"):
                 search_results = []
                 for doc, score in zip(source_docs, chain_response.similarity_scores):
-                    search_results.append({
-                        "metadata": {
-                            "title": doc.metadata.get("title", f"Source {i+1}"),
-                            "url": doc.metadata.get("url", ""),
-                            "similarity_score": f"{score:.2f}"  # add similarity score
-                        },
-                        "content": doc.page_content[:200]
-                    })
+                    search_results.append(
+                        {
+                            "metadata": {
+                                "title": doc.metadata.get("title", f"Source {i+1}"),
+                                "url": doc.metadata.get("url", ""),
+                                "similarity_score": f"{score:.2f}",  # 유사도 점수 추가
+                            },
+                            "content": doc.page_content[:200],
+                        }
+                    )
             else:
                 # Extract search results if they exist in the response
                 search_results = chain_response.get("search_results", [])
@@ -316,13 +326,15 @@ def chat(request):
             session=chat_session, role="assistant", content=response
         )
 
-        return Response({
-            "response": response,
-            "search_results": search_results,
-            "remaining_queries": remaining_queries,
-            "query_limit": query_limit,
-            "is_premium": is_premium,
-        })
+        return Response(
+            {
+                "response": response,
+                "search_results": search_results,
+                "remaining_queries": remaining_queries,
+                "query_limit": query_limit,
+                "is_premium": is_premium,
+            }
+        )
 
     except Exception as e:
         import traceback
