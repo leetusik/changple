@@ -10,7 +10,7 @@ services:
       # Let .env file control these primarily for production
       - DEBUG=${DEBUG:-0} # Default to 0 if not set in .env
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-ggulmae.com} # Default if not set
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai} # Default if not set
       - REDIS_URL=redis://redis:6379/0
       - DJANGO_SETTINGS_MODULE=config.settings_production
     volumes:
@@ -40,7 +40,7 @@ services:
     environment:
       - DEBUG=${DEBUG:-0}
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-ggulmae.com}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
       - REDIS_URL=redis://redis:6379/0
       - DJANGO_SETTINGS_MODULE=config.settings_production
     volumes:
@@ -60,7 +60,7 @@ services:
     environment:
       - DEBUG=${DEBUG:-0}
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-ggulmae.com}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
       - REDIS_URL=redis://redis:6379/0
       - DJANGO_SETTINGS_MODULE=config.settings_production
     volumes:
