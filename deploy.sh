@@ -62,7 +62,7 @@ if grep -q "your_django_secret_key_here" .env; then
 fi
 
 # Check for domain name
-DOMAIN="ggulmae.com"
+DOMAIN="changple.ai"
 echo -e "${YELLOW}Deploying for domain: $DOMAIN${NC}"
 
 # Ensure port 80 is free for certbot
