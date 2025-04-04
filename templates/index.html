@@ -5,18 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChangpleAI</title>
-    {% if user.is_authenticated %}
-    <link rel="stylesheet" href="{% static 'css/index_unlocked.css' %}">
-    {% else %}
+    {% comment %} {% if user.is_authenticated %} {% endcomment %}
+    {% comment %} <link rel="stylesheet" href="{% static 'css/index_unlocked.css' %}"> {% endcomment %}
+    {% comment %} {% else %} {% endcomment %}
     <link rel="stylesheet" href="{% static 'css/index_locked.css' %}">
-    {% endif %}
-</head>ㅍ
+    {% comment %} {% endif %} {% endcomment %}
+</head>
 <body>
     <div class="container">
         <div class="header">
 
             <!-- 창플 메인 로고(좌측)) -->
-            <div class="cp-logo-container">
+            <div class="cp-logo-container" id="cp-logo" style="cursor: pointer;">
                 <svg class="cp-logo">
                     {% comment %} <img src="{% static '../static/img/cp-logo-main.svg' %}" alt="CHAI Logo" /> {% endcomment %}
                     <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 513.51 109.45">
@@ -265,6 +265,13 @@
                     inputBox.value = this.textContent;
                     inputBox.dispatchEvent(new Event('input'));
                 });
+            });
+
+            // cp-logo-container 클릭 이벤트 리스너 추가
+            const cpLogoContainer = document.getElementById('cp-logo');
+            cpLogoContainer.addEventListener('click', function() {
+                // 클릭 시 이동할 URL
+                location.href = 'http://localhost:8000/';
             });
         });
     </script>

@@ -17,7 +17,9 @@
         <div class="header">
 
             <!-- 창플 메인 로고(좌측)) -->
-            <div class="cp-logo-container">
+            {% comment %} <div class="cp-logo-container"> {% endcomment %}
+            <div class="cp-logo-container" id="cp-logo" style="cursor: pointer;">
+
                 <svg class="cp-logo">
                     {% comment %} <img src="{% static '../static/img/cp-logo-main.svg' %}" alt="CHAI Logo" /> {% endcomment %}
                     <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 513.51 109.45">
@@ -61,12 +63,21 @@
 
             <div class="right-menu">
                 <!-- 마이페이지 (로그인 후) -->
-                <div class="mypage-btn">
+                {% comment %} <div class="mypage-btn">
                     <svg class="mypage-icon" width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evened" clip-rule="evenodd" d="M8.24279 6.8065C9.09527 6.8065 9.91284 6.46786 10.5156 5.86506C11.1184 5.26226 11.4571 4.4447 11.4571 3.59222C11.4571 2.73973 11.1184 1.92217 10.5156 1.31937C9.91284 0.716577 9.09527 0.37793 8.24279 0.37793C7.39031 0.37793 6.57274 0.716577 5.96994 1.31937C5.36715 1.92217 5.0285 2.73973 5.0285 3.59222C5.0285 4.4447 5.36715 5.26226 5.96994 5.86506C6.57274 6.46786 7.39031 6.8065 8.24279 6.8065ZM0.742787 16.4494C0.742787 15.4644 0.936781 14.4892 1.31369 13.5792C1.6906 12.6693 2.24305 11.8425 2.93949 11.1461C3.63593 10.4496 4.46272 9.89717 5.37266 9.52026C6.2826 9.14335 7.25787 8.94936 8.24279 8.94936C9.2277 8.94936 10.203 9.14335 11.1129 9.52026C12.0229 9.89717 12.8496 10.4496 13.5461 11.1461C14.2425 11.8425 14.795 12.6693 15.1719 13.5792C15.5488 14.4892 15.7428 15.4644 15.7428 16.4494H0.742787Z" fill="#889DC4"/>
                     </svg>
                     <div class="mypage-btn-text">마이 페이지</div>  
+                </div> {% endcomment %}
+
+
+                <div class="mypage-btn" onclick="location.href='{% url 'profile' %}'">
+                    <svg class="mypage-icon" width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M8.24279 6.8065C9.09527 6.8065 9.91284 6.46786 10.5156 5.86506C11.1184 5.26226 11.4571 4.4447 11.4571 3.59222C11.4571 2.73973 11.1184 1.92217 10.5156 1.31937C9.91284 0.716577 9.09527 0.37793 8.24279 0.37793C7.39031 0.37793 6.57274 0.716577 5.96994 1.31937C5.36715 1.92217 5.0285 2.73973 5.0285 3.59222C5.0285 4.4447 5.36715 5.26226 5.96994 5.86506C6.57274 6.46786 7.39031 6.8065 8.24279 6.8065ZM0.742787 16.4494C0.742787 15.4644 0.936781 14.4892 1.31369 13.5792C1.6906 12.6693 2.24305 11.8425 2.93949 11.1461C3.63593 10.4496 4.46272 9.89717 5.37266 9.52026C6.2826 9.14335 7.25787 8.94936 8.24279 8.94936C9.2277 8.94936 10.203 9.14335 11.1129 9.52026C12.0229 9.89717 12.8496 10.4496 13.5461 11.1461C14.2425 11.8425 14.795 12.6693 15.1719 13.5792C15.5488 14.4892 15.7428 15.4644 15.7428 16.4494H0.742787Z" fill="#889DC4"/>
+                    </svg>
+                    <div class="mypage-btn-text">마이 페이지</div>  
                 </div>
+        
 
                 <!-- 유료플랜 결제 -->
                 <div class="payment-btn">
@@ -109,11 +120,11 @@
 
         <div class="help-btn">?</div>
 
-        <div class="footer">
+        <footer>
             <div class="company-info">(주)창플 | 283-88-00641 | 한범구 | 서울 송파구 송파대로 167 (문정동)테라타워 B동, 707호 | 02-2054-3956 | tiger9@changple.com</div>
             <div class="copyright">@Copyright @ ChangpleTeamBusiness Inc. All Rights Reserved.</div>
             <div class="privacy-policy">개인정보처리방침</div>
-        </div>
+        </footer>
     </div>
     {% load static %}
     <script src="{% static 'js/index.js' %}"></script>
@@ -266,9 +277,9 @@
                         <div class="free-use-count">
                             <p>무료 사용(${count}/10)</p>
                         </div>  
-                        <div class="pay-use-btn">
+                         <div class="pay-use-btn">
                             <p>1:1 문의하기</p>
-                        </div>
+                        </div> 
                     </div>
                 `;
                 
@@ -307,7 +318,6 @@
                     const renderedContent = DOMPurify.sanitize(marked.parse(content));
                     
                     const botMessageHTML = `
-                        <br>
                         <br>
                         <div id="${botMessageId}" class="prompt-p">${renderedContent}</div>
                     `;
@@ -406,6 +416,14 @@
                 return cookieValue;
             }
         });
+
+         // cp-logo-container 클릭 이벤트 리스너 추가
+         const cpLogoContainer = document.getElementById('cp-logo');
+         cpLogoContainer.addEventListener('click', function() {
+             // 클릭 시 이동할 URL
+             location.href = 'http://localhost:8000/';
+         });
+    
     </script>
 </body>
 </html>
