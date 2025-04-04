@@ -1,0 +1,42 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Spoqa Han Sans Neo', sans-serif;
+    
+}
+
+body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+.main {
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    background: linear-gradient(180deg, rgba(250, 250, 250, 0.4) 19%, rgba(194, 202, 225, 0.4) 95%); /* 배경색에 투명도 적용 */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden; /* Disable scrolling */
+}
+
+footer {
+    font-size: 12px;
+    font-weight: 600;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #889DC4;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+}
