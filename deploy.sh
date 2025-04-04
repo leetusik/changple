@@ -101,6 +101,10 @@ docker-compose up -d
 echo -e "${YELLOW}Applying database migrations...${NC}"
 docker-compose exec web python manage.py migrate
 
+# Run collectstatic to ensure all static files are properly collected
+echo -e "${YELLOW}Collecting static files...${NC}"
+docker-compose exec web python manage.py collectstatic --noinput
+
 # Install Playwright browsers if they're needed for the scraper
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
 docker-compose exec web playwright install chromium
@@ -109,7 +113,7 @@ docker-compose exec web playwright install chromium
 echo -e "${YELLOW}Setting up database backup cron job...${NC}"
 CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(date +\%Y\%m\%d)"
 (crontab -l 2>/dev/null | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab 
--
+
 # Calculate time 20 minutes from now in UTC
 echo -e "${YELLOW}Setting up crawler to run 20 minutes after deployment...${NC}"
 START_TIME=$(date -u "+%Y-%m-%d %H:%M:%S")
