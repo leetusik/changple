@@ -202,7 +202,7 @@ def ingest_docs():
     chunk_ids_to_check = [chunk.metadata["chunk_id"] for chunk in all_chunks]
     existing_ids = set()
     try:
-        batch_size = 100  # Reduced batch size from 1000 to 100
+        batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
         for i in range(0, len(chunk_ids_to_check), batch_size):
             batch_ids = chunk_ids_to_check[i : i + batch_size]
             logger.info(
