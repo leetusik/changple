@@ -24,8 +24,8 @@ from langchain_openai import ChatOpenAI
 from pinecone import Pinecone
 from pydantic import BaseModel
 
-from chatbot.services.ingest import get_embeddings_model
 from chatbot.services.hybrid_retriever import HybridRetriever
+from chatbot.services.ingest import get_embeddings_model
 
 # System prompt template that instructs the LLM how to respond to user questions
 # It defines the response format, tone, and how to handle citations
@@ -103,18 +103,18 @@ def get_retriever() -> BaseRetriever:
     )
 
     # number of retrieved documents
-    NUM_DOCS = 5 
+    NUM_DOCS = 5
     #  weight between vector and BM25 scores (1: vector, 0: BM25)
     ALPHA = 0.5
 
     # Return as retriever with k=3 (retrieve 3 most relevant chunks)
     vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
-    
+
     return HybridRetriever(
         vector_store=vector_retriever,
         whoosh_index_dir="chatbot/data/whoosh_index",
-        alpha=ALPHA,    
-        k=NUM_DOCS    
+        alpha=ALPHA,
+        k=NUM_DOCS,
     )
 
 
@@ -248,7 +248,11 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     # Chain that takes retrieved documents and formats them
     context = (
         RunnablePassthrough.assign(
-            condense_question=lambda x: condense_question_chain.invoke(x) if x.get("chat_history") else x["question"]
+            condense_question=lambda x: (
+                condense_question_chain.invoke(x)
+                if x.get("chat_history")
+                else x["question"]
+            )
         )
         .assign(docs=retriever_chain)
         .assign(context=lambda x: format_docs(x["docs"]))
@@ -273,12 +277,15 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
             # use scores already calculated by HybridRetriever
-            scores = [doc.metadata.get("combined_score", 0.0) for doc in result.get("docs", [])]
-            
+            scores = [
+                doc.metadata.get("combined_score", 0.0)
+                for doc in result.get("docs", [])
+            ]
+
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
-                "similarity_scores": scores
+                "similarity_scores": scores,
             }
         return result
 
@@ -307,13 +314,14 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
 retriever = None
 answer_chain = None
 
+
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
     # run_ingest 명령어 실행 시 초기화 건너뛰기
-    if 'run_ingest' in sys.argv:
+    if "run_ingest" in sys.argv:
         print("run_ingest 명령어 실행 중, 초기화 건너뛰기")
         return None
-        
+
     global retriever, answer_chain
     if retriever is None or answer_chain is None:
         retriever = get_retriever()
