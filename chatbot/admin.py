@@ -3,6 +3,14 @@ from django.contrib import admin
 from .models import ChatMessage, ChatSession
 
 
+class ChatMessageInline(admin.StackedInline):
+    model = ChatMessage
+    extra = 0
+    readonly_fields = ("created_at",)
+    fields = ("role", "content", "created_at")
+    can_delete = False
+
+
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
     list_display = ("session_id", "created_at", "updated_at")
@@ -10,6 +18,7 @@ class ChatSessionAdmin(admin.ModelAdmin):
     readonly_fields = ("session_nonce",)
     list_filter = ("created_at", "updated_at")
     date_hierarchy = "created_at"
+    inlines = [ChatMessageInline]
 
 
 @admin.register(ChatMessage)

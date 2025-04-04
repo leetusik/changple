@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Try to import answer_chain, handle import errors gracefully
 try:
     from chatbot.services.chain import initialize_chain
+
     answer_chain = initialize_chain()
     logger.info("Successfully imported and initialized answer_chain")
 except ImportError as e:
@@ -30,8 +31,10 @@ except ImportError as e:
 # load_dotenv()
 load_dotenv()
 
+
 def index(request):
     return render(request, "index.html")
+
 
 class HomeView(View):
     """
@@ -43,9 +46,9 @@ class HomeView(View):
         return render(request, "index.html")
 
 
-def chat_no_nonce_view(request):
+def chat_view(request, session_nonce=None):
     # Handle POST request (creating a session with initial message)
-    if request.method == "POST":
+    if request.method == "POST" and session_nonce is None:
         try:
             # Get message from form data
             initial_message = request.POST.get("message", "").strip()
@@ -65,6 +68,10 @@ def chat_no_nonce_view(request):
                 session=chat_session, role="user", content=initial_message
             )
             logger.info(f"Saved user message (ID: {user_message.id}) to database")
+            # Mark this session as having its initial message already saved
+            chat_session.request_sent = True
+            chat_session.save()
+            logger.info(f"Marked session as having initial message saved")
 
             # Return clean URL without query parameters
             redirect_url = chat_session.get_absolute_url()
@@ -74,7 +81,7 @@ def chat_no_nonce_view(request):
         except Exception as e:
             import traceback
 
-            logger.error(f"CRITICAL ERROR in chat_no_nonce_view: {str(e)}")
+            logger.error(f"CRITICAL ERROR in chat_view: {str(e)}")
             logger.error(traceback.format_exc())
             return JsonResponse(
                 {
@@ -84,12 +91,7 @@ def chat_no_nonce_view(request):
                 status=500,
             )
 
-    # Handle GET request (regular redirect)
-    return chat_view(request, None)
-
-
-def chat_view(request, session_nonce=None):
-    # If no session_nonce is provided (URL path is just /chat/), create a new session
+    # If no session_nonce is provided (URL path is just /chat/) and not a POST, create a new session
     if session_nonce is None:
         # Create a new chat session
         chat_session = ChatSession.objects.create(
@@ -113,6 +115,23 @@ def chat_view(request, session_nonce=None):
             }
             for message in chat_messages
         ]
+
+        # Format the chat history for JavaScript chain format
+        chat_history_json = []
+        i = 0
+        messages_list = list(chat_messages.order_by("created_at"))
+        while i < len(messages_list) - 1:
+            if (
+                messages_list[i].role == "user"
+                and messages_list[i + 1].role == "assistant"
+            ):
+                chat_history_json.append(
+                    {
+                        "human": messages_list[i].content,
+                        "ai": messages_list[i + 1].content,
+                    }
+                )
+            i += 2
 
         # Check if there's an initial message already in the database
         initial_message = None
@@ -150,6 +169,7 @@ def chat_view(request, session_nonce=None):
     context = {
         "chat_session": chat_session,
         "chat_history": chat_history,
+        "chat_history_json": chat_history_json,
         "initial_message": initial_message,  # Pass initial message to template
         "remaining_queries": remaining_queries,
         "query_limit": query_limit,
@@ -158,16 +178,17 @@ def chat_view(request, session_nonce=None):
 
     return render(request, "index_chat.html", context)
 
+
 @api_view(["POST"])
 def chat(request):
     """챗봇 대화 API 엔드포인트"""
     data = request.data
     query = data.get("query", "")
     session_nonce = data.get("session_nonce", "")
-    
+
     # 여기에 사용자 질문 로깅 코드 추가
     logger.info(f"User query (session: {session_nonce}): \n{query}")
-    
+
     if not query:
         return Response({"error": "질문을 입력해주세요."}, status=400)
 
@@ -222,21 +243,25 @@ def chat(request):
         db_history = []
         i = 0
         while i < len(messages):
-            if i + 1 < len(messages) and messages[i].role == "user" and messages[i + 1].role == "assistant":
+            if (
+                i + 1 < len(messages)
+                and messages[i].role == "user"
+                and messages[i + 1].role == "assistant"
+            ):
                 db_history.append(
                     {"user": messages[i].content, "assistant": messages[i + 1].content}
                 )
                 i += 2
             else:
                 i += 1
-        
+
         # 세션 ID와 대화 기록을 포함한 체인 입력 구성
         chain_input = {
             "question": query,
             "session_id": str(chat_session.session_nonce),  # 세션 식별자
-            "db_history": db_history  # 데이터베이스에서 가져온 대화 기록
+            "db_history": db_history,  # 데이터베이스에서 가져온 대화 기록
         }
-        
+
         # 체인 실행
         chain_response = answer_chain.invoke(chain_input)
 
@@ -246,21 +271,23 @@ def chat(request):
             response = chain_response.get("answer", "")
             if not response and "text" in chain_response:
                 response = chain_response.get("text", "")
-                
+
             source_docs = chain_response.get("source_documents", [])
-            
-            # if there is similarity scores
+
+            # similarity scores가 있는 경우 추출
             if hasattr(chain_response, "similarity_scores"):
                 search_results = []
                 for doc, score in zip(source_docs, chain_response.similarity_scores):
-                    search_results.append({
-                        "metadata": {
-                            "title": doc.metadata.get("title", f"Source {i+1}"),
-                            "url": doc.metadata.get("url", ""),
-                            "similarity_score": f"{score:.2f}"  # add similarity score
-                        },
-                        "content": doc.page_content[:200]
-                    })
+                    search_results.append(
+                        {
+                            "metadata": {
+                                "title": doc.metadata.get("title", f"Source {i+1}"),
+                                "url": doc.metadata.get("url", ""),
+                                "similarity_score": f"{score:.2f}",  # 유사도 점수 추가
+                            },
+                            "content": doc.page_content[:200],
+                        }
+                    )
             else:
                 # Extract search results if they exist in the response
                 search_results = chain_response.get("search_results", [])
@@ -307,22 +334,43 @@ def chat(request):
             except Exception as e:
                 logger.warning(f"Error extracting search results: {str(e)}")
 
-        # Save user message to database
-        user_msg = ChatMessage.objects.create(
-            session=chat_session, role="user", content=query
-        )
+        # Check if this is the initial message for a session that has request_sent=True
+        if chat_session.request_sent and chat_session.messages.count() == 1:
+            logger.info(
+                f"Session {chat_session.session_id} already has initial message saved, skipping user message creation"
+            )
+            # Get the existing user message
+            user_msg = chat_session.messages.get(role="user")
+
+            # If the content is different, update it (unlikely but just to be safe)
+            if user_msg.content != query:
+                user_msg.content = query
+                user_msg.save()
+                logger.info(
+                    f"Updated existing user message content from '{user_msg.content}' to '{query}'"
+                )
+        else:
+            # This is not the initial message or the session doesn't have request_sent=True
+            # Save user message to database
+            user_msg = ChatMessage.objects.create(
+                session=chat_session, role="user", content=query
+            )
+            logger.info(f"Created new user message (ID: {user_msg.id})")
+
         # Save AI response to database
         ai_msg = ChatMessage.objects.create(
             session=chat_session, role="assistant", content=response
         )
 
-        return Response({
-            "response": response,
-            "search_results": search_results,
-            "remaining_queries": remaining_queries,
-            "query_limit": query_limit,
-            "is_premium": is_premium,
-        })
+        return Response(
+            {
+                "response": response,
+                "search_results": search_results,
+                "remaining_queries": remaining_queries,
+                "query_limit": query_limit,
+                "is_premium": is_premium,
+            }
+        )
 
     except Exception as e:
         import traceback

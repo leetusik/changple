@@ -3,6 +3,8 @@ import sys
 from operator import itemgetter
 from typing import Dict, List, Optional, Sequence
 
+from django.conf import settings
+from langchain.memory import ConversationTokenBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
@@ -23,11 +25,9 @@ from langchain_core.runnables import (
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pinecone import Pinecone
 from pydantic import BaseModel
-from langchain.memory import ConversationTokenBufferMemory
 
-from chatbot.services.ingest import get_embeddings_model
 from chatbot.services.hybrid_retriever import HybridRetriever
-from django.conf import settings
+from chatbot.services.ingest import get_embeddings_model
 
 # 사용자 질문 유형에 따른 챗봇 행동 매뉴얼 포함 프롬프트
 RESPONSE_TEMPLATE = """\
@@ -183,16 +183,20 @@ PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
 PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
 
 # publication path
-PUBLICATION_PATH = "/Users/mac_jaem/Desktop/changple/chatbot/data/창플 출판 서적 요약.txt"
+PUBLICATION_PATH = (
+    "/Users/mac_jaem/Desktop/changple/chatbot/data/창플 출판 서적 요약.txt"
+)
+
 
 # load publication content
 def load_publication_content():
     try:
-        with open(PUBLICATION_PATH, 'r', encoding='utf-8') as file:
+        with open(PUBLICATION_PATH, "r", encoding="utf-8") as file:
             return file.read()
     except Exception as e:
         print(f"출판 서적 요약 파일 로딩 오류: {e}")
         return "출판 서적 내용을 불러올 수 없습니다."
+
 
 # Pydantic model defining the structure of chat requests
 class ChatRequest(BaseModel):
@@ -238,12 +242,12 @@ def get_retriever() -> BaseRetriever:
 
     # Return as retriever with k=NUM_DOCS (retrieve NUM_DOCS most relevant chunks)
     vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
-    
+
     return HybridRetriever(
         vector_store=vector_retriever,
         whoosh_index_dir=settings.WHOOSH_INDEX_DIR,
-        alpha=HYBRID_ALPHA,    
-        k=NUM_DOCS    
+        alpha=HYBRID_ALPHA,
+        k=NUM_DOCS,
     )
 
 
@@ -254,13 +258,13 @@ def create_retriever_chain(
     Creates a chain that handles questions directly without rephrasing.
 
     Args:
-        llm: The language model 
+        llm: The language model
         retriever: The retriever for finding relevant documents
 
     Returns:
         Runnable: A chain that passes the question directly to the retriever
     """
-    
+
     return RunnableLambda(lambda x: retriever.invoke(x["question"])).with_config(
         run_name="DirectRetrieval"
     )
@@ -307,13 +311,14 @@ def serialize_history(request: ChatRequest):
 # session memory
 session_memories = {}
 
+
 def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     """
     LangChain RAG chain
     """
     # load publication content
     publication_content = load_publication_content()
-    
+
     # default memory
     default_memory = ConversationTokenBufferMemory(
         llm=llm,
@@ -321,13 +326,13 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         memory_key="chat_history",
         return_messages=True,
         output_key="answer",
-        input_key="question"
+        input_key="question",
     )
-    
+
     # get session memory
     def get_session_memory(inputs):
         session_id = inputs.get("session_id", "default")
-        
+
         if session_id not in session_memories:
             # new session
             session_memories[session_id] = ConversationTokenBufferMemory(
@@ -336,22 +341,22 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 memory_key="chat_history",
                 return_messages=True,
                 output_key="answer",
-                input_key="question"
+                input_key="question",
             )
-            
+
             # load existing conversation history from database (optional)
             if "db_history" in inputs and inputs["db_history"]:
                 for msg_pair in inputs["db_history"]:
                     if "user" in msg_pair and "assistant" in msg_pair:
                         session_memories[session_id].save_context(
                             {"question": msg_pair["user"]},
-                            {"answer": msg_pair["assistant"]}
+                            {"answer": msg_pair["assistant"]},
                         )
-                        
+
         memory_content = session_memories[session_id].load_memory_variables({})
         chat_history = memory_content.get("chat_history", [])
         return chat_history
-    
+
     # after chain configuration (dynamic memory)
     context = (
         RunnablePassthrough.assign(chat_history=get_session_memory)
@@ -359,14 +364,16 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
-    
+
     # use question instead of condense_question in prompt
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", RESPONSE_TEMPLATE.format(
-                context="{context}", 
-                publication=publication_content
-            )),
+            (
+                "system",
+                RESPONSE_TEMPLATE.format(
+                    context="{context}", publication=publication_content
+                ),
+            ),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
@@ -375,22 +382,25 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     response_synthesizer = (prompt | llm | StrOutputParser()).with_config(
         run_name="GenerateResponse"
     )
-    
+
     # format response function (same as before)
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
             # use scores already calculated by HybridRetriever
-            scores = [doc.metadata.get("combined_score", 0.0) for doc in result.get("docs", [])]
-            
+            scores = [
+                doc.metadata.get("combined_score", 0.0)
+                for doc in result.get("docs", [])
+            ]
+
             return {
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
                 "similarity_scores": scores,
                 "session_id": result.get("session_id", "default"),  # keep session ID
-                "question": result.get("question", "")  # keep original question
+                "question": result.get("question", ""),  # keep original question
             }
         return result
-    
+
     # final chain configuration - keep original question and session ID
     final_chain = (
         RunnablePassthrough.assign(
@@ -398,49 +408,50 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             # keep other fields
         )
         | context
-        | RunnablePassthrough.assign(
-            text=response_synthesizer
-        )
+        | RunnablePassthrough.assign(text=response_synthesizer)
         | RunnableLambda(format_response)
     )
-    
+
     # memory update function
     def update_memory_and_return(result):
         try:
             session_id = result.get("session_id", "default")
-            
+
             if session_id in session_memories:
                 # extract question and answer
                 question = result.get("question", "")
                 answer = result.get("answer", "")
-                
+
                 # if no answer, get from text field
                 if not answer and "text" in result:
                     answer = result["text"]
-                
+
                 # update memory
                 if question and answer:
                     session_memories[session_id].save_context(
-                        {"question": question},
-                        {"answer": answer}
+                        {"question": question}, {"answer": answer}
                     )
         except Exception as e:
             pass
-            
+
         return result
-    
-    return RunnablePassthrough.assign(
-        # keep original input values
-        session_id=lambda x: x.get("session_id", "default"),
-        question=lambda x: x.get("question", "")
-    ) | final_chain | RunnableLambda(update_memory_and_return)
+
+    return (
+        RunnablePassthrough.assign(
+            # keep original input values
+            session_id=lambda x: x.get("session_id", "default"),
+            question=lambda x: x.get("question", ""),
+        )
+        | final_chain
+        | RunnableLambda(update_memory_and_return)
+    )
 
 
 # Initialize LLM with settings from settings.py
 llm = ChatOpenAI(
-    model=settings.LLM_MODEL, 
-    temperature=settings.LLM_TEMPERATURE, 
-    streaming=settings.LLM_STREAMING
+    model=settings.LLM_MODEL,
+    temperature=settings.LLM_TEMPERATURE,
+    streaming=settings.LLM_STREAMING,
 )
 
 # Initialize retriever and answer chain
@@ -448,13 +459,14 @@ llm = ChatOpenAI(
 retriever = None
 answer_chain = None
 
+
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
     # skip initialization when run_ingest command is executed
-    if 'run_ingest' in sys.argv:
+    if "run_ingest" in sys.argv:
         print("run_ingest command is executed, skip initialization")
         return None
-        
+
     global retriever, answer_chain
     if retriever is None or answer_chain is None:
         retriever = get_retriever()

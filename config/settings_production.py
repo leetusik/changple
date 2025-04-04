@@ -14,7 +14,7 @@ CSRF_COOKIE_SAMESITE = "None"  # Allow cross-site requests when secure
 SESSION_COOKIE_SAMESITE = "None"
 
 # Add trusted origins for CSRF
-CSRF_TRUSTED_ORIGINS = ["https://ggulmae.com", "https://www.ggulmae.com"]
+CSRF_TRUSTED_ORIGINS = ["https://changple.ai", "https://www.changple.ai"]
 
 # Set the static root for collectstatic
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
@@ -43,7 +43,7 @@ SOCIAL_AUTH_NAVER_CALLBACK_URL = os.environ.get(
     (
         f"https://{ALLOWED_HOSTS[0]}/naver/callback/"
         if ALLOWED_HOSTS
-        else "https://ggulmae.com/naver/callback/"
+        else "https://changple.ai/naver/callback/"
     ),
 )
 
