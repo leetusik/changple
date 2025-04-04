@@ -648,7 +648,7 @@
          const cpLogoContainer = document.getElementById('cp-logo');
          cpLogoContainer.addEventListener('click', function() {
              // 클릭 시 이동할 URL
-             location.href = 'http://localhost:8000/';
+             location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
          });
 
 

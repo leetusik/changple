@@ -32,7 +32,7 @@ SECRET_KEY = "django-insecure-x(8li5z)2_#!*&4n0tv32w_ahb**l!l5gc4sv&=*u1f)pkv=#6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost").split(",")
 
 
 # Application definition
@@ -121,6 +121,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "social_django.context_processors.backends",
                 "social_django.context_processors.login_redirect",
+                "config.context_processors.settings_context",
             ],
         },
     },
@@ -271,7 +272,7 @@ LLM_STREAMING = True
 LLM_TOP_K = 5
 
 # Retriever Settings
-NUM_DOCS = 1 # number of retrieved documents
+NUM_DOCS = 1  # number of retrieved documents
 HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
 WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
 KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction
@@ -293,5 +294,3 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Your App <noreply@yourapp.com>")
-
-
