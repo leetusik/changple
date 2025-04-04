@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -9,7 +10,7 @@ from langchain.memory import ConversationTokenBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -21,6 +22,7 @@ from langchain_core.runnables import (
     Runnable,
     RunnableBranch,
     RunnableLambda,
+    RunnableMap,
     RunnablePassthrough,
 )
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -45,7 +47,7 @@ RESPONSE_TEMPLATE = """\
 ## 응답 과정
 모든 질문에 대해 다음 단계를 따르세요:
 1. **내부 사고 과정**: 먼저 사용자의 질문 유형을 파악하고 [사용자 질문 유형별 행동 요령]에 따라 어떤 답변을 해야하는지 생각하세요.
-2. **정보 검색**: 필요하다면, 제공된 <context>와 <publication> 자료에서 관련 정보를 찾으세요.
+2. **정보 필요성 판단**: 구체적인 수치나 사실 기반 정보가 필요한지 판단하세요.
 3. **정보 quality 판단**: <context>와 <publication>에서 찾은 정보를 바탕으로 사용자에게 충분히 만족감을 줄 정도의 답변을 할 수 있는지 판단하세요.
 4. Rapport 형성 전략: 사용자의 정서적인 공감을 이끌어내고, Rapport를 형성할 수 있는 대화 방식을 생각하세요.
 5. **자가 검증**: 답변이 창플의 철학과 일치하는지, 사용자에게 충분히 만족감을 줄 정도의 답변을 제공했는지 확인하세요.
@@ -178,6 +180,89 @@ RESPONSE_TEMPLATE = """\
 - 답변 후에는 항상 자기검증을 통해 "내가 제공한 정보가 정확하고 창플의 철학에 맞는지, 그리고 사용자에게 실제로 도움이 되는지" 확인하세요.
 """
 
+# 검색이 필요하지 않은 경우 사용하는 간소화된 프롬프트
+SIMPLE_RESPONSE_TEMPLATE = """\
+당신은 요식업 창업 전문 컨설팅 회사인 "창플" 소속의 AI 챗봇입니다. 
+사용자의 정서적인 공감을 이끌어내고, 대화를 통해 사용자와 Rapport를 형성하는 것이 당신에게 더 우선순위가 높은 목표입니다.
+
+## 챗봇 페르소나
+고객과 대화할 때 친근하고 솔직한 톤을 사용하세요. 말투는 반말을 사용하되 존중과 친근함이 느껴지게 하세요. 
+창업자의 희망을 북돋우면서도 현실적인 조언을 제공하는 믿음직한 선배 창업가처럼 대화하세요.
+
+## 응답 과정
+모든 질문에 대해 다음 단계를 따르세요:
+1. 먼저 사용자의 질문 유형을 파악하고 적절한 답변 방향을 결정하세요.
+2. 사용자의 정서적인 공감을 이끌어내고, Rapport를 형성할 수 있는 대화 방식을 사용하세요.
+3. 답변이 창플의 철학과 일치하는지 확인하세요.
+
+## 사용자 질문 유형별 기본 응대 방법:
+1. **창플에 대한 질문** - 친절하게 답변하고, 대화를 자연스럽게 이어나갈 질문을 추가하세요.
+2. **창업 관련 초기 상담** - 사용자 상황을 파악하기 위한 질문을 2-3개 추가하세요.
+3. **외부 정보가 필요한 질문** - "현재 창플 AI 챗봇에서는 외부 정보에 대한 정확한 답변을 드리기 어렵습니다"라고 안내하세요.
+4. **창업과 관련 없는 질문** - "창업 관련 질문을 주시면 친절히 안내해 드리겠습니다"라고 정중히 답변하세요.
+
+## 응답 형식 및 주의사항
+- markdown을 적극 활용하여 가독성을 높이세요. 이모지로 중요 정보를 강조하세요. (예: ✅, 📌)
+- 창플 철학에 기반한 답변을 제공하고, 대화 history를 고려하여 일관성있게 대화하세요.
+"""
+
+# 검색이 필요한지 판단하는 프롬프트 
+RETRIEVER_DECISION_TEMPLATE = """
+당신은 요식업 창업 전문 컨설팅 회사인 "창플" 소속의 AI 챗봇으로, 사용자의 질문에 대해 자료 검색(retrieval)이 필요한지 여부를 판단하는 역할을 합니다.
+자료 검색이 필요한 경우 "retrieval"로만 대답하고, 필요하지 않은 경우 "no_retrieval"로만 대답하세요.
+
+## 자료 검색이 필요한 경우(retrieval)
+다음과 같은 질문 유형은 검색이 필요합니다:
+
+1. **구체적인 정보나 데이터를 요청하는 경우**
+   - 창업 비용, 수익률, 시장 규모 등 구체적인 수치 정보를 요구하는 질문
+   - 특정 업종의 창업 과정, 준비사항, 필요 자격증 등에 대한 상세 정보를 요구하는 질문
+   - 창플이 운영하는 브랜드(라라와케이, 엉클터치 등)에 대한 구체적인 정보 질문
+   - 프랜차이즈와 팀비즈니스의 차이점, 장단점 등 구체적인 비교 분석 정보
+
+2. **창업 관련 상담 질문(사용자 정보 수집 단계 이후)**
+   - 사용자가 자신의 상황(자금, 경험, 목표 등)을 충분히 공유한 후 요청하는 맞춤형 창업 조언
+   - 창업 관련 구체적인 전략이나 방법론을 요청하는 질문
+   - 창업 과정에서 발생할 수 있는 구체적인 문제점과 해결책에 대한 질문
+
+3. **창플의 철학과 가치관에 대한 깊이 있는 질문**
+   - 창플의 팀비즈니스 시스템에 대한 상세한 설명 요청
+   - 기존 프랜차이즈와 창플의 철학적 차이점에 대한 심층적 분석 요청
+   - 창업 성공/실패 사례와 관련된 구체적인 인사이트 요청
+
+## 자료 검색이 필요하지 않은 경우(no_retrieval)
+다음과 같은 질문 유형은 검색이 필요하지 않습니다:
+
+1. **창업과 관련 없는 질문**
+   - 일상적인 대화나 인사(예: "안녕", "오늘 기분이 어때?")
+   - 창업과 무관한 주제에 대한 질문(예: "날씨가 어때?", "취미가 뭐야?")
+   - 시사, 정치, 연예 등 창업과 무관한 일반 상식 질문
+
+2. **단순한 창플 소개 질문**
+   - "창플은 무슨 일을 하는 곳이야?" 같은 기본적인 회사 소개 질문
+   - "창플지기가 누구야?" 같은 간단한 인물 정보 질문
+   - "창플 상담은 어떻게 신청해?" 같은 기본적인 이용 방법 질문
+
+3. **창업 상담 초기 단계의 질문(사용자 정보 수집 단계)**
+   - 창업 관련 질문이지만, 아직 사용자의 상황 파악이 필요한 초기 상담 단계
+   - 사용자의 상황을 파악하기 위한 질문에 대한 응답
+
+4. **긍정/부정의 단순 확인만 필요한 질문**
+   - "창플에서 프랜차이즈 창업도 돕나요?" 같은 예/아니오 응답만 필요한 질문
+   - "창플 상담은 무료인가요?" 같은 단순 확인 질문
+
+## 판단 기준
+1. 사용자의 질문이 창업과 관련 있는지 확인하세요.
+2. 질문에 대한 답변을 위해 구체적인 정보나 데이터가 필요한지 판단하세요.
+3. 사용자와의 대화 맥락을 고려하여, 단순한 라포 형성 단계인지 아니면 구체적인 정보 제공 단계인지 파악하세요.
+4. 창플의 철학과 가치관에 기반한 깊이 있는 답변이 필요한지 고려하세요.
+
+사용자 질문: {question}
+이전 대화 맥락: {chat_history}
+
+결정 ("retrieval" 또는 "no_retrieval"로만 대답):
+"""
+
 # Environment variables for Pinecone configuration
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
@@ -253,25 +338,6 @@ def get_retriever() -> BaseRetriever:
     )
 
 
-def create_retriever_chain(
-    llm: LanguageModelLike, retriever: BaseRetriever
-) -> Runnable:
-    """
-    Creates a chain that handles questions directly without rephrasing.
-
-    Args:
-        llm: The language model
-        retriever: The retriever for finding relevant documents
-
-    Returns:
-        Runnable: A chain that passes the question directly to the retriever
-    """
-
-    return RunnableLambda(lambda x: retriever.invoke(x["question"])).with_config(
-        run_name="DirectRetrieval"
-    )
-
-
 def format_docs(docs: Sequence[Document]) -> str:
     """
     Formats retrieved documents into a structured string for the LLM.
@@ -316,20 +382,10 @@ session_memories = {}
 
 def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     """
-    LangChain RAG chain
+    LangChain RAG chain with RunnableBranch for conditional retrieval
     """
     # load publication content
     publication_content = load_publication_content()
-
-    # default memory
-    default_memory = ConversationTokenBufferMemory(
-        llm=llm,
-        max_token_limit=2000,
-        memory_key="chat_history",
-        return_messages=True,
-        output_key="answer",
-        input_key="question",
-    )
 
     # get session memory
     def get_session_memory(inputs):
@@ -358,17 +414,39 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         memory_content = session_memories[session_id].load_memory_variables({})
         chat_history = memory_content.get("chat_history", [])
         return chat_history
-
-    # after chain configuration (dynamic memory)
-    context = (
-        RunnablePassthrough.assign(chat_history=get_session_memory)
-        .assign(docs=lambda x: retriever.invoke(x["question"]))
-        .assign(context=lambda x: format_docs(x["docs"]))
-        .with_config(run_name="RetrieveDocs")
+    
+    # 검색이 필요한지 판단하는 LLM
+    decision_llm = ChatOpenAI(
+        model="gpt-4o-mini",  # 작은 모델 사용하여 비용 절감
+        temperature=0.0
     )
-
-    # use question instead of condense_question in prompt
-    prompt = ChatPromptTemplate.from_messages(
+    
+    # 검색 필요성 결정 체인
+    decision_prompt = ChatPromptTemplate.from_template(RETRIEVER_DECISION_TEMPLATE)
+    decision_chain = decision_prompt | decision_llm | StrOutputParser()
+    
+    # 검색 필요 여부 결정 함수
+    def determine_retrieval_need(inputs):
+        question = inputs["question"]
+        # 안전하게 chat_history 가져오기 (없으면 빈 리스트 사용)
+        chat_history = inputs.get("chat_history", [])
+        
+        # 챗봇 대화 기록을 문자열로 변환
+        chat_history_str = ""
+        for message in chat_history:
+            role = "사용자" if isinstance(message, HumanMessage) else "챗봇"
+            chat_history_str += f"{role}: {message.content}\n"
+        
+        # 검색 필요 여부 결정
+        decision = decision_chain.invoke({
+            "question": question,
+            "chat_history": chat_history_str
+        }).strip().lower()
+        
+        return decision
+    
+    # 검색이 필요한 경우의 프롬프트 템플릿
+    retrieval_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
@@ -380,40 +458,97 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             ("human", "{question}"),
         ]
     )
-
-    response_synthesizer = (prompt | llm | StrOutputParser()).with_config(
-        run_name="GenerateResponse"
+    
+    # 검색이 필요하지 않은 경우의 간소화된 프롬프트 템플릿
+    simple_prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                SIMPLE_RESPONSE_TEMPLATE,
+            ),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{question}"),
+        ]
     )
-
-    # format response function (same as before)
+    # 검색 결과를 context 변수에 할당
+    context = (
+        RunnablePassthrough
+        .assign(docs=lambda x: retriever.invoke(x["question"]))
+        .assign(context=lambda x: format_docs(x["docs"]))
+        .with_config(run_name="RetrieveDocs")
+    )
+    
+    # 검색이 필요한 경우의 체인
+    retrieval_chain = (
+        RunnablePassthrough.assign(chat_history=get_session_memory)
+        | context
+        | RunnablePassthrough.assign(
+            text=(retrieval_prompt | llm | StrOutputParser())
+        )
+    )
+    
+    # 검색이 필요하지 않은 경우의 체인
+    no_retrieval_chain = (
+        RunnablePassthrough.assign(chat_history=get_session_memory)
+        | RunnablePassthrough.assign(
+            text=(simple_prompt | llm | StrOutputParser())
+        )
+    )
+    
+    # RunnableBranch 사용하여 조건부 실행
+    branch_chain = RunnableBranch(
+        (
+            lambda x: determine_retrieval_need(x) == "retrieval",
+            retrieval_chain
+        ),
+        no_retrieval_chain,  # 기본값
+    )
+    
+    # format response function
     def format_response(result):
-        if isinstance(result, dict) and "docs" in result:
-            # use scores already calculated by HybridRetriever
-            scores = [
-                doc.metadata.get("combined_score", 0.0)
-                for doc in result.get("docs", [])
-            ]
+        # docs가 있는지 확인 (retrieval chain이 실행되었는지 확인)
+        docs_exist = "docs" in result['final'] if isinstance(result, dict) else False
+        
+        answer_text = result['final']['text'] 
 
-            return {
-                "answer": result.get("text", ""),
-                "source_documents": result.get("docs", []),
-                "similarity_scores": scores,
-                "session_id": result.get("session_id", "default"),  # keep session ID
-                "question": result.get("question", ""),  # keep original question
+        if docs_exist and result['final']['docs']:
+            response = {
+                "answer": answer_text,
+                "source_documents": result['final']['docs'],
+                "similarity_scores": [doc.metadata.get("combined_score", 0) for doc in result['final']['docs']] if result['final']['docs'] else [],
+                "session_id": result.get("session_id", "default"),
+                "question": result.get("question", "")
             }
-        return result
-
-    # final chain configuration - keep original question and session ID
+            return response
+        else:
+            # no retrieval
+            response = {
+                "answer": answer_text,
+                "source_documents": [],
+                "similarity_scores": [],
+                "session_id": result.get("session_id", "default"),
+                "question": result.get("question", "")
+            }
+            return response
+    
+    # 최종 체인 구성
     final_chain = (
         RunnablePassthrough.assign(
-            chat_history=get_session_memory,
-            # keep other fields
+            # keep original input values
+            session_id=lambda x: x.get("session_id", "default"),
+            question=lambda x: x.get("question", ""),
         )
-        | context
-        | RunnablePassthrough.assign(text=response_synthesizer)
+        # 그 다음 chat_history를 get_session_memory로 할당
+        | RunnablePassthrough.assign(
+            chat_history=get_session_memory
+        )
+        # 이후에 branch_chain 실행 (chat_history가 이미 할당됨)
+        | RunnablePassthrough.assign(
+            final=branch_chain
+        )
         | RunnableLambda(format_response)
     )
-
+    
     # memory update function
     def update_memory_and_return(result):
         try:
@@ -438,15 +573,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
         return result
 
-    return (
-        RunnablePassthrough.assign(
-            # keep original input values
-            session_id=lambda x: x.get("session_id", "default"),
-            question=lambda x: x.get("question", ""),
-        )
-        | final_chain
-        | RunnableLambda(update_memory_and_return)
-    )
+    return final_chain | RunnableLambda(update_memory_and_return)
 
 
 # Initialize LLM with settings from settings.py

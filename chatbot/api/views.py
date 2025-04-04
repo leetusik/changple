@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 import uuid
 from datetime import datetime, timedelta
 
@@ -67,12 +68,10 @@ def chat_view(request, session_nonce=None):
             user_message = ChatMessage.objects.create(
                 session=chat_session, role="user", content=initial_message
             )
-            logger.info(f"Saved user message (ID: {user_message.id}) to database")
             # Mark this session as having its initial message already saved
             chat_session.request_sent = True
             chat_session.save()
-            logger.info(f"Marked session as having initial message saved")
-
+            
             # Return clean URL without query parameters
             redirect_url = chat_session.get_absolute_url()
             logger.info(f"Returning redirect URL: {redirect_url}")
@@ -186,7 +185,7 @@ def chat(request):
     query = data.get("query", "")
     session_nonce = data.get("session_nonce", "")
 
-    # 여기에 사용자 질문 로깅 코드 추가
+    # user query
     logger.info(f"User query (session: {session_nonce}): \n{query}")
 
     if not query:
@@ -264,6 +263,7 @@ def chat(request):
 
         # 체인 실행
         chain_response = answer_chain.invoke(chain_input)
+        # print(f"체인 응답: {json.dumps(chain_response, indent=2, ensure_ascii=False, default=str)}")
 
         # Extract response text and relevance scores
         if isinstance(chain_response, dict):
@@ -336,9 +336,6 @@ def chat(request):
 
         # Check if this is the initial message for a session that has request_sent=True
         if chat_session.request_sent and chat_session.messages.count() == 1:
-            logger.info(
-                f"Session {chat_session.session_id} already has initial message saved, skipping user message creation"
-            )
             # Get the existing user message
             user_msg = chat_session.messages.get(role="user")
 
