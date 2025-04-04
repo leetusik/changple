@@ -110,10 +110,18 @@ echo -e "${YELLOW}Setting up database backup cron job...${NC}"
 CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(date +\%Y\%m\%d)"
 (crontab -l 2>/dev/null | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab -
 
-# Schedule the scraper to run daily at 9 AM UTC (6 PM KST)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 12:00 UTC (21:00 KST)...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 12 --minute 00
-echo -e "${GREEN}Crawler scheduled to run daily at 12:00 UTC (21:00 KST)${NC}"
+# Calculate time 20 minutes from now in UTC
+echo -e "${YELLOW}Setting up crawler to run 20 minutes after deployment...${NC}"
+START_TIME=$(date -u "+%Y-%m-%d %H:%M:%S")
+# For macOS
+FUTURE_TIME=$(date -u -v+20M "+%H %M")
+FUTURE_HOUR=$(echo $FUTURE_TIME | cut -d' ' -f1)
+FUTURE_MINUTE=$(echo $FUTURE_TIME | cut -d' ' -f2)
+
+# Schedule the crawler to run at calculated time
+docker-compose exec web python manage.py schedule_crawler start --hour $FUTURE_HOUR --minute $FUTURE_MINUTE
+
+echo -e "${GREEN}Crawler scheduled to run at $(date -u -d "$START_TIME + 20 minutes" "+%H:%M") UTC ($(TZ=Asia/Seoul date -d "$START_TIME + 20 minutes" "+%H:%M") KST)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
