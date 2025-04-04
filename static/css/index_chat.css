@@ -10,7 +10,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+<<<<<<< HEAD
     font-family: 'Spoqa Han Sans Neo', sans-serif;
+=======
+    font-family: 'Spoqa Han Sans Neo';
+>>>>>>> c6cd8e094c727b0bc51caad92b01da7e06e7ae20
 }
 
 body {
@@ -473,6 +477,7 @@ body {
     z-index: 2000;
 }
 
+<<<<<<< HEAD
 
 .help-box {
     position: fixed;
@@ -491,6 +496,8 @@ body {
     right: 44px;
 }
 
+=======
+>>>>>>> c6cd8e094c727b0bc51caad92b01da7e06e7ae20
 footer {
     width: 100%;
     padding: 20px;
