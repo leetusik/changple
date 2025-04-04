@@ -108,6 +108,7 @@ docker-compose exec web python manage.py collectstatic --noinput
 # Install Playwright browsers if they're needed for the scraper
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
 docker-compose exec web playwright install chromium
+docker-compose exec rq_worker playwright install chromium
 
 # Setup db backup cron job
 echo -e "${YELLOW}Setting up database backup cron job...${NC}"
