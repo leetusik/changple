@@ -111,9 +111,9 @@ CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(d
 (crontab -l 2>/dev/null | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab -
 
 # Schedule the scraper to run daily at 9 AM UTC (6 PM KST)
-echo -e "${YELLOW}Setting up daily crawler schedule to run at 09:50 UTC (18:50 KST)...${NC}"
-docker-compose exec web python manage.py schedule_crawler start --hour 9 --minute 50
-echo -e "${GREEN}Crawler scheduled to run daily at 09:50 UTC (18:50 KST)${NC}"
+echo -e "${YELLOW}Setting up daily crawler schedule to run at 12:00 UTC (21:00 KST)...${NC}"
+docker-compose exec web python manage.py schedule_crawler start --hour 12 --minute 00
+echo -e "${GREEN}Crawler scheduled to run daily at 12:00 UTC (21:00 KST)${NC}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
