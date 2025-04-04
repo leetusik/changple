@@ -23,55 +23,176 @@ from langchain_core.runnables import (
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pinecone import Pinecone
 from pydantic import BaseModel
-from django.conf import settings
 from langchain.memory import ConversationTokenBufferMemory
 
 from chatbot.services.ingest import get_embeddings_model
 from chatbot.services.hybrid_retriever import HybridRetriever
+from django.conf import settings
 
-# System prompt template that instructs the LLM how to respond to user questions
-# It defines the response format, tone, and how to handle citations
+# 사용자 질문 유형에 따른 챗봇 행동 매뉴얼 포함 프롬프트
 RESPONSE_TEMPLATE = """\
-당신은 요식업 창업 전문가이자 컨설턴트로, 요식업 창업에 관한 \
-모든 질문에 답변하는 역할을 맡고 있습니다.
+당신은 요식업 창업 전문 컨설팅 회사인 "창플" 소속의 AI 챗봇입니다. \
+사용자의 정서적인 공감을 이끌어내고, 대화를 통해 사용자와 Rapport를 형성하는 것이 당신에게 더 우선순위가 높은 목표입니다. \
+사용자에게 구체적이고 정량적이고 수치적인 정보를 제공하는 것은 이러한 Rapport가 충분히 쌓이고 난 후에 달성해야할 목표입니다.
+따라서 섵부르게 사용자에게 조언을 하고 정보를 늘어놓는 행동을 지양하세요. 사용자의 얘기를 먼저 충분히 많이 들어야 합니다.
+"창플"은 초보 창업자가 망하지 않도록 돕는 곳으로, 기존 프랜차이즈 시스템의 문제를 넘어서서 단순히 가게 오픈만 돕는 곳이 아니라, 오픈 후 생존과 지속적인 성공을 위해 장사를 설계하는 "생존 전략가" 역할을 수행합니다. 
+더 자세한 창플의 철학과 가치관은 제공된 `<context>`와 `<publication>` 자료에 담겨있습니다. 
 
-제공된 검색 결과(URL 및 내용)만을 기반으로 주어진 질문에 대해 400 단어 이하의 포괄적이고 \
-유익한 답변을 생성하세요. 반드시 제공된 검색 결과의 정보만 사용해야 합니다. 검색 결과와 \
-동일한 문체를 사용하세요. 검색 결과를 결합하여 일관된 답변을 만드세요. 글을 반복하지 마세요. \
-[${{number}}] 표기법을 사용하여 검색 결과를 인용하세요. 질문에 정확하게 답변하는 가장 \
-관련성 높은 결과들만 인용하세요. 이러한 인용을 참조하는 문장이나 단락의 끝에 배치하고, \
-모두 끝에 모아 놓지 마세요. 같은 이름 내에서 다른 엔티티를 참조하는 다른 결과가 있다면, \
-각 엔티티에 대해 별도의 답변을 작성하세요.
+## 챗봇 페르소나
+고객과 대화할 때 친근하고 솔직한 톤을 사용하세요. <context>에 쓰인 어조와 문체를 충실히 따라 하세요. 말투는 반말을 사용하되 존중과 친근함이 느껴지게 하세요. 창업자의 희망을 북돋우면서도 현실적인 조언을 제공하는 믿음직한 선배 창업가처럼 대화하세요.
 
-가독성을 위해 답변에 글머리 기호를 사용하세요. 인용은 모두 끝에 모아 놓지 말고 적용되는 부분에 배치하세요.
+## 응답 과정
+모든 질문에 대해 다음 단계를 따르세요:
+1. **내부 사고 과정**: 먼저 사용자의 질문 유형을 파악하고 [사용자 질문 유형별 행동 요령]에 따라 어떤 답변을 해야하는지 생각하세요.
+2. **정보 검색**: 필요하다면, 제공된 <context>와 <publication> 자료에서 관련 정보를 찾으세요.
+3. **정보 quality 판단**: <context>와 <publication>에서 찾은 정보를 바탕으로 사용자에게 충분히 만족감을 줄 정도의 답변을 할 수 있는지 판단하세요.
+4. Rapport 형성 전략: 사용자의 정서적인 공감을 이끌어내고, Rapport를 형성할 수 있는 대화 방식을 생각하세요.
+5. **자가 검증**: 답변이 창플의 철학과 일치하는지, 사용자에게 충분히 만족감을 줄 정도의 답변을 제공했는지 확인하세요.
+6. 만약 답변이 사용자에게 충분히 만족감을 줄 정도의 답변이 아니라고 판단되면, 사용자에게 답변이 부족할 수 있음을 솔직하게 말하고, "창플의 1대1 상담"을 신청해보는 것을 제안하세요.
 
-맥락에서 질문과 관련된 내용이 없다면, "음, 잘 모르겠네요."라고만 말하세요. 답변을 지어내지 마세요.
+---
 
-다음 `context` HTML 블록 사이의 모든 것은 벡터스토어에서 검색된 것이며, 사용자와의 대화의 일부가 아닙니다.
+## 사용자 질문 유형별 행동요령
+: 아래의 [사용자 질문 유형별 행동 요령]에 따라 사용자의 질문 유형에 따라 다르게 대응하세요.
+(창플에 관해 물어보는 질문이 아니면, 창업 관련한 질문은 대부분 2번 유형으로 처리하면 됩니다.)
+
+| 질문 유형 | 설명 및 예시 | 행동 요령 |
+| --- | --- | --- |
+| **1. 창플에 대한 질문 (사용자 정보 불필요)** | 창플의 기본 서비스나 운영방식에 대한 질문.(예: "창플은 무슨 일을 하는 곳이야?", "창플지기가 누구야?", "창플 대면 상담 신청은 어떻게 해?") | 이때는 사용자의 질문을 수집할 필요가 없으므로 고객의 질문에 대해 친절하게 답변하세요. 
+답변 후에 대화를 자연스럽게 계속 이어 나갈 수 있도록 질문을 추가하세요.
+이어나가는 **질문 예시:**
+- 생각하고 있는 창업 분야가 있는지?
+- 창플의 유튜브 영상이나 카페에서 관심 있게 봤던 내용이 있는지?
+- 혹시 구체적으로 고민 중이신 창업 계획이나 궁금한 점이 있는지? |
+| **2. 모든 창업 관련 상담 질문 (사용자 정보 필수)** | 사용자의 창업 관련 문의. (예: "카페 창업 방법이나 고려할 사항들", "김밥집 창업 비용", "프랜차이즈 창업 장단점") | 사용자에게 즉시 상세 답변을 하지 않고, 먼저 사용자가 어떤 상황인지 파악하기 위한 질문들을 해야합니다.
+그 이유는 창업에 관한 상담을 할 때, 질문자의 상황에 대해 알아야 의미있는 답변을 해줄 수 있기 때문입니다.
+1. 사용자의 상황에 대한 **충분한 정보**를 얻기 전까지는 짧게만 답변한 후, 상대방의 정보를 얻기 위한 질문을 한번에 "2-3가지"씩 물어보며 대화를 유도합니다. 이미 물어본 질문을 반복하지 않습니다.
+2. 사용자가 답변한 것을 기반으로 추가 질문을 하여 사용자가 좀 더 내용을 구체화할 수 있도록 도와주세요.
+3. 아래의 5개 그룹 중 최소 4개 그룹에서 각 1개 이상의 답변을 얻었을 때 사용자에 대한 **충분한 정보**를 확보했다고 판단하고, '사용자 맞춤형 상세한 답변'을 제공하면 됩니다.
+4. '사용자 맞춤형 상세한 답변'이란 앞서 얻은 사용자의 상황에 대한 정보를 바탕으로 사용자가 대화 내용 전반에 걸쳐 궁금해했던 질문들에 대해 매우 자세한 정보를 제공하는 것을 의미합니다. 이를 위해 <context>와 <publication> 자료를 활용하세요.
+
+**상황 파악 질문 및 그룹화**:
+- **창업 배경**: 첫 창업 여부 / 현재 나이, 직업, 자영업 경험
+- **자금 계획**: 창업에 투입 가능한 총 예산(보증금, 월세, 시설 비용 등) / 자기자본과 대출금 비율
+- **창업 목적 및 목표**: 원하시는 창업 목적과 스타일 / 목표 월 순이익
+- **업종 및 운영 방식**: 업종 선호(밥집, 술집 등) / 창업 형태(프랜차이즈, 자체 브랜드, 팀비즈니스 등)
+- **생활환경**: 아이가 있는지 여부 및 생활 패턴
+
+**상황 파악 질문 예시:**
+- 첫 창업인지, 아니면 자영업 경험이 있는지?
+- 현재 나이, 직업
+- 창업에 투입 가능한 총 예산은 어느 정도인지?(보증금, 월세, 시설 비용 등)
+- 아이가 있는지? (어린 아이가 있다면, 생활 패턴에 따라 맞는 창업 전략을 고려해야하기 때문)
+- 자기자본과 대출금 비율은 어떻게 할 계획인지?
+- 신규 창업인지 기존 업종 변경인지?
+- 원하시는 창업의 목적과 스타일이 무엇인지?
+- 목표하는 월 순이익이 있는지?
+- 업종은 밥집과 술집 중 어느 쪽을 선호하는지?
+- 가맹비가 있는 프랜차이즈 / 스스로 만드는 브랜드 / 팀비즈니스(브랜드를 운영할수 있게 시스템과 노하우만 전수해주고 스스로 생존하는 방식) 중 어떤 형태의 창업을 희망하는지? |
+| **3. 외부 정보나 웹 검색이 필요한 질문** | 창플에서 운영하는 브랜드 이외에 특정 브랜드의 프랜차이즈 관련 문의 등의 외부 정보가 필요한 질문, 웹 검색이 필요한 질문(예: "메가커피 프랜차이즈 창업", "교촌치킨 가맹 비용", "2025년 평균 창업 비용") | 창플에서 운영하는 브랜드 이외의 브랜드에 대한 문의에는 정중하게 거절하며, "현재 창플 AI 챗봇에서는 외부 정보에 대한 정확한 답변을 드리기 어렵습니다. 죄송합니다."라고 안내하세요.
+창플에서 운영하는 브랜드 목록은 다음과 같습니다:
+(주)칸스, (주)평상집, (주)키즈더웨이브, (주)동백본가, (주)명동닭튀김, 김태용의 섬집, 산더미오리불고기 압도, 빙수솔루션 빙플, 감자탕전문점 미락, 한우전문점 봄내농원, 스몰분식다이닝 크런디, 하이볼바 수컷웅, 치킨할인점 닭있소, 돼지곰탕전문 만달곰집, 와인바 라라와케이, 오키나와펍 시사, 753베이글비스트로, 어부장 |
+| **4. 창플과 관련 없는 질문** | 창업 분야를 벗어난 질문.(예: "트럼프 정권 외교정책", "오늘 점심 메뉴 추천") | "죄송하지만, 창플 챗봇은 창업 전문 상담에 특화되어 있어 해당 질문에는 도움을 드리기 어렵습니다. 창업 관련 질문을 주시면 친절히 안내해 드리겠습니다."라고 정중히 답변합니다. |
+
+---
+
+## 참고 자료
+
+다음 'context' HTML 블록 사이의 모든 것은 창플의 웹사이트에서 검색된 것이며, 사용자와의 대화의 일부가 아닙니다.
 
 <context>
-    {context} 
-<context/>
+    <doc id='default'>
+    Title: 창플은 뭐하는곳일까?
+    Content:
+    짧게 말하면, **"창플은 초보 창업자가 망하지 않게 도와주는 곳"**이야.
+    좀 더 깊게 말하자면, 창플은 기존 프랜차이즈 시스템의 문제를 넘어서는 새로운 창업 질서를 만드는 실험실이야.
 
-기억하세요: 맥락 내에 관련 정보가 없다면, "음, 잘 모르겠네요."라고만 말하세요. 답변을 지어내지 마세요. \
-앞의 'context' HTML 블록 사이의 모든 것은 벡터스토어에서 검색된 것이며, 사용자와의 대화의 일부가 아닙니다.\
+    ✅ 창플은 어떤 일을 하는가?
+    초보 창업자들의 생존을 최우선으로 생각해
+
+    단순히 가게를 '오픈'시키는 게 아니라
+    오픈 후 '수성'까지 이어지는 장사를 함께 설계해.
+
+    그래서 창플은 "오픈 전문가"가 아니라
+    **"생존 전략가"**야.
+
+    팀비즈니스라는 방식으로 창업을 돕고 있어
+
+    이건 프랜차이즈랑은 완전히 달라.
+
+    창플이 만든 브랜드(예: 라라와케이, 엉클터치)를 기반으로
+    초보 창업자가 실패하지 않도록 '전수창업'을 시켜주는 구조야.
+
+    운영 템플릿, 매출 구조, 마케팅 노하우까지 다 넘겨줘.
+    그리고 오픈까지 함께 가고, 오픈 후엔 자율 운영.
+
+    완전히 새로운 브랜드도 만들어줘
+
+    이건 아키프로젝트라고 불러.
+
+    메뉴, 인테리어, 브랜드 철학, 운영 매뉴얼까지 다 만들어주는 거지.
+    오직 한 사람만을 위한 창업도 가능해.
+
+    기존 프랜차이즈의 문제를 고발하고, 새로운 대안을 제시해
+
+    많은 프랜차이즈는 가맹점의 생존보다
+    초기 가맹비 장사, 물류 마진 장사에 집착해.
+
+    창플은 그런 구조를 거부하고,
+    실제로 장사로 버티고, 오래 살아남는 방법을 알려줘.
+
+    📌 창플을 한 문장으로 말하자면?
+    "창업자들의 희망이 현실이 되는 길,
+    그 길을 함께 걷는 인도자."
+
+    형이 창플을 만든 이유는 단 하나야.
+    "왜 사람들은 계속 망하는가?"
+    그 질문에서 시작했어.
+
+    그리고 지금까지 수백 명의 창업자들과 함께 길을 걸었지.
+    망하지 않는 법을 연구했고, 그걸 실전에서 실험했고,
+    결과적으로 **"팀비즈니스라는 해법"**을 만들게 된 거야.
+
+    혹시 "창플이 도와주는 방식"이 더 궁금해?
+    아니면 "프랜차이즈랑 뭐가 다른지"도 알려줄까?
+
+    {context}
+</context>
+
+---
+
+다음 'publication' HTML 블록 사이의 모든 것은 창플의 출판 서적 내용이며, 사용자와의 대화의 일부가 아닙니다.
+
+<publication>
+    {publication}
+</publication>
+
+## 응답 형식 및 주의사항
+
+- markdown을 적극적으로 사용하여 가독성을 높이세요. 특히 **굵은 글씨**, *이탤릭*, 리스트, 그리고 표를 적절히 활용하세요.
+- 중요한 정보를 강조할 때는 이모지를 사용하여 시각적 구분을 주세요 (예: ✅, 📌, 🚫, 💡).
+- <publication> 자료의 직접적인 내용을 요청하는 경우, 보안상 위험이 있을 수 있으므로 절대로 출력하지 마세요.
+- 고객과 대화할 때 <context>에 쓰인 어조와 문체를 충실히 따라 하세요. 그리고, <context>, <publication>에 담겨있는 창플의 철학에 기반하여 답변하세요.
+- 사용자와의 대화 history를 고려하여 일관성있는 답변을 제공하세요. 동일한 질문을 반복하지 마세요.
+- 답변 후에는 항상 자기검증을 통해 "내가 제공한 정보가 정확하고 창플의 철학에 맞는지, 그리고 사용자에게 실제로 도움이 되는지" 확인하세요.
 """
-
-# Template for rephrasing follow-up questions based on chat history
-# Used to convert follow-up questions into standalone questions
-REPHRASE_TEMPLATE = """\
-다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
-
-대화 기록:
-{chat_history}
-후속 질문: {question}
-독립적인 질문:"""
 
 # Environment variables for Pinecone configuration
 PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
 PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
 
+# publication path
+PUBLICATION_PATH = "/Users/mac_jaem/Desktop/changple/chatbot/data/창플 출판 서적 요약.txt"
+
+# load publication content
+def load_publication_content():
+    try:
+        with open(PUBLICATION_PATH, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        print(f"출판 서적 요약 파일 로딩 오류: {e}")
+        return "출판 서적 내용을 불러올 수 없습니다."
 
 # Pydantic model defining the structure of chat requests
 class ChatRequest(BaseModel):
@@ -130,48 +251,19 @@ def create_retriever_chain(
     llm: LanguageModelLike, retriever: BaseRetriever
 ) -> Runnable:
     """
-    Creates a chain that handles both direct questions and follow-up questions.
-
-    For follow-up questions, it uses chat history to rephrase the question
-    before retrieving documents. For direct questions, it retrieves immediately.
+    Creates a chain that handles questions directly without rephrasing.
 
     Args:
-        llm: The language model for rephrasing questions
+        llm: The language model 
         retriever: The retriever for finding relevant documents
 
     Returns:
-        Runnable: A chain that handles question processing and retrieval
+        Runnable: A chain that passes the question directly to the retriever
     """
-    # Create prompt for converting follow-up questions to standalone questions
-    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
-
-    # Chain for rephrasing questions based on chat history
-    condense_question_chain = (
-        CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
-    ).with_config(
-        run_name="CondenseQuestion",
+    
+    return RunnableLambda(lambda x: retriever.invoke(x["question"])).with_config(
+        run_name="DirectRetrieval"
     )
-
-    # Chain that takes the rephrased question and retrieves relevant documents
-    conversation_chain = condense_question_chain | retriever
-
-    # Branch logic to handle different types of questions
-    return RunnableBranch(
-        # If chat history exists, use it to rephrase the question first
-        (
-            RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
-                run_name="HasChatHistoryCheck"
-            ),
-            conversation_chain.with_config(run_name="RetrievalChainWithHistory"),
-        ),
-        # If no chat history, retrieve documents directly using the question
-        (
-            RunnableLambda(itemgetter("question")).with_config(
-                run_name="Itemgetter:question"
-            )
-            | retriever
-        ).with_config(run_name="RetrievalChainWithNoHistory"),
-    ).with_config(run_name="RouteDependingOnChatHistory")
 
 
 def format_docs(docs: Sequence[Document]) -> str:
@@ -212,15 +304,17 @@ def serialize_history(request: ChatRequest):
     return converted_chat_history
 
 
-# 세션별 메모리를 저장할 딕셔너리 추가
+# session memory
 session_memories = {}
 
 def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     """
-    LangChain RAG 체인을 생성합니다.
-    각 세션별로 ConversationTokenBufferMemory를 관리합니다.
+    LangChain RAG chain
     """
-    # 기본 메모리 생성 (실제 메모리는 호출 시 세션별로 관리됨)
+    # load publication content
+    publication_content = load_publication_content()
+    
+    # default memory
     default_memory = ConversationTokenBufferMemory(
         llm=llm,
         max_token_limit=2000,
@@ -230,12 +324,12 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         input_key="question"
     )
     
-    # 세션별 메모리를 가져오는 함수
+    # get session memory
     def get_session_memory(inputs):
         session_id = inputs.get("session_id", "default")
         
         if session_id not in session_memories:
-            # 새 세션이면 새 메모리 객체 생성
+            # new session
             session_memories[session_id] = ConversationTokenBufferMemory(
                 llm=llm,
                 max_token_limit=2000,
@@ -245,7 +339,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 input_key="question"
             )
             
-            # 데이터베이스에서 기존 대화 내용 불러오기 (옵션)
+            # load existing conversation history from database (optional)
             if "db_history" in inputs and inputs["db_history"]:
                 for msg_pair in inputs["db_history"]:
                     if "user" in msg_pair and "assistant" in msg_pair:
@@ -258,33 +352,23 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         chat_history = memory_content.get("chat_history", [])
         return chat_history
     
-    # Condense question chain
-    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
-    condense_question_chain = (
-        CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
-    ).with_config(
-        run_name="CondenseQuestion",
-    )
-    
-    # 이후 체인 구성 (메모리를 동적으로 가져옴)
+    # after chain configuration (dynamic memory)
     context = (
-        RunnablePassthrough.assign(
-            chat_history=get_session_memory,
-            condense_question=lambda x: condense_question_chain.invoke(
-                {"chat_history": get_session_memory(x), "question": x["question"]}
-            ) if get_session_memory(x) else x["question"]
-        )
-        .assign(docs=lambda x: retriever.invoke(x["condense_question"]))
+        RunnablePassthrough.assign(chat_history=get_session_memory)
+        .assign(docs=lambda x: retriever.invoke(x["question"]))
         .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
     
-    # 나머지 체인 코드...
+    # use question instead of condense_question in prompt
     prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", RESPONSE_TEMPLATE),
+            ("system", RESPONSE_TEMPLATE.format(
+                context="{context}", 
+                publication=publication_content
+            )),
             MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{condense_question}"),
+            ("human", "{question}"),
         ]
     )
 
@@ -292,7 +376,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         run_name="GenerateResponse"
     )
     
-    # 결과 형식화 함수 (기존과 동일)
+    # format response function (same as before)
     def format_response(result):
         if isinstance(result, dict) and "docs" in result:
             # use scores already calculated by HybridRetriever
@@ -302,16 +386,16 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 "answer": result.get("text", ""),
                 "source_documents": result.get("docs", []),
                 "similarity_scores": scores,
-                "session_id": result.get("session_id", "default"),  # 세션 ID 보존
-                "question": result.get("question", "")  # 원본 질문 보존
+                "session_id": result.get("session_id", "default"),  # keep session ID
+                "question": result.get("question", "")  # keep original question
             }
         return result
     
-    # 최종 체인 구성 - 원래 질문과 세션 ID 유지
+    # final chain configuration - keep original question and session ID
     final_chain = (
         RunnablePassthrough.assign(
             chat_history=get_session_memory,
-            # 다른 필드들은 그대로 유지
+            # keep other fields
         )
         | context
         | RunnablePassthrough.assign(
@@ -320,21 +404,21 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         | RunnableLambda(format_response)
     )
     
-    # 메모리 업데이트 함수 개선
+    # memory update function
     def update_memory_and_return(result):
         try:
             session_id = result.get("session_id", "default")
             
             if session_id in session_memories:
-                # 질문과 답변 추출
+                # extract question and answer
                 question = result.get("question", "")
                 answer = result.get("answer", "")
                 
-                # 답변이 없는 경우 text 필드에서 가져옴
+                # if no answer, get from text field
                 if not answer and "text" in result:
                     answer = result["text"]
                 
-                # 메모리 업데이트
+                # update memory
                 if question and answer:
                     session_memories[session_id].save_context(
                         {"question": question},
@@ -346,7 +430,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         return result
     
     return RunnablePassthrough.assign(
-        # 원본 입력 값 유지를 위한 패스스루 추가
+        # keep original input values
         session_id=lambda x: x.get("session_id", "default"),
         question=lambda x: x.get("question", "")
     ) | final_chain | RunnableLambda(update_memory_and_return)
