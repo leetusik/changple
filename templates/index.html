@@ -5,18 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChangpleAI</title>
-    {% if user.is_authenticated %}
-    <link rel="stylesheet" href="{% static 'css/index_unlocked.css' %}">
-    {% else %}
-    <link rel="stylesheet" href="{% static 'css/index_locked.css' %}">
-    {% endif %}
+    {% comment %} {% if user.is_authenticated %} {% endcomment %}
+    {% comment %} <link rel="stylesheet" href="{% static 'css/index_unlocked.css' %}"> {% endcomment %}
+    {% comment %} {% else %} {% endcomment %}
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+    {% comment %} {% endif %} {% endcomment %}
 </head>
 <body>
     <div class="container">
         <div class="header">
 
             <!-- 창플 메인 로고(좌측)) -->
-            <div class="cp-logo-container">
+            <div class="cp-logo-container" id="cp-logo" style="cursor: pointer;">
                 <svg class="cp-logo">
                     {% comment %} <img src="{% static '../static/img/cp-logo-main.svg' %}" alt="CHAI Logo" /> {% endcomment %}
                     <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 513.51 109.45">
@@ -120,7 +120,7 @@
             <div class="suggestions">
                 <div class="suggestion-box">카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?</div>
                 <div class="suggestion-box">창플의 창업 철학에 대해 얘기해줘</div>
-                <div class="suggestion-box">문정동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?</div>
+                <div class="suggestion-box">동동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?</div>
             </div>
 
             {% if user.is_authenticated %}
@@ -265,6 +265,13 @@
                     inputBox.value = this.textContent;
                     inputBox.dispatchEvent(new Event('input'));
                 });
+            });
+
+            // cp-logo-container 클릭 이벤트 리스너 추가
+            const cpLogoContainer = document.getElementById('cp-logo');
+            cpLogoContainer.addEventListener('click', function() {
+                // 클릭 시 이동할 URL
+                location.href = 'http://localhost:8000/';
             });
         });
     </script>
