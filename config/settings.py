@@ -277,6 +277,12 @@ HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
 WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
 KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction
 
+# Publication data
+PUBLICATION_PATH = os.environ.get(
+    "PUBLICATION_PATH",
+    os.path.join(BASE_DIR, "chatbot", "data", "창플 출판 서적 요약.txt"),
+)
+
 # RQ Scheduler Configuration
 RQ_SCHEDULER_INTERVAL = 60  # Check for scheduled tasks every 60 seconds
 RQ_SCHEDULER_QUEUES = ["default"]  # Only check the default queue

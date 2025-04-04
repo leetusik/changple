@@ -47,6 +47,12 @@ SOCIAL_AUTH_NAVER_CALLBACK_URL = os.environ.get(
     ),
 )
 
+# Publication path for production - use environment variable if available
+PUBLICATION_PATH = os.environ.get(
+    "PUBLICATION_PATH",
+    os.path.join(BASE_DIR, "chatbot", "data", "창플 출판 서적 요약.txt"),
+)
+
 # Database - using SQLite for now
 # In a production environment, you might want to use a more robust database like PostgreSQL
 DATABASES = {

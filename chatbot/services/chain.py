@@ -1,6 +1,7 @@
 import os
 import sys
 from operator import itemgetter
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 from django.conf import settings
@@ -182,10 +183,11 @@ PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
 PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
 PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
 
-# publication path
-PUBLICATION_PATH = (
-    "/Users/mac_jaem/Desktop/changple/chatbot/data/창플 출판 서적 요약.txt"
-)
+# Get the Django project base directory
+from django.conf import settings
+
+# publication path from Django settings
+PUBLICATION_PATH = settings.PUBLICATION_PATH
 
 
 # load publication content
