@@ -225,6 +225,8 @@ LOGGING = {
         },
     },
 }
+# Redis configuration for RQ
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
 # Redis and RQ Configuration
 RQ_QUEUES = {
