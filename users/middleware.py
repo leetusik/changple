@@ -12,25 +12,39 @@ class NaverAuthMiddleware(MiddlewareMixin):
     Middleware to handle Naver OAuth state management.
 
     Naver OAuth requires a state parameter for security.
-    This middleware extracts the state parameter from the social-auth library
-    instead of generating its own.
+    This middleware ensures proper state handling between Naver and social-auth.
     """
 
     def process_request(self, request):
         """Process the request to handle Naver authentication state."""
         if request.path == "/naver/login/":
-            # Instead of generating our own state, we'll let social-auth handle it
-            # We'll just log this for debugging
+            # Let social-auth handle state
             logger.debug("Naver login requested - letting social-auth handle state")
 
         elif request.path == "/naver/callback/":
             # Process the callback
             logger.debug(f"Naver callback received: {request.GET}")
 
-            # Naver returns state parameter - we'll capture this for debugging only
+            # Save state for debugging
             state = request.GET.get("state")
             logger.debug(f"Received state: {state}")
 
-            # We'll disable state validation in middleware - let social-auth handle it
-            # To avoid the conflict, we won't set state_error anymore
-            pass
+            # The issue is that Naver adds redirect_state to the callback URL which confuses social-auth
+            # We need to:
+            # 1. Fix the redirect_uri that's stored in the session to match what Naver sends
+            # 2. Or clean up the request parameters so they match what social-auth expects
+
+            # We'll go with approach #2 - clean the request
+            if "redirect_state" in request.GET:
+                # Create a mutable copy of QueryDict
+                query_dict = request.GET.copy()
+
+                # Remove redirect_state parameter
+                redirect_state = query_dict.pop("redirect_state")
+                logger.debug(f"Removed redirect_state: {redirect_state}")
+
+                # Update request.GET
+                request.GET = query_dict
+                logger.debug(f"Updated request parameters: {request.GET}")
+
+            # Let social-auth validate the state parameter

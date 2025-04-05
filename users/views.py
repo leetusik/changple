@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
@@ -72,13 +73,10 @@ class NaverLoginView(View):
             # Log what we're about to do
             logger.info(f"Setting up Naver OAuth with redirect_uri: {redirect_uri}")
 
-            # Create the backend
+            # Create the backend with clean redirect_uri
             backend = load_backend(strategy, "naver", redirect_uri=redirect_uri)
 
-            # Configure the backend for correct redirect
-            backend.redirect_uri = redirect_uri
-
-            # Generate auth URL and let the backend handle state
+            # Let social-auth handle everything
             auth_url = backend.auth_url()
             logger.info(f"Naver auth URL: {auth_url}")
 
@@ -108,6 +106,7 @@ class NaverCallbackView(View):
         error = request.GET.get("error")
         state = request.GET.get("state")
 
+        # The middleware should already have removed redirect_state if present
         logger.info(f"Callback received - code: {code}, state: {state}")
 
         if error:
@@ -129,26 +128,15 @@ class NaverCallbackView(View):
 
             # Load the backend with our redirect_uri
             backend = load_backend(strategy, "naver", redirect_uri=redirect_uri)
-
-            # Configure the backend
-            backend.redirect_uri = redirect_uri
-            logger.info(f"Backend redirect_uri: {backend.redirect_uri}")
-
-            # Log the backend configuration
             logger.info(f"Backend: {backend.__class__.__name__}")
 
             # Complete the authentication process
             try:
                 logger.info("Starting backend.complete")
-                # Make request.backend available for the pipeline
                 request.backend = backend
 
-                # Use the backend to complete the authentication with minimal parameters
                 # Pass the code and state to the backend
-                user = backend.complete(
-                    request=request,
-                    redirect_uri=redirect_uri,  # Ensure this matches what was used in auth_url
-                )
+                user = backend.complete(request=request, redirect_uri=redirect_uri)
                 logger.info(f"User authenticated: {user}")
 
                 if user and user.is_active:
