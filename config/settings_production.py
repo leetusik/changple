@@ -16,8 +16,9 @@ SESSION_COOKIE_SAMESITE = "None"
 # Add trusted origins for CSRF
 CSRF_TRUSTED_ORIGINS = ["https://changple.ai", "https://www.changple.ai"]
 
-# Set the static root for collectstatic
+# Static files configuration
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
+STATIC_URL = "/static/"  # Ensure leading slash to match Nginx config
 
 # Redis configuration for RQ
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
