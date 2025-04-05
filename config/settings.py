@@ -225,6 +225,8 @@ LOGGING = {
         },
     },
 }
+# Redis configuration for RQ
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
 # Redis and RQ Configuration
 RQ_QUEUES = {
@@ -272,7 +274,7 @@ LLM_STREAMING = True
 LLM_TOP_K = 5
 
 # Retriever Settings
-NUM_DOCS = 1  # number of retrieved documents
+NUM_DOCS = 3  # number of retrieved documents
 HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
 WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
 KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction

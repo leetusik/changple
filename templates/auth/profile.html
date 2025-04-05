@@ -130,6 +130,7 @@
                             </div>
                             <div class="card-footer text-end">
                                 <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">로그아웃</a>
+                                <a href="{% url 'withdraw_account' %}" class="btn btn-danger btn-sm ms-2" onclick="return confirm('정말로 회원탈퇴를 진행하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">회원탈퇴</a>
                             </div>
                         </div>
                     {% else %}

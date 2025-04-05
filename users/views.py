@@ -154,6 +154,32 @@ class NaverCallbackView(View):
                 if user and user.is_active:
                     login(request, user)
                     logger.info(f"User logged in: {user.id}")
+
+                    # Store the access token for later use (e.g., for disconnection)
+                    try:
+                        # Check if the response from backend.complete contains the token
+                        if hasattr(user, "social_auth") and hasattr(
+                            user.social_auth, "extra_data"
+                        ):
+                            # For python-social-auth storage
+                            logger.info("Storing token in social_auth extra_data")
+                        else:
+                            # Custom storage - need to store the token in our own way
+                            # Get token from the pipeline response
+                            token = getattr(backend, "access_token", None)
+                            if token:
+                                logger.info(f"Storing access token for user {user.id}")
+                                # Create or update a model to store the token - using a simple attribute for now
+                                # In a real implementation, consider encrypting this token
+                                user.naver_access_token = token
+                                user.save()
+                            else:
+                                logger.warning(
+                                    f"No access token found for user {user.id}"
+                                )
+                    except Exception as e:
+                        logger.error(f"Error storing access token: {str(e)}")
+
                     return redirect(reverse("home"))
                 else:
                     logger.error("User not active or not returned")
@@ -198,4 +224,39 @@ def logout_view(request):
     logout(request)
 
     # Redirect to home page
+    return redirect("home")
+
+
+def withdraw_account(request):
+    """
+    Handle user account deletion.
+    For Naver social users, this will also disconnect their Naver account.
+    """
+    if not request.user.is_authenticated:
+        return redirect("home")
+
+    user = request.user
+
+    # Get access token - try different sources
+    access_token = None
+
+    # Try to get token from user attribute (where we stored it during login)
+    if hasattr(user, "naver_access_token") and user.naver_access_token:
+        access_token = user.naver_access_token
+        logger.info(f"Using access token stored in user model for user {user.id}")
+
+    # If no token found and this is a Naver user, log a warning
+    if not access_token and user.provider == "naver":
+        logger.warning(
+            f"No access token found for Naver user {user.id}, disconnection may fail"
+        )
+
+    # Call the service to disconnect from Naver and delete the user
+    success = SocialAuthService.disconnect_naver_and_delete_user(user, access_token)
+
+    # If the deletion wasn't successful, just log the user out
+    if not success:
+        logout(request)
+
+    # Redirect to home page with a message
     return redirect("home")
