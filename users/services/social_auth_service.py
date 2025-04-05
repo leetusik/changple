@@ -109,3 +109,74 @@ class SocialAuthService:
 
         user.save()
         return user
+
+    @staticmethod
+    def disconnect_naver_and_delete_user(user, access_token):
+        """
+        Disconnect user from Naver API and delete their account.
+
+        Args:
+            user (User): User instance to delete
+            access_token (str): Naver access token
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        import requests
+        from django.conf import settings
+
+        # Only proceed with Naver disconnection if user is a Naver social user
+        if user.provider != "naver" or not user.social_id:
+            logger.warning(f"Attempted to disconnect non-Naver user: {user.id}")
+            # Still delete the user even if not Naver user
+            user.delete()
+            return True
+
+        # Try to get access token from user model if not provided
+        if not access_token and hasattr(user, "naver_access_token"):
+            access_token = user.naver_access_token
+            logger.info(f"Using access token from user model for user {user.id}")
+
+        # If still no access token, log a warning but continue with user deletion
+        if not access_token:
+            logger.warning(
+                f"No access token available for Naver user {user.id}, skipping Naver disconnection"
+            )
+            user.delete()
+            return True
+
+        # Call Naver API to disconnect the user
+        try:
+            disconnect_url = "https://nid.naver.com/oauth2.0/token"
+            params = {
+                "grant_type": "delete",
+                "client_id": settings.SOCIAL_AUTH_NAVER_KEY,
+                "client_secret": settings.SOCIAL_AUTH_NAVER_SECRET,
+                "access_token": access_token,
+            }
+
+            logger.info(f"Calling Naver disconnection API for user {user.id}")
+            logger.info(f"Using client_id: {settings.SOCIAL_AUTH_NAVER_KEY[:5]}***")
+            logger.info(f"Using access_token: {access_token[:5]}***")
+
+            response = requests.get(disconnect_url, params=params)
+            data = response.json()
+
+            if response.status_code == 200 and data.get("result") == "success":
+                logger.info(f"Successfully disconnected Naver user: {user.id}")
+            else:
+                logger.warning(
+                    f"Failed to disconnect Naver user: {user.id}. Response: {data}"
+                )
+        except Exception as e:
+            logger.error(f"Error disconnecting Naver user: {str(e)}")
+            # Continue with user deletion even if Naver disconnection fails
+
+        # Delete the user regardless of Naver disconnect result
+        try:
+            user.delete()
+            logger.info(f"User {user.id} successfully deleted")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting user: {str(e)}")
+            return False
