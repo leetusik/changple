@@ -85,8 +85,11 @@ def create_user(backend, user, response, *args, **kwargs):
 
     # Fetch additional profile data if we have an access token
     additional_profile_data = {}
-    if response.get("access_token"):
-        additional_profile_data = get_naver_profile_data(response.get("access_token"))
+    access_token = response.get("access_token")
+    if access_token:
+        additional_profile_data = get_naver_profile_data(access_token)
+        # Store access token for later use
+        logger.info("Access token found in response - will store for later use")
 
     # Get mobile from additional profile data if available
     mobile = additional_profile_data.get("mobile", "")
@@ -130,6 +133,11 @@ def create_user(backend, user, response, *args, **kwargs):
                     user.mobile = mobile
                 else:
                     logger.info("No mobile field found for existing user")
+
+                # Store access token for disconnection
+                if access_token:
+                    logger.info(f"Updating access token for user {user.id}")
+                    user.naver_access_token = access_token
 
                 user.save()
                 logger.info(f"Updated existing user: {user.id}")
@@ -195,6 +203,7 @@ def create_user(backend, user, response, *args, **kwargs):
                 name=korean_name,  # Set the Korean name as the primary name
                 nickname=nickname,  # Set the nickname
                 mobile=mobile,
+                naver_access_token=access_token,  # Store the access token for disconnection
                 # Don't use first_name/last_name for Korean context
             )
 

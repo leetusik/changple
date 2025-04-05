@@ -34,6 +34,9 @@ class User(AbstractUser):
     social_id = models.CharField(max_length=100, blank=True)
     profile_image = models.URLField(blank=True)
 
+    # Token for social auth operations (disconnection)
+    naver_access_token = models.TextField(blank=True, null=True)
+
     # In Korean context, we use full name rather than first/last name
     # We'll keep this as the primary name field
     name = models.CharField(max_length=255, null=True, blank=True)
