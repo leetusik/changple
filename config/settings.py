@@ -74,11 +74,19 @@ SOCIAL_AUTH_LOGIN_ERROR_URL = "/login-error/"
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "/"
 SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = "/"
 
+# If login works fine but there are state verification errors,
+# you can uncomment this line to disable state verification
+# SOCIAL_AUTH_DISABLE_STATE_VERIFICATION = True
+
 # Naver specific settings
 SOCIAL_AUTH_NAVER_CALLBACK_URL = os.environ.get(
     "SOCIAL_AUTH_NAVER_CALLBACK_URL",
     "http://localhost:8000/naver/callback/",  # Development default
 )
+
+# Ensure the callback URL doesn't end with a query string
+if "?" in SOCIAL_AUTH_NAVER_CALLBACK_URL:
+    SOCIAL_AUTH_NAVER_CALLBACK_URL = SOCIAL_AUTH_NAVER_CALLBACK_URL.split("?")[0]
 
 # Social Auth Pipeline
 SOCIAL_AUTH_PIPELINE = (
