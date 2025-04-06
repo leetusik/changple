@@ -35,10 +35,10 @@ urlpatterns = [
     ),  # Social auth URLs
     path("", HomeView.as_view(), name="home"),
     path(
-        "profile/",
+        "mypage/",
         login_required(TemplateView.as_view(template_name="auth/mypage.html")),
-        name="profile",
-    ),  # Profile page, login required
+        name="mypage",
+    ),  # mypage page, login required
     # Add Naver auth URLs at the root level
     path("naver/callback/", NaverCallbackView.as_view(), name="naver_callback"),
     path("naver/login/", NaverLoginView.as_view(), name="naver_login"),
