@@ -276,13 +276,13 @@ TEXT_SPLITTER_CHUNK_SIZE = 1000
 TEXT_SPLITTER_CHUNK_OVERLAP = 200
 
 # LLM model settings
-LLM_MODEL = "gpt-4o"
+LLM_MODEL = "ft:gpt-4o-mini-2024-07-18:personal::BJArSYi6"
 LLM_TEMPERATURE = 0.7
 LLM_STREAMING = True
 LLM_TOP_K = 5
 
 # Retriever Settings
-NUM_DOCS = 3  # number of retrieved documents
+NUM_DOCS = 5  # number of retrieved documents
 HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
 WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
 KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction
