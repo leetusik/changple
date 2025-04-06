@@ -282,7 +282,7 @@ LLM_STREAMING = os.getenv("LLM_STREAMING", True)
 LLM_TOP_K = os.getenv("LLM_TOP_K", 5)
 
 # Retriever Settings
-NUM_DOCS = 3  # number of retrieved documents
+NUM_DOCS = 5  # number of retrieved documents
 HYBRID_ALPHA = 0.5  # weight between vector and BM25 scores (1: vector, 0: BM25)
 WHOOSH_INDEX_DIR = "chatbot/data/whoosh_index"  # Whoosh index directory
 KEYWORD_MODEL = "gpt-4o-mini"  # LLM for keyword extraction
