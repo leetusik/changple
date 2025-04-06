@@ -91,40 +91,44 @@ class HybridRetriever(BaseRetriever):
         # 키워드 추출용 LLM 모델 초기화
         self.keyword_llm = ChatOpenAI(model=keyword_model, temperature=0)
         self.keyword_prompt = PromptTemplate.from_template(
-            "당신은 BM25 검색에 적합한 키워드 추출 전문가입니다."
-            "다음 문장에서 질문의 의도를 가장 잘 나타내는 중요한 BM25 검색용 키워드를 2개 이내로 추출하세요."
-            "단, '창업', '사업', '방법', '조언' 이라는 키워드는 제외하고 출력하세요."
-            "키워드만 공백으로 구분하여 출력하세요. 접속사, 조사 등은 제거하세요.\n\n"
-            "문장: {query}\n\n"
+            "당신은 관련된 문서를 검색하기 위한 키워드 추출 전문가입니다."
+            "아래에 주어진 대화 이력을 바탕으로 사용자가 문의하고자 하는 내용에 대해 관련 문서를 가장 잘 찾을 수 있는 long-tail 검색 키워드를 추출하세요."
+            "키워드는 가장 적절한 것으로 최대 4단어까지 추출할 수 있습니다. 단어 사이는 공백으로 구분하세요."
+            "창업, 사업, 방법, 조언 같은 너무 흔한 키워드는 제외하세요."
+            "접속사, 조사, 문장 부호 등은 반드시 제거하고 키워드만 출력해야 합니다.\n\n"
+            "대화 이력: {chat_history}\n\n"
             "키워드:"
         )
         self.keyword_chain = self.keyword_prompt | self.keyword_llm | StrOutputParser()
 
-    def extract_keywords(self, query: str) -> str:
+    def extract_keywords(self, chat_history: str) -> str:
         """
         Convert a sentence-based query into a BM25-search-friendly keyword format.
 
         Args:
-            query: user input query sentence
+            chat_history: chat history with user
 
         Returns:
             str: extracted keywords (separated by spaces)
         """
+        # chat_history : f"대화 기록: ~~~ \n\n현재 질문: {x['question']}"
+        last_question = chat_history.split("현재 질문: ")[-1].strip()
+
         try:
             # use LLM to extract keywords
-            keywords = self.keyword_chain.invoke({"query": query})
+            keywords = self.keyword_chain.invoke({"chat_history": chat_history})
 
             # return original query if result is empty or error occurs
             if not keywords or len(keywords.strip()) == 0:
-                return query
+                return last_question
 
             return keywords.strip()
-        except Exception as e:  # return original query if error occurs
+        except Exception as e: 
             logger.error(f"Error occurred during keyword extraction: {str(e)}")
-            return query
+            return last_question
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager=None
+        self, chat_history: str, *, run_manager=None
     ) -> List[Document]:
 
         # Reset results for this query
@@ -133,23 +137,25 @@ class HybridRetriever(BaseRetriever):
 
         MULTIPLIER = 5
 
+        search_query = self.extract_keywords(chat_history)
+
         # vector search
         try:
             self.vector_results = (
                 self.vectorstore.vectorstore.similarity_search_with_relevance_scores(
-                    query, k=self.k * MULTIPLIER
+                    search_query, k=self.k * MULTIPLIER
                 )
             )
         except Exception as e:
             logger.error(f"Error during vector search: {e}")
             self.vector_results = []  # Ensure it's empty on error
 
+
         # BM25 search - use keyword-converted query only if index is available
         if self.whoosh_ix:
-            try:
-                bm25_query = self.extract_keywords(query)
+            try: 
                 logger.info(
-                    f"BM25 keywords: '{bm25_query}'"
+                    f"BM25 keywords: '{search_query}'"
                 )
 
                 with self.whoosh_ix.searcher(
@@ -160,14 +166,14 @@ class HybridRetriever(BaseRetriever):
                     )
 
                     # Try AND search first
-                    whoosh_query_and = parser.parse(f"({bm25_query})")
+                    whoosh_query_and = parser.parse(f"({search_query})")
                     whoosh_results = searcher.search(
                         whoosh_query_and, limit=self.k * MULTIPLIER
                     )
 
                     # if results are less than half of k *and* there are multiple keywords, use OR search
-                    if len(whoosh_results) < self.k * 0.5 and " " in bm25_query.strip():
-                        whoosh_query_or = parser.parse(" OR ".join(bm25_query.split()))
+                    if len(whoosh_results) < self.k * 0.5 and " " in search_query.strip():
+                        whoosh_query_or = parser.parse(" OR ".join(search_query.split()))
                         whoosh_results = searcher.search(
                             whoosh_query_or, limit=self.k * MULTIPLIER
                         )
@@ -354,8 +360,8 @@ class HybridRetriever(BaseRetriever):
         return final_docs
 
     async def _aget_relevant_documents(
-        self, query: str, *, run_manager=None
+        self, chat_history: str, *, run_manager=None
     ) -> List[Document]:
         # Simple async wrapper for now
         # TODO: Implement true async calls if IO bound operations support it
-        return self._get_relevant_documents(query, run_manager=run_manager)
+        return self._get_relevant_documents(chat_history, run_manager=run_manager)
