@@ -276,10 +276,10 @@ TEXT_SPLITTER_CHUNK_SIZE = 1000
 TEXT_SPLITTER_CHUNK_OVERLAP = 200
 
 # LLM model settings
-LLM_MODEL = "ft:gpt-4o-mini-2024-07-18:personal::BJArSYi6"
-LLM_TEMPERATURE = 0
-LLM_STREAMING = True
-LLM_TOP_K = 5
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
+LLM_TEMPERATURE = os.getenv("LLM_TEMPERATURE", 0.7)
+LLM_STREAMING = os.getenv("LLM_STREAMING", True)
+LLM_TOP_K = os.getenv("LLM_TOP_K", 5)
 
 # Retriever Settings
 NUM_DOCS = 5  # number of retrieved documents
