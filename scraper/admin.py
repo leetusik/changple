@@ -1,12 +1,47 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 
 from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData, PostStatus
 
 
+class ActiveCategoryFilter(admin.SimpleListFilter):
+    title = _('활성화된 카테고리')
+    parameter_name = 'active_category'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', _('활성화된 카테고리만')),
+            ('no', _('비활성화된 카테고리 포함')),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            active_categories = AllowedCategory.objects.filter(is_active=True).values_list('name', flat=True)
+            return queryset.filter(category__in=active_categories)
+        return queryset
+
+
+class ActiveAuthorFilter(admin.SimpleListFilter):
+    title = _('활성화된 작성자')
+    parameter_name = 'active_author'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', _('활성화된 작성자만')),
+            ('no', _('비활성화된 작성자 포함')),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            active_authors = AllowedAuthor.objects.filter(is_active=True).values_list('name', flat=True)
+            return queryset.filter(author__in=active_authors)
+        return queryset
+
+
 class NaverCafeDataAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "published_date", "url", "post_id")
-    list_filter = ("category",)
-    search_fields = ("title", "content")
+    list_display = ("title", "category", "author", "published_date", "post_id")
+    list_filter = (ActiveCategoryFilter, ActiveAuthorFilter, "category")
+    search_fields = ("title", "content", "category")
     list_per_page = 20
 
 
