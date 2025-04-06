@@ -36,7 +36,7 @@ urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path(
         "profile/",
-        login_required(TemplateView.as_view(template_name="auth/profile.html")),
+        login_required(TemplateView.as_view(template_name="auth/mypage.html")),
         name="profile",
     ),  # Profile page, login required
     # Add Naver auth URLs at the root level

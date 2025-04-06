@@ -113,6 +113,15 @@ class User(AbstractUser):
         self.daily_queries_used += 1
         self.save()
 
+    @property
+    def daily_queries_remain(self):
+        """Return the number of remaining queries for the day"""
+        # Reset counter if it's a new day
+        if timezone.now().date() > self.last_query_reset.date():
+            return self.daily_query_limit
+
+        return max(0, self.daily_query_limit - self.daily_queries_used)
+
     def __str__(self):
         """Show name as the string representation instead of username"""
         return self.name or self.nickname or self.email or self.username

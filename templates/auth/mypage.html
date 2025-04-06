@@ -1,31 +1,47 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChangpleAI</title>
-    <link rel="stylesheet" href="../static/css/mypage.css">
-    <link rel="icon" href="../static/img/favicon.svg" type="image/x-icon">
+    <title>창플 - 마이페이지</title>
+    <link rel="stylesheet" href="{% static 'css/mypage.css' %}">
+    <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/x-icon">
+    <style>
+        a {
+            text-decoration: none;
+        }
+        .profile-buttons-block a, .pay_plan-block-content-btn-area {
+            text-decoration: none;
+            /* color: inherit; */
+        }
+        .not-authenticated a {
+            text-decoration: none;
+            color: inherit;
+        }
+    </style>
 </head>
 
 <body>
     <!---------------- header ---------------------------------------->
     <header>
         <div class="arrow-block">
-            <svg width="42" height="37" viewBox="0 0 42 37" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M20.543 36.0035C20.0605 36.4859 19.4062 36.7568 18.7239 36.7568C18.0416 36.7568 17.3873 36.4859 16.9048 36.0035L1.46672 20.5654C0.984356 20.0829 0.713379 19.4286 0.713379 18.7463C0.713379 18.064 0.984356 17.4097 1.46672 16.9272L16.9048 1.48911C17.3901 1.02042 18.04 0.76107 18.7147 0.766933C19.3893 0.772795 20.0346 1.0434 20.5117 1.52045C20.9887 1.99751 21.2593 2.64286 21.2652 3.31749C21.2711 3.99213 21.0117 4.64207 20.543 5.12735L9.49709 16.1733L39.308 16.1733C39.9904 16.1733 40.6449 16.4444 41.1274 16.9269C41.6099 17.4094 41.881 18.0639 41.881 18.7463C41.881 19.4287 41.6099 20.0832 41.1274 20.5657C40.6449 21.0482 39.9904 21.3193 39.308 21.3193L9.49709 21.3193L20.543 32.3653C21.0254 32.8478 21.2964 33.5021 21.2964 34.1844C21.2964 34.8666 21.0254 35.521 20.543 36.0035Z" fill="#617DAE"/>
-            </svg>                
+            <a href="{% url 'home' %}" style="text-decoration: none;">
+                <svg width="42" height="37" viewBox="0 0 42 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M20.543 36.0035C20.0605 36.4859 19.4062 36.7568 18.7239 36.7568C18.0416 36.7568 17.3873 36.4859 16.9048 36.0035L1.46672 20.5654C0.984356 20.0829 0.713379 19.4286 0.713379 18.7463C0.713379 18.064 0.984356 17.4097 1.46672 16.9272L16.9048 1.48911C17.3901 1.02042 18.04 0.76107 18.7147 0.766933C19.3893 0.772795 20.0346 1.0434 20.5117 1.52045C20.9887 1.99751 21.2593 2.64286 21.2652 3.31749C21.2711 3.99213 21.0117 4.64207 20.543 5.12735L9.49709 16.1733L39.308 16.1733C39.9904 16.1733 40.6449 16.4444 41.1274 16.9269C41.6099 17.4094 41.881 18.0639 41.881 18.7463C41.881 19.4287 41.6099 20.0832 41.1274 20.5657C40.6449 21.0482 39.9904 21.3193 39.308 21.3193L9.49709 21.3193L20.543 32.3653C21.0254 32.8478 21.2964 33.5021 21.2964 34.1844C21.2964 34.8666 21.0254 35.521 20.543 36.0035Z" fill="#617DAE"/>
+                </svg>
+            </a>                
         </div>
         <div class="title-block">
             <p>
-                mypage
+                마이페이지
             </p>
         </div>
     </header>
 
-
     <!------------------ main ---------------------------------------->
     <main>
+        {% if user.is_authenticated %}
         <!-------- profile-container ---------------------->
         <div class="profile-container">
 
@@ -34,20 +50,24 @@
 
                 <!-------- img-area ------>
                 <div class="profile-img-area">
-                    <img src="../static/img/profile-img-test.png" />
+                    {% if user.profile_image %}
+                        <img src="{{ user.profile_image }}" alt="프로필 이미지" />
+                    {% else %}
+                        <img src="{% static 'img/profile-img-test.png' %}" alt="기본 프로필 이미지" />
+                    {% endif %}
                 </div>
 
                 <!-------- text-area ------>
                 <div class="profile-text-area">
                     <div class="profile-id-area">
                         <p>
-                            woojeon123
+                            {{ user.nickname|default:user.username }}
                         </p>
                     </div>
 
                     <div class="profile-email-area">
                         <p>
-                            woojeonjang@naver.com
+                            {{ user.email }}
                         </p>
                     </div>
                 </div>
@@ -64,7 +84,7 @@
                 </div>
                 <div class="name-block-content-area">
                     <p>
-                        장우전
+                        {{ user.name|default:"미등록" }}
                     </p>
                 </div>
             </div>
@@ -78,7 +98,7 @@
                 </div>
                 <div class="phone_number-block-content-area">
                     <p>
-                        010-8850-8893
+                        {{ user.mobile|default:"미등록" }}
                     </p>
                 </div>
             </div>
@@ -92,7 +112,7 @@
                 </div>
                 <div class="login_info-block-content-area">
                     <p>
-                        Naver
+                        {{ user.provider|default:"직접 가입"|title }}
                     </p>
                 </div>
             </div>
@@ -106,7 +126,7 @@
                 </div>
                 <div class="join_date-block-content-area">
                     <p>
-                        25.04.05
+                        {{ user.date_joined|date:"y.m.d" }}
                     </p>
                 </div>
             </div>
@@ -120,43 +140,53 @@
                 </div>
                 <div class="pay_plan-block-content-area">
                     <p>
-                        무료사용(9/10)
+                        {% if user.is_premium %}
+                            프리미엄 (무제한)
+                        {% else %}
+                            무료사용({{ user.daily_queries_remain|default:"10" }}/{{ user.daily_query_limit|default:"10" }})
+                        {% endif %}
                     </p>
                 </div>
-                <button class="pay_plan-block-content-btn-area">
+                <a href="{% url 'home' %}" class="pay_plan-block-content-btn-area">
                     <svg width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.7339 0.200195L13.2023 7.40581L18.9589 2.82986L15.452 9.29355L22.8032 9.48839L15.962 12.1857L21.4681 17.0602L14.4936 14.7291L15.5782 22.0023L11.7339 15.7335L7.88962 22.0023L8.97425 14.7291L1.9998 17.0602L7.50585 12.1857L0.664688 9.48839L8.01582 9.29355L4.50899 2.82986L10.2655 7.40581L11.7339 0.200195Z" fill="#FFFFFF"/>
                     </svg>                        
                     <p>
                         유료 플랜 결제
                     </p>
-                </button>
+                </a>
             </div>
 
 
             <div class="profile-buttons-block">
-                <button class="buttons-block-logout-area">
+                <a href="{% url 'logout' %}" class="buttons-block-logout-area">
                     <p>
                         로그아웃
                     </p>
-                </button>
-                <button class="buttons-block-resign-area">
+                </a>
+                <a href="{% url 'withdraw_account' %}" class="buttons-block-resign-area" onclick="return confirm('정말로 회원탈퇴를 진행하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">
                     <p>
                         회원 탈퇴
                     </p>
-                </button>
+                </a>
             </div>
-
-
         </div>
+        {% else %}
+        <div class="profile-container">
+            <div class="not-authenticated">
+                <p>로그인이 필요한 페이지입니다.</p>
+                <a href="{% url 'home' %}" class="buttons-block-logout-area">
+                    <p>로그인 페이지로 이동</p>
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </main>
-
-
-
-</body>
 
 <footer>
     <div class="company-info">(주)창플 | 283-88-00641 | 한범구 | 서울 송파구 송파대로 167 (문정동)테라타워 B동, 707호 | 02-2054-3956 | tiger9@changple.com</div>
     <div class="copyright">@Copyright @ ChangpleTeamBusiness Inc. All Rights Reserved.</div>
     <div class="privacy-policy">개인정보처리방침</div>
 </footer>
+</body>
+</html> 
