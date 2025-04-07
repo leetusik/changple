@@ -1,6 +1,6 @@
+import json
 import os
 import sys
-import json
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -171,6 +171,11 @@ SIMPLE_RESPONSE_TEMPLATE = """\
 (1-2 문장) 사용자의 질문에 대한 가장 핵심적인 답변 1가지만 제공
 (1-2 문장) 개인 맞춤형 조언을 위해 사용자의 구체적인 상황, 생각, 선호도 파악이 중요함을 설명 
 (번호 매겨서 5-6개 질문) '핵심 질문 가이드라인'을 참고하여 사용자 상황 파악을 위한 구체적인 질문 제시
+
+## 9. 창플에 대한 질문
+창플에 대한 질문은 최대한 자세하고, 구체적으로, 그리고 길게 대답하세요.
+기존 프랜차이즈 창업의 문제점을 지적하고, 창플의 아키프로젝트, 팀 비즈니스에 대해 소개하세요.
+대답의 끝에, 적절한 질문을 배치하여 자연스럽게 대화를 유도하세요.
 """
 
 # RAG prompt
@@ -321,6 +326,7 @@ def serialize_history(request: ChatRequest):
             converted_chat_history.append(AIMessage(content=message["assistant"]))
     return converted_chat_history
 
+
 def format_history_for_retrieval(chat_history: List) -> str:
     """Formats chat history into a single string for retrieval."""
     formatted_history = []
@@ -331,6 +337,7 @@ def format_history_for_retrieval(chat_history: List) -> str:
             formatted_history.append(f"AI: {msg.content}")
     # 필요하다면 토큰 제한 등을 고려하여 최근 N개 메시지만 사용하도록 수정할 수 있습니다.
     return "\n".join(formatted_history)
+
 
 # session memory
 session_memories = {}
@@ -366,139 +373,143 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         memory_content = session_memories[session_id].load_memory_variables({})
         chat_history = memory_content.get("chat_history", [])
         return chat_history
-    
+
     # 검색이 필요한지 판단하는 LLM
-    decision_llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.0
-    )
-    
+    decision_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+
     # 검색 필요성 결정 체인 (from_messages 사용)
     decision_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                RETRIEVER_DECISION_TEMPLATE, # 시스템 메시지로 전체 템플릿 사용
+                RETRIEVER_DECISION_TEMPLATE,  # 시스템 메시지로 전체 템플릿 사용
             ),
-            MessagesPlaceholder(variable_name="chat_history"), # 대화 이력 주입
-            ("human", "{question}"), # 사용자 질문 주입
+            MessagesPlaceholder(variable_name="chat_history"),  # 대화 이력 주입
+            ("human", "{question}"),  # 사용자 질문 주입
         ]
     )
     decision_chain = decision_prompt | decision_llm | StrOutputParser()
-    
+
     # 검색 필요 여부 결정 함수
     def determine_retrieval_need(inputs):
         question = inputs["question"]
         chat_history = get_session_memory(inputs)
-        
-        json_output = decision_chain.invoke({
-            "question": question,
-            "chat_history": chat_history
-        }).strip()
-        
+
+        json_output = decision_chain.invoke(
+            {"question": question, "chat_history": chat_history}
+        ).strip()
+
         try:
             # JSON 파싱
             user_data = json.loads(json_output)
-            
+
             # 전체 키 개수 및 빈 문자열이 아닌 값 개수 계산
             total_keys = len(user_data)
             if total_keys == 0:
-                return False # 키가 없으면 검색 불필요
-            
-            non_empty_values = sum(1 for value in user_data.values() if isinstance(value, str) and value != "")
-            
+                return False  # 키가 없으면 검색 불필요
+
+            non_empty_values = sum(
+                1
+                for value in user_data.values()
+                if isinstance(value, str) and value != ""
+            )
+
             # 채워진 필드 비율 계산
             filled_ratio = non_empty_values / total_keys
 
             print(f"채워진 User data 필드 비율: {filled_ratio}")
-            
+
             # 비율이 60% 이상이면 True 반환
             return filled_ratio >= 0.6
-            
+
         except json.JSONDecodeError:
             # JSON 파싱 실패 시 False 반환 (검색 불필요)
-            print(f"Warning: Failed to parse JSON output from decision model: {json_output}")
+            print(
+                f"Warning: Failed to parse JSON output from decision model: {json_output}"
+            )
             return False
         except Exception as e:
             # 기타 예외 발생 시 False 반환
             print(f"Error determining retrieval need: {e}")
             return False
-    
+
     # 검색이 필요한 경우의 프롬프트 템플릿
     retrieval_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                RESPONSE_TEMPLATE.format(
-                    context="{context}"
-                ),
+                RESPONSE_TEMPLATE.format(context="{context}"),
             ),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
     )
-    
+
     # 검색이 필요하지 않은 경우의 간소화된 프롬프트 템플릿
     simple_prompt = ChatPromptTemplate.from_messages(
         [
-            (
-                "system",
-                SIMPLE_RESPONSE_TEMPLATE
-            ),
+            ("system", SIMPLE_RESPONSE_TEMPLATE),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
     )
-    
+
     # 검색 결과를 context 변수에 할당
     context = (
         RunnablePassthrough
         # chat_history와 question을 함께 retriever에 전달
-        .assign(docs=lambda x: retriever.invoke(
-            # chat_history를 문자열로 포맷하고 현재 질문과 결합
-            f"대화 기록:\n{format_history_for_retrieval(x['chat_history'])}\n\n현재 질문: {x['question']}"
-        ))
+        .assign(
+            docs=lambda x: retriever.invoke(
+                # chat_history를 문자열로 포맷하고 현재 질문과 결합
+                f"대화 기록:\n{format_history_for_retrieval(x['chat_history'])}\n\n현재 질문: {x['question']}"
+            )
+        )
         .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
-    
+
     # 검색이 필요한 경우의 체인
     retrieval_chain = (
         RunnablePassthrough.assign(chat_history=get_session_memory)
         | context
-        | RunnablePassthrough.assign(
-            text=(retrieval_prompt | llm | StrOutputParser())
-        )
+        | RunnablePassthrough.assign(text=(retrieval_prompt | llm | StrOutputParser()))
     )
-    
+
     # 검색이 필요하지 않은 경우의 체인
-    no_retrieval_chain = (
-        RunnablePassthrough.assign(chat_history=get_session_memory)
-        | RunnablePassthrough.assign(
-            text=(simple_prompt | llm | StrOutputParser())
-        )
-    )
-    
+    no_retrieval_chain = RunnablePassthrough.assign(
+        chat_history=get_session_memory
+    ) | RunnablePassthrough.assign(text=(simple_prompt | llm | StrOutputParser()))
+
     # RunnableBranch 사용하여 조건부 실행
     branch_chain = RunnableBranch(
-        (determine_retrieval_need, retrieval_chain), # determine_retrieval_need가 True를 반환하면 retrieval_chain 실행
+        (
+            determine_retrieval_need,
+            retrieval_chain,
+        ),  # determine_retrieval_need가 True를 반환하면 retrieval_chain 실행
         no_retrieval_chain,  # False를 반환하면 no_retrieval_chain 실행 (기본값)
     )
-    
+
     # format response function
     def format_response(result):
         # docs가 있는지 확인 (retrieval chain이 실행되었는지 확인)
-        docs_exist = "docs" in result['final'] if isinstance(result, dict) else False
-        
-        answer_text = result['final']['text'] 
+        docs_exist = "docs" in result["final"] if isinstance(result, dict) else False
 
-        if docs_exist and result['final']['docs']:
+        answer_text = result["final"]["text"]
+
+        if docs_exist and result["final"]["docs"]:
             response = {
                 "answer": answer_text,
-                "source_documents": result['final']['docs'],
-                "similarity_scores": [doc.metadata.get("combined_score", 0) for doc in result['final']['docs']] if result['final']['docs'] else [],
+                "source_documents": result["final"]["docs"],
+                "similarity_scores": (
+                    [
+                        doc.metadata.get("combined_score", 0)
+                        for doc in result["final"]["docs"]
+                    ]
+                    if result["final"]["docs"]
+                    else []
+                ),
                 "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
+                "question": result.get("question", ""),
             }
             return response
         else:
@@ -508,10 +519,10 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 "source_documents": [],
                 "similarity_scores": [],
                 "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
+                "question": result.get("question", ""),
             }
             return response
-    
+
     # 최종 체인 구성
     final_chain = (
         RunnablePassthrough.assign(
@@ -520,16 +531,12 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             question=lambda x: x.get("question", ""),
         )
         # 그 다음 chat_history를 get_session_memory로 할당
-        | RunnablePassthrough.assign(
-            chat_history=get_session_memory
-        )
+        | RunnablePassthrough.assign(chat_history=get_session_memory)
         # 이후에 branch_chain 실행 (chat_history가 이미 할당됨)
-        | RunnablePassthrough.assign(
-            final=branch_chain
-        )
+        | RunnablePassthrough.assign(final=branch_chain)
         | RunnableLambda(format_response)
     )
-    
+
     # memory update function
     def update_memory_and_return(result):
         try:
@@ -582,4 +589,3 @@ def initialize_chain():
         retriever = get_retriever()
         answer_chain = create_chain(llm, retriever)
     return answer_chain
-
