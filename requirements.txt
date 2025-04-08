@@ -31,7 +31,7 @@ jiter
 jsonpatch
 jsonpointer
 langchain
-langchain-community
+langchain-community==0.0.31
 langchain-core
 langchain-openai
 langchain-text-splitters

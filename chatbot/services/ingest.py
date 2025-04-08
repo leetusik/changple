@@ -18,12 +18,12 @@ from scraper.models import NaverCafeData
 
 load_dotenv()
 
+import pinecone  # Use v2.x import
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
-from pinecone import Pinecone, ServerlessSpec
 
 from chatbot.services.content_evaluator import evaluate_content, summary_and_keywords
 
@@ -141,26 +141,27 @@ def ingest_docs():
     # Get embedding model
     embedding = get_embeddings_model()
 
-    # Initialize Pinecone
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    # Initialize Pinecone using v2.x syntax
+    pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
     index = None  # Initialize index variable
 
-    # Check if index exists, create if it doesn't
-    index_list = pc.list_indexes()
-    if PINECONE_INDEX_NAME not in [index.name for index in index_list.indexes]:
+    # Check if index exists, create if it doesn't using v2.x syntax
+    index_list = pinecone.list_indexes()
+    if PINECONE_INDEX_NAME not in index_list:
         logger.info(f"Creating new Pinecone index: {PINECONE_INDEX_NAME}")
-        pc.create_index(
+        pinecone.create_index(
             name=PINECONE_INDEX_NAME,
             dimension=3072,  # Dimension for text-embedding-3-large
             metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
+            # Remove ServerlessSpec, environment is handled in init
+            # pod_type="p1.x1" # Example: Add pod_type if needed for v2 non-serverless
         )
         logger.info(f"Created new Pinecone index: {PINECONE_INDEX_NAME}")
-        # Wait for index readiness if needed, depends on Pinecone client behavior
-        # time.sleep(10) # Example: Simple wait, adjust as needed
+        # Wait for index readiness if needed
+        # time.sleep(60) # Example: Simple wait, adjust as needed
 
-    # Assign the index object
-    index = pc.Index(PINECONE_INDEX_NAME)
+    # Assign the index object using v2.x syntax
+    index = pinecone.Index(PINECONE_INDEX_NAME)
 
     # Load posts
     raw_docs = load_posts_from_database()

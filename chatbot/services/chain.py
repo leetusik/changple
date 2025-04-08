@@ -5,6 +5,12 @@ from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
+# Load environment variables early
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import pinecone  # Import the base pinecone library
 from django.conf import settings
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
@@ -26,7 +32,6 @@ from langchain_core.runnables import (
     RunnablePassthrough,
 )
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pinecone import Pinecone
 from pydantic import BaseModel
 
 from chatbot.services.hybrid_retriever import HybridRetriever
@@ -254,11 +259,15 @@ def get_retriever() -> BaseRetriever:
         BaseRetriever: A retriever that searches Pinecone for relevant documents
         hybrid retriever connected to the Pinecone vector database.
     """
-    # Initialize Pinecone
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    # Pinecone initialization is likely handled implicitly by LangchainPinecone
+    # when environment variables are set.
+    # pinecone.init(
+    #     api_key=PINECONE_API_KEY,
+    #     environment=PINECONE_ENVIRONMENT
+    # )
 
-    # Get the index object
-    index = pc.Index(PINECONE_INDEX_NAME)
+    # The index object is not needed here as LangchainPinecone uses index_name
+    # index = pinecone.Index(PINECONE_INDEX_NAME)
 
     # Get embeddings model
     embedding = get_embeddings_model()
