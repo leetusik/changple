@@ -26,252 +26,63 @@ from pydantic import BaseModel
 
 from chatbot.services.ingest import get_embeddings_model
 
-# System prompt template that instructs the LLM how to respond to user questions
-# It defines the response format, tone, and how to handle citations
-RESPONSE_TEMPLATE = """\
-당신은 요식업 창업 전문가이자 컨설턴트로, 요식업 창업에 관한 \
-모든 질문에 답변하는 역할을 맡고 있습니다.
+CATEGORIES = [
+    "창플의 구체적 조언",
+    "창플의 질문과 조언",
+    "창플의 업계 일반적 질문 대답",
+    "창플과 관련된 질문 대답",
+]
 
-제공된 검색 결과(URL 및 내용)만을 기반으로 주어진 질문에 대해 400 단어 이하의 포괄적이고 \
-유익한 답변을 생성하세요. 반드시 제공된 검색 결과의 정보만 사용해야 합니다. 검색 결과와 \
-동일한 문체를 사용하세요. 검색 결과를 결합하여 일관된 답변을 만드세요. 글을 반복하지 마세요. \
-[${{number}}] 표기법을 사용하여 검색 결과를 인용하세요. 질문에 정확하게 답변하는 가장 \
-관련성 높은 결과들만 인용하세요. 이러한 인용을 참조하는 문장이나 단락의 끝에 배치하고, \
-모두 끝에 모아 놓지 마세요. 같은 이름 내에서 다른 엔티티를 참조하는 다른 결과가 있다면, \
-각 엔티티에 대해 별도의 답변을 작성하세요.
+# Define the example Q&A for each category
+EXAMPLE_QA_MAP = {
+    "창플의 구체적 조언": """
+q. 30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다.
 
-가독성을 위해 답변에 글머리 기호를 사용하세요. 인용은 모두 끝에 모아 놓지 말고 적용되는 부분에 배치하세요.
+a. 분식집창업은 대표적인 상권입지가 중요한 업종입니다. 특별히 찾아가서 먹는 것이 아니라, 내가 다니는 입지에 눈으로 발로 걸치면 그곳에가서 부담없이 사먹는것이죠.. 분식뿐만 아니고 대부분의 부담없이 즐기는 저가커피,빵집,와플가게나 핫도그집들도 다 비슷하게 평수가 작아서 시설비는 적게 드는것처럼 보이지만, 사실 그 업종들은 점포구입비용(보증금+권리금)을 많이 써야 하는 업종들입니다. 지금 그런 업종으로 망하는 초보창업자들이 언제나 실패하는건 점포비용으로는 권리금도 없는 곳에 들어가고 프랜차이즈에서 자신들의 컨셉이라고 불리는 인테리어비용을 들여서 하다보니, 망하는것이죠.. 좋은 자리에 있어야 하는 업종인데 시설비용때문에 나쁜자리에 들어가는것이죠.. 창업자금 5천만원이면 프랜차이즈본사 인테리어비용에도 못미치는 비용입니다. 프랜차이즈를 하게 되면 결국 배달프랜차이즈를 하게 되는데 문제는 배달프랜차이즈는 사실상 물류공급유통회사이기 때문에 그에 맞게 원가율이 높아집니다. 원가율이 높아져서 35% 40%가 되면 배달관련비용 30%가 합해지게 되어 결국 남은 30%로 임대료내고 인건비주고 나면 사실상 남는게 없는 프랜차이즈의 노예가 될 가능성이 높습니다.
 
-맥락에서 질문과 관련된 내용이 없다면, "음, 잘 모르겠네요."라고만 말하세요. 답변을 지어내지 마세요.
+만약에 5천만원밖에 없다면, 동네상권에서 망한 식당을 보증금2천만원 권리금1천만원 총 3천만원짜리 식당을 인수해서, 안주를 떡볶이와 튀김류들을 같이 만들어내서 안주로서의 분식으로 접근하는것이 좋습니다. 창플에서 만든 브랜드인 레이디오분식과 크런디라는 브랜드를 참조해도 좋고, 망원동튀맥이라고 하는 매장의 모습도 참고하면 좋습니다. 분식을 빙자한 술집으로 하게 되면 어느동네던지 기본 테이블단가가 나오면서 사람을 덜쓰고도 생존할수 있습니다. 분식은 원가가 낮고 미리 끓여놓고 튀겨놓으면 사람인건비도 많이 안써도 되기 때문입니다. 아이가 없으시면 더더욱 저녁과 밤을 겸해서 다른 분식집들이 문닫을때 장사하면 오히려 경쟁자들이 없어서 더 잘될수도 있습니다.
+""",
+    "창플의 질문과 조언": """
+q. 돈까스집 창업을 생각 중인데 어떻게 시작해야 할까요?
 
-다음 `context` HTML 블록 사이의 모든 것은 벡터스토어에서 검색된 것이며, 사용자와의 대화의 일부가 아닙니다.
+a. 일반적으로 부담없이 먹거나 배달시켜먹는 저렴한 돈가스집을 이야기하는것인가요? 아니면 차타고 와서 먹고 가는 경양식집돈가스를 얘기하는건가요? 아니면 외식성격으로 찾아와서 먹는 일본식 두꺼운 돈가스집을 이야기하시는 건가요?
 
-<context>
-    {context} 
-<context/>
+일반적으로 같은 돈가스집이라고해도 부담없이 먹는 돈가스는 상권입지가 중요합니다. 가성비가 좋아야 하고 남녀노소 만족스러워야 하기 때문에 대중적인 맛을 유지를 잘해야 합니다. 상권입지가 좋으려면 점포구입비용에 더 투자를 해야 합니다 보증금과 권리금을 합한 금액이 최소 1억정도는 되어야 합니다. 그렇게 안되면 매출이 꾸준하지 않고 많이 나오는날은 많이 나오고 안나오는 날은 안나오는 편차가 있는 매출이 나게 됩니다. 그렇게 되면 고정비는 그대로인데 매출이 편차가 나면 문제가 생기죠.. 그렇게 입지가 안좋으면 결국 배달에 의존하게 되고, 배달에 의존하게 되면 30%의 수수료를 또 감당해야 하는데 그렇게 되면 매출은 나오는데 안남게 되는 상황도 발생합니다. 그래서 부담없이 먹는 돈가스집을 하려면 최소 2억이상의 투자금을 준비하셔야 합니다.
 
-기억하세요: 맥락 내에 관련 정보가 없다면, "음, 잘 모르겠네요."라고만 말하세요. 답변을 지어내지 마세요. \
-앞의 'context' HTML 블록 사이의 모든 것은 벡터스토어에서 검색된 것이며, 사용자와의 대화의 일부가 아닙니다.\
-"""
+찾아오는 스타일의 우리집만의 외식형 돈가스집이라면 오히려 단가도 더 올려도 되고 찾아오기 때문에 입지가 꼭 좋지 않아도 됩니다. 
 
-# Template for rephrasing follow-up questions based on chat history
-# Used to convert follow-up questions into standalone questions
-REPHRASE_TEMPLATE = """\
-다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+다만, 사람들이 몰리는 집객상권에는 있어야 합니다. 동네상권으로는 사람들이 안찾아오니.. 각 지역별 사람들이 모이는 곳에 들어가되 좋은입지에 들어가지 말고 온라인입지를 키워서 그곳으로 오게 하는 전략이 필요합니다.
 
-대화 기록:
-{chat_history}
-후속 질문: {question}
-독립적인 질문:"""
+돈가스클럽처럼 경양식돈가스같은 경우는, 해장국이나 설렁탕 입지에 들어가야 합니다. 차로 이동하면서 먹는 고객들을 대상으로 하기 때문에 주차와 평수에도 신경을 써야 합니다. 
 
-# Environment variables for Pinecone configuration
-PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
-PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
-PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
+결론적으로 같은 돈가스집이라고 해도, 창업비용이 작으면 가성비로 남녀노소 다 좋아하는 돈가스집을 하면 안됩니다. 오히려 돈가스의 퀄리티와 주류를 동반한 머무를수 있는 요소를 가지고 공간기획까지 들어가서 오고싶은곳을 만드는것이 가장 안전한 방법입니다.
 
+항상 초보들은 본인들이 초보이기 때문에 가성비 부담없는 음식을 하려 하지만, 가성비에 부담없는 음식을 파는 평식업은 대기업과 큰 프랜차이즈들의 영역입니다. 우린 틈새로 가야 내가 가진 작은 창업비용으로 생존할수 있습니다.
+""",
+    "창플의 업계 일반적 질문 대답": """
+q. 요즘 트렌드인 식당 업종은 무엇인가요?
 
-# Pydantic model defining the structure of chat requests
-class ChatRequest(BaseModel):
-    question: str  # The current user question
-    chat_history: Optional[List[Dict[str, str]]]  # Previous conversation history
+a. 창플에서는 트랜드를 말하지 않습니다. 트렌드는 그 트렌드를 이용해서 수익을 창출하려는 사업가들의 상술에 불과합니다. 트렌드보다는 방향성에 주목합니다. 
 
+가령 지금은 아주 초가성비로 가던지, 아니면 확실하게 소비를 자랑할수 있는곳으로 가던가 소비의 방향이 확실합니다.
 
-def get_retriever() -> BaseRetriever:
-    """
-    Creates and returns a retriever connected to the Pinecone vector database.
+그러면 초가성비로 트랜드를 이끄는 브랜드가 있을것이고, 소비를 자랑할수 있는 그런 브랜딩을 통해서 이끄는 브랜드가 있을것이고, 기타 다른 브랜드들이 있을겁니다.
 
-    The retriever is responsible for finding relevant documents based on the user's query.
-    It uses the text-embedding-3-large model to convert queries to vectors.
+초보창업자들은 그 방향성에 대한 생각을 안하고 그런 방향성에 부합하는 브랜드를 보고 그대로 따라가는 경향이 있습니다 그렇게 트랜드라는 이유로 그 브랜드자체를 따라가면 순식간에 컨텐츠소비가 끝나면서 공멸하는 경우들이 많습니다. 앞서 이야기한 칼럼들을 살펴보시고, 현재 시장의 모습과 전망을 알아가시길 바랍니다.
+""",
+    "창플과 관련된 질문 대답": """
+q. 창플은 어떤 일을 하는 회사인가요?
 
-    Returns:
-        BaseRetriever: A retriever that searches Pinecone for relevant documents
-    """
-    # Initialize Pinecone
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+a. 창플은 초보창업자들의 생존을 위해 존재하는 회사입니다. 생존포인트를 연구하고, 그에 따른 브랜드를 만들고(아키프로젝트) 또한 그렇게 만든 브랜드를 또다른 초보창업자들이 할수 있게(팀비즈니스)전수창업식의 창업도 추천하고 있습니다.
 
-    # Get embeddings model from ingest.py
-    embedding = get_embeddings_model()
+창플의 생존방식은 명확합니다. 창플의 생존공식이 담긴 파전에 막걸리집이론을 참조하시면 알겠지만, 중간유통거품없이 원재료를 받아서 원가를 낮추고, 인테리어같은 값비싼 비용을 들이지 않고 실제 고객들에게 임팩트를 주는 vmd작업을 통해서 시설비용을 아끼고. 사장 본인의 몸을 갈아넣어서 직원및 알바1명으로 같이 창업을 하면 결코 망하지 않는다는 것이죠
 
-    # Create Langchain Pinecone vectorstore connected to our existing index
-    # This doesn't create a new index, just connects to an existing one
-    vectorstore = LangchainPinecone.from_existing_index(
-        index_name=PINECONE_INDEX_NAME,
-        embedding=embedding,
-        text_key="text",  # Field name where document text is stored
-    )
+브랜드나 아이템 업종이 문제가 아니라, 밥집을 하던지 술집을 하던지 고깃집을 하던지 그 어떤 업을 하던지 장사구조를 그렇게 잡고 자신이 감당할수 있는 범위의 창업비용을 가지고, 내몸을 이용해서 생존할수 있게 해야 한다는것입니다.
 
-    # Return as retriever with k=3 (retrieve 3 most relevant chunks)
-    # K=3 is a good balance for Korean text, providing enough context without too much noise
-    return vectorstore.as_retriever(search_kwargs={"k": 3})
+그에 대한 사례가 창플카페에는 무수히 많습니다. 매출은 적어도 결코 죽지 않는다는 사례를 보여주며, 초보들의 첫창업을 망하지 않게 돕는 그런 회사입니다.
+""",
+}
 
-
-def create_retriever_chain(
-    llm: LanguageModelLike, retriever: BaseRetriever
-) -> Runnable:
-    """
-    Creates a chain that handles both direct questions and follow-up questions.
-
-    For follow-up questions, it uses chat history to rephrase the question
-    before retrieving documents. For direct questions, it retrieves immediately.
-
-    Args:
-        llm: The language model for rephrasing questions
-        retriever: The retriever for finding relevant documents
-
-    Returns:
-        Runnable: A chain that handles question processing and retrieval
-    """
-    # Create prompt for converting follow-up questions to standalone questions
-    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
-
-    # Chain for rephrasing questions based on chat history
-    condense_question_chain = (
-        CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
-    ).with_config(
-        run_name="CondenseQuestion",
-    )
-
-    # Chain that takes the rephrased question and retrieves relevant documents
-    conversation_chain = condense_question_chain | retriever
-
-    # Branch logic to handle different types of questions
-    return RunnableBranch(
-        # If chat history exists, use it to rephrase the question first
-        (
-            RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
-                run_name="HasChatHistoryCheck"
-            ),
-            conversation_chain.with_config(run_name="RetrievalChainWithHistory"),
-        ),
-        # If no chat history, retrieve documents directly using the question
-        (
-            RunnableLambda(itemgetter("question")).with_config(
-                run_name="Itemgetter:question"
-            )
-            | retriever
-        ).with_config(run_name="RetrievalChainWithNoHistory"),
-    ).with_config(run_name="RouteDependingOnChatHistory")
-
-
-def format_docs(docs: Sequence[Document]) -> str:
-    """
-    Formats retrieved documents into a structured string for the LLM.
-
-    Each document includes metadata (title, URL) and content with a unique ID.
-    This structured format helps the LLM understand and cite documents correctly.
-
-    Args:
-        docs: List of retrieved documents
-
-    Returns:
-        str: Formatted document string
-    """
-    formatted_docs = []
-    for i, doc in enumerate(docs):
-        # Format each document with metadata and content
-        # The ID allows for proper citation in the response
-        doc_string = f"<doc id='{i}'>\nTitle: {doc.metadata.get('title', 'No Title')}\nURL: {doc.metadata.get('url', 'No URL')}\nContent: {doc.page_content}\n</doc>"
-        formatted_docs.append(doc_string)
-    return "\n".join(formatted_docs)
-
-
-def serialize_history(request: ChatRequest):
-    """
-    Converts the chat history from dict format to LangChain message objects.
-
-    This is necessary because LangChain uses specific message objects
-    (HumanMessage, AIMessage) for its chat models.
-
-    Args:
-        request: The chat request containing history
-
-    Returns:
-        List: Converted chat history as LangChain message objects
-    """
-    chat_history = request["chat_history"] or []
-    converted_chat_history = []
-    for message in chat_history:
-        # Convert user messages
-        if message.get("human") is not None:
-            converted_chat_history.append(HumanMessage(content=message["human"]))
-        # Convert AI messages
-        if message.get("ai") is not None:
-            converted_chat_history.append(AIMessage(content=message["ai"]))
-    return converted_chat_history
-
-
-def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
-    """
-    Creates the main RAG (Retrieval-Augmented Generation) chain.
-
-    This chain handles the entire process:
-    1. Processes chat history
-    2. Retrieves relevant documents
-    3. Formats documents
-    4. Generates a response using the LLM
-
-    Args:
-        llm: The language model for generating responses
-        retriever: The retriever for finding relevant documents
-
-    Returns:
-        Runnable: The complete RAG chain
-    """
-    # Chain that handles retrieval logic (direct questions vs. follow-ups)
-    retriever_chain = create_retriever_chain(
-        llm,
-        retriever,
-    ).with_config(run_name="FindDocs")
-
-    # Chain that takes retrieved documents and formats them
-    context = (
-        RunnablePassthrough.assign(docs=retriever_chain)  # Store docs for later use
-        .assign(context=lambda x: format_docs(x["docs"]))  # Format docs as context
-        .with_config(run_name="RetrieveDocs")
-    )
-
-    # Create the chat prompt that includes system instructions, chat history, and user question
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", RESPONSE_TEMPLATE),  # System instructions
-            MessagesPlaceholder(variable_name="chat_history"),  # Chat history
-            ("human", "{question}"),  # Current question
-        ]
-    )
-
-    # Chain that takes context and generates a response
-    response_synthesizer = (prompt | llm | StrOutputParser()).with_config(
-        run_name="GenerateResponse"
-    )
-
-    # Function to format the final response including source documents
-    def format_response(result):
-        if isinstance(result, dict) and "docs" in result:
-            # Structure the response to include both the answer and source documents
-            return {
-                "answer": result.get("text", ""),
-                "source_documents": result.get("docs", []),
-            }
-        return result
-
-    # Combine all chains into the final RAG chain
-    return (
-        RunnablePassthrough.assign(
-            chat_history=serialize_history
-        )  # Convert chat history
-        | context  # Retrieve and format documents
-        | RunnablePassthrough.assign(
-            text=response_synthesizer  # Generate the final response
-        )
-        | RunnableLambda(
-            format_response
-        )  # Format the response to include source documents
-    )
-
-
-# Initialize only GPT-4o-mini for all operations
-# We use temperature=0 for more deterministic responses
-# Streaming=True allows for incremental response generation
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
 
 retriever = None
@@ -284,9 +95,9 @@ def initialize_chain():
     if "run_ingest" in sys.argv:
         print("run_ingest command is executed, skip initialization")
         return None
-
-    global retriever, answer_chain
-    if retriever is None or answer_chain is None:
-        retriever = get_retriever()
-        answer_chain = create_chain(llm, retriever)
+    answer_chain = "hello"
+    # global retriever, answer_chain
+    # if retriever is None or answer_chain is None:
+    #     retriever = get_retriever()
+    #     answer_chain = create_chain(llm, retriever)
     return answer_chain

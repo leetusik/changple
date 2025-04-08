@@ -55,6 +55,14 @@ class User(AbstractUser):
     is_premium = models.BooleanField(default=False)
     premium_until = models.DateTimeField(null=True, blank=True)
 
+    # User profile information stored as JSON
+    information = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        help_text="Structured user profile information",
+    )
+
     class Meta:
         verbose_name = "User"
         verbose_name_plural = "Users"
