@@ -13,19 +13,32 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 # Now import Django models after setting up Django
-from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData
+from scraper.models import NaverCafeData
 
 load_dotenv()
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone, ServerlessSpec
 
+from chatbot.services.content_evaluator import evaluate_content, summary_and_keywords
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def gpt_summarize(doc: Document) -> Document:
+    """
+    Summarize the content of a document using GPT.
+    """
+    ### notation ###
+    doc.metadata["notation"] = evaluate_content(doc.page_content)
+    ### summary ###
+    doc.page_content, doc.metadata["keywords"] = summary_and_keywords(doc.page_content)
+    return doc
 
 
 def get_embeddings_model() -> Embeddings:
@@ -36,7 +49,9 @@ def get_embeddings_model() -> Embeddings:
     return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
 
 
-def load_posts_from_database() -> List[Document]:
+def load_posts_from_database(
+    min_content_length: int = 1000,
+) -> List[Document]:
     """
     Load posts from database and convert to documents.
     Only retrieve posts from allowed authors and categories.
@@ -46,24 +61,17 @@ def load_posts_from_database() -> List[Document]:
     """
     try:
         # Get allowed authors
-        allowed_authors = list(
-            AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
-        )
+        allowed_authors = [
+            "창플",
+        ]
 
-        # Get allowed categories
-        allowed_categories = list(
-            AllowedCategory.objects.filter(is_active=True).values_list(
-                "name", flat=True
-            )
-        )
-
-        # Query posts from allowed authors and categories (removed vectorized=False check)
+        # Query posts from allowed authors and categories with content length > min_content_length
         posts = NaverCafeData.objects.filter(
-            author__in=allowed_authors, category__in=allowed_categories
+            author__in=allowed_authors, content__len__gt=min_content_length
         )
 
         logger.info(
-            f"Loaded {posts.count()} posts matching allowed authors/categories from database"
+            f"Loaded {posts.count()} posts matching allowed authors and content length > {min_content_length} from database"
         )
 
         documents = []
@@ -77,10 +85,8 @@ def load_posts_from_database() -> List[Document]:
                 metadata={
                     "post_id": post.post_id,  # Keep original post_id
                     "title": post.title or "",
-                    "author": post.author or "",
-                    "category": post.category or "",
-                    "published_date": post.published_date or "",
-                    "url": post.url or "",
+                    "keywords": list(),
+                    "notation": list(),
                 },
             )
             documents.append(doc)
@@ -103,14 +109,6 @@ def ingest_docs():
     PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
     MAX_FETCH_RETRIES = 3
     INITIAL_BACKOFF = 2  # seconds
-
-    # Create text splitter optimized for Korean content
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=4000,
-        chunk_overlap=200,
-        separators=["\\n\\n", "\\n", ". ", ".", "? ", "! ", "？", "！", " ", ""],
-        keep_separator=False,
-    )
 
     # Get embedding model
     embedding = get_embeddings_model()
@@ -149,64 +147,14 @@ def ingest_docs():
         f"Loaded {len(raw_docs)} documents from database to check for ingestion."
     )
 
-    # Generate chunks with unique IDs
-    all_chunks = []
-    chunk_ids_generated = set()  # To track unique chunk IDs within this run
-
-    for doc in raw_docs:
-        try:
-            post_id = doc.metadata.get("post_id")
-            if post_id is None:
-                logger.warning(
-                    f"Skipping document due to missing 'post_id' in metadata: {doc.metadata}"
-                )
-                continue
-
-            # Create a temporary document with the content for chunking
-            temp_doc = Document(
-                page_content=doc.page_content, metadata=doc.metadata.copy()
-            )
-
-            # Split the content into chunks
-            content_chunks = text_splitter.split_documents([temp_doc])
-
-            # Add chunk_id to metadata for each chunk
-            for i, chunk in enumerate(content_chunks):
-                chunk_id = f"{post_id}_{i}"
-                # Ensure chunk_id is unique within this run before adding
-                if chunk_id not in chunk_ids_generated:
-                    chunk.metadata["chunk_id"] = chunk_id
-                    chunk.metadata["text"] = (
-                        chunk.page_content
-                    )  # Add 'text' key for Pinecone mapping
-                    all_chunks.append(chunk)
-                    chunk_ids_generated.add(chunk_id)
-                else:
-                    logger.warning(
-                        f"Duplicate chunk_id '{chunk_id}' generated for post {post_id}. Skipping."
-                    )
-
-        except Exception as e:
-            logger.error(
-                f"Error processing document for post_id {doc.metadata.get('post_id', 'N/A')}: {e}",
-                exc_info=True,
-            )
-
-    if not all_chunks:
-        logger.info("No valid chunks generated after splitting documents.")
-        return
-
-    logger.info(f"Generated {len(all_chunks)} potential chunks for ingestion.")
-
-    # Check which chunk IDs already exist in Pinecone with retries
-    chunk_ids_to_check = [chunk.metadata["chunk_id"] for chunk in all_chunks]
     existing_ids = set()
     try:
         batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
-        for i in range(0, len(chunk_ids_to_check), batch_size):
-            batch_ids = chunk_ids_to_check[i : i + batch_size]
+        for i in range(0, len(raw_docs), batch_size):
+            batch_docs = raw_docs[i : i + batch_size]
+            batch_ids = [doc.metadata["post_id"] for doc in batch_docs]
             logger.info(
-                f"Checking existence of {len(batch_ids)} chunk IDs in Pinecone (batch {i//batch_size + 1})..."
+                f"Checking existence of {len(batch_docs)} documents in Pinecone (batch {i//batch_size + 1})..."
             )
 
             # Retry logic for fetch
@@ -252,26 +200,50 @@ def ingest_docs():
         raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
 
     # Filter out chunks that already exist
-    new_chunks = [
-        chunk for chunk in all_chunks if chunk.metadata["chunk_id"] not in existing_ids
-    ]
+    new_docs = [doc for doc in raw_docs if doc.metadata["post_id"] not in existing_ids]
 
-    if not new_chunks:
-        logger.info("No new document chunks to ingest.")
+    if not new_docs:
+        logger.info("No new documents to ingest.")
     else:
-        logger.info(f"Preparing to ingest {len(new_chunks)} new document chunks.")
+        logger.info(f"Preparing to ingest {len(new_docs)} new documents.")
 
         # Ingest only the new chunks using LangchainPinecone helper
         try:
+            # Create a list to track documents to remove due to summarization errors
+            docs_to_remove = []
+
+            for new_doc in new_docs:
+                if new_doc.metadata["keywords"] == []:
+                    try:
+                        new_doc = gpt_summarize(new_doc)
+                    except Exception as e:
+                        # Mark document for removal instead of keeping it with empty keywords
+                        logger.warning(
+                            f"Error summarizing document {new_doc.metadata['post_id']}: {e}"
+                        )
+                        docs_to_remove.append(new_doc)
+
+            # Remove documents that had errors during summarization
+            if docs_to_remove:
+                original_count = len(new_docs)
+                new_docs = [doc for doc in new_docs if doc not in docs_to_remove]
+                logger.info(
+                    f"Excluded {original_count - len(new_docs)} documents due to summarization errors"
+                )
+
+            if not new_docs:
+                logger.info("No documents to ingest after filtering out errors.")
+                return
+
             vectorstore = LangchainPinecone(
                 index=index, embedding=embedding, text_key="text"
             )  # Use text_key='text'
             vectorstore.add_documents(
-                documents=new_chunks,
-                ids=[chunk.metadata["chunk_id"] for chunk in new_chunks],
+                documents=new_docs,
+                ids=[doc.metadata["post_id"] for doc in new_docs],
             )
             logger.info(
-                f"Successfully added {len(new_chunks)} new document chunks to Pinecone."
+                f"Successfully added {len(new_docs)} new documents to Pinecone."
             )
         except Exception as e:
             logger.error(f"Error adding documents to Pinecone: {e}", exc_info=True)
