@@ -36,6 +36,21 @@ def gpt_summarize(doc: Document) -> Document:
     """
     ### notation ###
     doc.metadata["notation"] = evaluate_content(doc.page_content)
+
+    # Update the notation field in the NaverCafeData record
+    try:
+        post_id = doc.metadata["post_id"]
+        NaverCafeData.objects.filter(post_id=post_id).update(
+            notation=doc.metadata["notation"]
+        )
+        logger.info(
+            f"Updated notation for post_id {post_id} to {doc.metadata['notation']}"
+        )
+    except Exception as e:
+        logger.warning(
+            f"Failed to update notation for post_id {doc.metadata.get('post_id')}: {e}"
+        )
+
     ### summary ###
     doc.page_content, doc.metadata["keywords"] = summary_and_keywords(doc.page_content)
     return doc
@@ -67,7 +82,9 @@ def load_posts_from_database(
 
         # Query posts from allowed authors and categories with content length > min_content_length
         posts = NaverCafeData.objects.filter(
-            author__in=allowed_authors, content__len__gt=min_content_length
+            author__in=allowed_authors,
+            content__len__gt=min_content_length,
+            notation=None,
         )
 
         logger.info(
