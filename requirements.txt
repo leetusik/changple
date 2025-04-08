@@ -45,7 +45,7 @@ openai
 orjson
 packaging
 pillow
-pinecone
+pinecone==2.2.4
 pinecone-plugin-interface
 playwright
 propcache
@@ -84,3 +84,4 @@ urllib3
 wheel
 whoosh
 yarl
+pandas

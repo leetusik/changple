@@ -1,6 +1,6 @@
+import json
 import os
 import sys
-import json
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -62,7 +62,7 @@ RETRIEVER_DECISION_TEMPLATE = """\
     "프랜차이즈를 희망하는지 자체 브랜드를 희망하는지": ""
 }}
 
-======= 올바른 출력 예시: ======= 
+======= 올바른 출력 예시: =======
 {{
     "나이": "",
     "성별": "남성",
@@ -108,7 +108,7 @@ SIMPLE_RESPONSE_TEMPLATE = """\
 - 핵심 질문 가이드라인에 따라 아직 수집되지 않은 사용자 정보가 있다면 질문하거나 사용자 답변에 대한 더 깊은 질문 1~2개를 제시하세요.
 
 ## 4. 창플의 핵심 가치
-창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다. 
+창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다.
 - ✅ **생존 우선:** 첫 창업은 화려함보다 생존이 최우선 목표입니다.
 - 💡 **적은 창업비용:** 과도한 초기 투자는 큰 위험을 초래합니다.
 - 🔨 **자기 노동력 활용:** 초보 창업자는 가장 확실한 자원인 자신의 노동력을 중심으로 한 비즈니스 모델이 권장됩니다.
@@ -124,7 +124,7 @@ SIMPLE_RESPONSE_TEMPLATE = """\
 ## 6. 예외 처리
 ### 6.1. 외부 정보 필요 질문
 창플에서 운영하는 브랜드 이외의 정보가 필요한 질문(예: "메가커피 프랜차이즈 창업", "교촌치킨 가맹 비용")에는:
-- 인지도 높은 '대박 브랜드'에 대한 질문일 경우: 
+- 인지도 높은 '대박 브랜드'에 대한 질문일 경우:
   "창플은 모두가 대박이라고 얘기하는 브랜드의 창업을 추천하지 않아요. 그런 브랜드들에는 초보 창업자가 걸리기 쉬운 함정들이 정말 많습니다. \
 첫 창업은 생존이 우선이고 적은 창업비용으로 나의 몸을 이용해서 창업하는 것을 권장합니다. 해당 브랜드는 창플에서 다루지 않는 브랜드이기 때문에 다른 루트를 통해 알아보시길 바랍니다."
 - 웹 검색이 필요한 질문이나 창플의 브랜드 외의 브랜드 관련 문의: 현재 외부 정보에 접근할 수 없기 때문에 정확한 답변이 어렵다고 정중히 안내하세요.
@@ -169,7 +169,7 @@ SIMPLE_RESPONSE_TEMPLATE = """\
 (3-4 문장) 초보 창업자가 직면하는 외식 창업의 현실적 어려움, 기존 프랜차이즈의 한계, 전문가 부재 리스크 등을 언급하며 회의적인 현실 제시
 (2-3 문장) 창플의 생존 중심 접근법과 문제 해결 능력 강조. 창플 대표님(창플지기)의 1대1 맞춤 상담, 아키프로젝트, 팀비즈니스 등 구체적 솔루션을 언급하며 희망적 관점 제시
 (1-2 문장) 사용자의 질문에 대한 가장 핵심적인 답변 1가지만 제공
-(1-2 문장) 개인 맞춤형 조언을 위해 사용자의 구체적인 상황, 생각, 선호도 파악이 중요함을 설명 
+(1-2 문장) 개인 맞춤형 조언을 위해 사용자의 구체적인 상황, 생각, 선호도 파악이 중요함을 설명
 (번호 매겨서 5-6개 질문) '핵심 질문 가이드라인'을 참고하여 사용자 상황 파악을 위한 구체적인 질문 제시
 """
 
@@ -203,7 +203,7 @@ INSTRUCTIONS:
 3. **맞춤형 응답 작성:** 사용자 현재 상황 및 목표 등을 고려한 실용적 조언을 자세하고 길게 제공
 
 ## 5. 창플의 핵심 가치
-창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다. 
+창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다.
 - ✅ **생존 우선:** 첫 창업은 화려함보다 생존이 최우선 목표입니다.
 - 💡 **적은 창업비용:** 과도한 초기 투자는 큰 위험을 초래합니다.
 - 🔨 **자기 노동력 활용:** 초보 창업자는 가장 확실한 자원인 자신의 노동력을 중심으로 한 비즈니스 모델이 권장됩니다.
@@ -257,13 +257,16 @@ def get_retriever() -> BaseRetriever:
     # Initialize Pinecone
     pc = Pinecone(api_key=PINECONE_API_KEY)
 
+    # Get the index object
+    index = pc.Index(PINECONE_INDEX_NAME)
+
     # Get embeddings model
     embedding = get_embeddings_model()
 
     # Create Langchain Pinecone vectorstore connected to our existing index
     # This doesn't create a new index, just connects to an existing one
     vectorstore = LangchainPinecone.from_existing_index(
-        index_name=PINECONE_INDEX_NAME,
+        index_name=PINECONE_INDEX_NAME,  # Pass the index name string
         embedding=embedding,
         text_key="text",  # Field name where document text is stored
     )
@@ -321,6 +324,7 @@ def serialize_history(request: ChatRequest):
             converted_chat_history.append(AIMessage(content=message["assistant"]))
     return converted_chat_history
 
+
 def format_history_for_retrieval(chat_history: List) -> str:
     """Formats chat history into a single string for retrieval."""
     formatted_history = []
@@ -331,6 +335,7 @@ def format_history_for_retrieval(chat_history: List) -> str:
             formatted_history.append(f"AI: {msg.content}")
     # 필요하다면 토큰 제한 등을 고려하여 최근 N개 메시지만 사용하도록 수정할 수 있습니다.
     return "\n".join(formatted_history)
+
 
 # session memory
 session_memories = {}
@@ -366,139 +371,143 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
         memory_content = session_memories[session_id].load_memory_variables({})
         chat_history = memory_content.get("chat_history", [])
         return chat_history
-    
+
     # 검색이 필요한지 판단하는 LLM
-    decision_llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.0
-    )
-    
+    decision_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+
     # 검색 필요성 결정 체인 (from_messages 사용)
     decision_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                RETRIEVER_DECISION_TEMPLATE, # 시스템 메시지로 전체 템플릿 사용
+                RETRIEVER_DECISION_TEMPLATE,  # 시스템 메시지로 전체 템플릿 사용
             ),
-            MessagesPlaceholder(variable_name="chat_history"), # 대화 이력 주입
-            ("human", "{question}"), # 사용자 질문 주입
+            MessagesPlaceholder(variable_name="chat_history"),  # 대화 이력 주입
+            ("human", "{question}"),  # 사용자 질문 주입
         ]
     )
     decision_chain = decision_prompt | decision_llm | StrOutputParser()
-    
+
     # 검색 필요 여부 결정 함수
     def determine_retrieval_need(inputs):
         question = inputs["question"]
         chat_history = get_session_memory(inputs)
-        
-        json_output = decision_chain.invoke({
-            "question": question,
-            "chat_history": chat_history
-        }).strip()
-        
+
+        json_output = decision_chain.invoke(
+            {"question": question, "chat_history": chat_history}
+        ).strip()
+
         try:
             # JSON 파싱
             user_data = json.loads(json_output)
-            
+
             # 전체 키 개수 및 빈 문자열이 아닌 값 개수 계산
             total_keys = len(user_data)
             if total_keys == 0:
-                return False # 키가 없으면 검색 불필요
-            
-            non_empty_values = sum(1 for value in user_data.values() if isinstance(value, str) and value != "")
-            
+                return False  # 키가 없으면 검색 불필요
+
+            non_empty_values = sum(
+                1
+                for value in user_data.values()
+                if isinstance(value, str) and value != ""
+            )
+
             # 채워진 필드 비율 계산
             filled_ratio = non_empty_values / total_keys
 
             print(f"채워진 User data 필드 비율: {filled_ratio}")
-            
+
             # 비율이 60% 이상이면 True 반환
             return filled_ratio >= 0.6
-            
+
         except json.JSONDecodeError:
             # JSON 파싱 실패 시 False 반환 (검색 불필요)
-            print(f"Warning: Failed to parse JSON output from decision model: {json_output}")
+            print(
+                f"Warning: Failed to parse JSON output from decision model: {json_output}"
+            )
             return False
         except Exception as e:
             # 기타 예외 발생 시 False 반환
             print(f"Error determining retrieval need: {e}")
             return False
-    
+
     # 검색이 필요한 경우의 프롬프트 템플릿
     retrieval_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                RESPONSE_TEMPLATE.format(
-                    context="{context}"
-                ),
+                RESPONSE_TEMPLATE.format(context="{context}"),
             ),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
     )
-    
+
     # 검색이 필요하지 않은 경우의 간소화된 프롬프트 템플릿
     simple_prompt = ChatPromptTemplate.from_messages(
         [
-            (
-                "system",
-                SIMPLE_RESPONSE_TEMPLATE
-            ),
+            ("system", SIMPLE_RESPONSE_TEMPLATE),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
     )
-    
+
     # 검색 결과를 context 변수에 할당
     context = (
         RunnablePassthrough
         # chat_history와 question을 함께 retriever에 전달
-        .assign(docs=lambda x: retriever.invoke(
-            # chat_history를 문자열로 포맷하고 현재 질문과 결합
-            f"대화 기록:\n{format_history_for_retrieval(x['chat_history'])}\n\n현재 질문: {x['question']}"
-        ))
+        .assign(
+            docs=lambda x: retriever.invoke(
+                # chat_history를 문자열로 포맷하고 현재 질문과 결합
+                f"대화 기록:\n{format_history_for_retrieval(x['chat_history'])}\n\n현재 질문: {x['question']}"
+            )
+        )
         .assign(context=lambda x: format_docs(x["docs"]))
         .with_config(run_name="RetrieveDocs")
     )
-    
+
     # 검색이 필요한 경우의 체인
     retrieval_chain = (
         RunnablePassthrough.assign(chat_history=get_session_memory)
         | context
-        | RunnablePassthrough.assign(
-            text=(retrieval_prompt | llm | StrOutputParser())
-        )
+        | RunnablePassthrough.assign(text=(retrieval_prompt | llm | StrOutputParser()))
     )
-    
+
     # 검색이 필요하지 않은 경우의 체인
-    no_retrieval_chain = (
-        RunnablePassthrough.assign(chat_history=get_session_memory)
-        | RunnablePassthrough.assign(
-            text=(simple_prompt | llm | StrOutputParser())
-        )
-    )
-    
+    no_retrieval_chain = RunnablePassthrough.assign(
+        chat_history=get_session_memory
+    ) | RunnablePassthrough.assign(text=(simple_prompt | llm | StrOutputParser()))
+
     # RunnableBranch 사용하여 조건부 실행
     branch_chain = RunnableBranch(
-        (determine_retrieval_need, retrieval_chain), # determine_retrieval_need가 True를 반환하면 retrieval_chain 실행
+        (
+            determine_retrieval_need,
+            retrieval_chain,
+        ),  # determine_retrieval_need가 True를 반환하면 retrieval_chain 실행
         no_retrieval_chain,  # False를 반환하면 no_retrieval_chain 실행 (기본값)
     )
-    
+
     # format response function
     def format_response(result):
         # docs가 있는지 확인 (retrieval chain이 실행되었는지 확인)
-        docs_exist = "docs" in result['final'] if isinstance(result, dict) else False
-        
-        answer_text = result['final']['text'] 
+        docs_exist = "docs" in result["final"] if isinstance(result, dict) else False
 
-        if docs_exist and result['final']['docs']:
+        answer_text = result["final"]["text"]
+
+        if docs_exist and result["final"]["docs"]:
             response = {
                 "answer": answer_text,
-                "source_documents": result['final']['docs'],
-                "similarity_scores": [doc.metadata.get("combined_score", 0) for doc in result['final']['docs']] if result['final']['docs'] else [],
+                "source_documents": result["final"]["docs"],
+                "similarity_scores": (
+                    [
+                        doc.metadata.get("combined_score", 0)
+                        for doc in result["final"]["docs"]
+                    ]
+                    if result["final"]["docs"]
+                    else []
+                ),
                 "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
+                "question": result.get("question", ""),
             }
             return response
         else:
@@ -508,10 +517,10 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 "source_documents": [],
                 "similarity_scores": [],
                 "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
+                "question": result.get("question", ""),
             }
             return response
-    
+
     # 최종 체인 구성
     final_chain = (
         RunnablePassthrough.assign(
@@ -520,16 +529,12 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             question=lambda x: x.get("question", ""),
         )
         # 그 다음 chat_history를 get_session_memory로 할당
-        | RunnablePassthrough.assign(
-            chat_history=get_session_memory
-        )
+        | RunnablePassthrough.assign(chat_history=get_session_memory)
         # 이후에 branch_chain 실행 (chat_history가 이미 할당됨)
-        | RunnablePassthrough.assign(
-            final=branch_chain
-        )
+        | RunnablePassthrough.assign(final=branch_chain)
         | RunnableLambda(format_response)
     )
-    
+
     # memory update function
     def update_memory_and_return(result):
         try:
@@ -582,4 +587,3 @@ def initialize_chain():
         retriever = get_retriever()
         answer_chain = create_chain(llm, retriever)
     return answer_chain
-

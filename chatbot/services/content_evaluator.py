@@ -2,9 +2,12 @@ import csv
 import os
 
 import pandas as pd
+from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+load_dotenv()
 
 # Set your OpenAI API key
 # os.environ["OPENAI_API_KEY"] = "your_openai_api_key_here"
@@ -67,8 +70,15 @@ CATEGORIES = [
     "창플과 관련된 질문 대답",
 ]
 
+# Get Google API key (if needed)
+google_api_key = os.getenv("GOOGLE_API_KEY")
+
 # Initialize GPT-4o model
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    temperature=0,
+    google_api_key=google_api_key,
+)
 
 
 # Create evaluation prompts for each category
