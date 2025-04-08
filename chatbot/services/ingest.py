@@ -7,6 +7,7 @@ from typing import List
 
 import django
 from django.db.models import Q
+from django.db.models.functions import Length
 from dotenv import load_dotenv
 
 # Setup Django environment
@@ -88,15 +89,16 @@ def load_posts_from_database(
     """
     try:
         # Get allowed authors
-        allowed_authors = [
-            "창플",
-        ]
 
-        # Query posts from allowed authors and categories with content length > min_content_length
-        posts = NaverCafeData.objects.filter(
-            author__in=allowed_authors,
-            content__len__gt=min_content_length,
-        ).filter(Q(notation=None) | Q(keywords=None))
+        # Use proper Length annotation instead of unsupported len lookup
+        posts = (
+            NaverCafeData.objects.annotate(content_length=Length("content"))
+            .filter(
+                author__in=["창플"],
+                content_length__gt=1000,
+            )
+            .filter(Q(notation=None) | Q(keywords=None))
+        )
 
         logger.info(
             f"Loaded {posts.count()} posts matching allowed authors and content length > {min_content_length} from database"
