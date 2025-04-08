@@ -3,9 +3,11 @@ import sys
 from operator import itemgetter
 from typing import Dict, List, Optional, Sequence
 
+from django.db import models
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
+from langchain_core.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
@@ -25,6 +27,8 @@ from pinecone import Pinecone
 from pydantic import BaseModel
 
 from chatbot.services.ingest import get_embeddings_model
+from scraper.models import NaverCafeData
+from users.models import User
 
 CATEGORIES = [
     "창플의 구체적 조언",
@@ -89,15 +93,421 @@ retriever = None
 answer_chain = None
 
 
+# Define datastore model for original content access
+class Post(models.Model):
+    """Model to represent posts from the database"""
+
+    id = models.AutoField(primary_key=True)
+    content = models.TextField()
+    title = models.CharField(max_length=255)
+
+
+def get_post_content(post_id: int) -> str:
+    """Retrieve original post content from NaverCafeData using post_id"""
+    try:
+        post = NaverCafeData.objects.get(post_id=post_id)
+        return f"Title: {post.title}\n\nContent: {post.content}"
+    except NaverCafeData.DoesNotExist:
+        return "Post content not found."
+
+
+def get_retriever() -> BaseRetriever:
+    """Initialize and return the Pinecone retriever"""
+    api_key = os.environ.get("PINECONE_API_KEY")
+    environment = os.environ.get("PINECONE_ENVIRONMENT")
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+
+    pc = Pinecone(api_key=api_key, environment=environment)
+    index = pc.Index(index_name)
+
+    embeddings = get_embeddings_model()
+
+    vectorstore = LangchainPinecone(index, embeddings, "text", namespace="changple")
+
+    return vectorstore.as_retriever(
+        search_kwargs={
+            "k": 10,
+            "filter": {},  # Will be updated dynamically based on category
+            # "score_threshold": 0.7,
+        }
+    )
+
+
+def determine_category(question: str, user_info: Dict) -> str:
+    """Determine the category of the question based on user info and question content"""
+    # Create a context with user information and question
+    context = f"User Information: {user_info}\n\nQuestion: {question}"
+
+    # Use LLM to determine the category
+    category_prompt = ChatPromptTemplate.from_template(
+        """
+    Based on the following user information and question, determine which category this question belongs to.
+    
+    {context}
+    
+    Here are example questions for each category:
+    
+    1. 창플의 구체적 조언:
+    "30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다."
+    
+    2. 창플의 질문과 조언:
+    "돈까스집 창업을 생각 중인데 어떻게 시작해야 할까요?"
+    
+    3. 창플의 업계 일반적 질문 대답:
+    "요즘 트렌드인 식당 업종은 무엇인가요?"
+    
+    4. 창플과 관련된 질문 대답:
+    "창플은 어떤 일을 하는 회사인가요?"
+    
+    Select one of the following categories:
+    - 창플의 구체적 조언
+    - 창플의 질문과 조언
+    - 창플의 업계 일반적 질문 대답
+    - 창플과 관련된 질문 대답
+    
+    If none of the above categories fit, respond with "unknown".
+    
+    Category:
+    """
+    )
+
+    category_chain = category_prompt | llm | StrOutputParser()
+    result = category_chain.invoke({"context": context})
+
+    # Clean up the response
+    for category in CATEGORIES:
+        if category in result:
+            return category
+
+    return "unknown"
+
+
+def update_user_information(user_info: Dict, question: str) -> Dict:
+    """Update user information based on question content"""
+    update_prompt = ChatPromptTemplate.from_template(
+        """
+    Based on the following question from a user, extract any information that can update their profile.
+    Current user profile:
+    {user_info}
+    
+    User question:
+    {question}
+    
+    Extract any information from the question that can be used to update the following fields in the user profile:
+    - 나이
+    - 성별
+    - 경력
+    - 창업 경험 여부
+    - 관심 업종
+    - 관심 업종의 구체적 방향성
+    - 창업 목표
+    - 채팅 목적
+    - 수익 목표
+    - 창업 예산
+    - 창업 예산 중 대출금 비중
+    - 돌봐야하는 가족 구성원 여부
+    - 관심 브랜드 여부
+    - 관심 브랜드 종목
+    - 기타 특이사항
+    
+    For each field, if new information is found, provide it. Otherwise, leave the field as is.
+    Respond in JSON format with the updated user information.
+    """
+    )
+
+    update_chain = update_prompt | llm | StrOutputParser()
+    result = update_chain.invoke({"user_info": user_info, "question": question})
+
+    try:
+        import json
+
+        updated_info = json.loads(result)
+        # Merge with existing info, keeping existing values if no update
+        for key in user_info:
+            if key not in updated_info or not updated_info[key]:
+                updated_info[key] = user_info[key]
+        return updated_info
+    except:
+        # If parsing fails, return original info
+        return user_info
+
+
+def create_specific_advice_chain() -> Runnable:
+    """Create a chain for specific entrepreneurship advice questions"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    사용자 정보와 질문, 그리고 관련 정보를 바탕으로 구체적인 조언을 제공해주세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    관련 정보:
+    {context}
+    
+    다음 예시와 같은 형식으로 답변해주세요:
+    {example}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_question_advice_chain() -> Runnable:
+    """Create a chain for questions seeking advice"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    사용자가 묻는 창업 관련 질문에 대해 먼저 추가 정보가 필요한지 확인하고, 그에 따른 조언을 제공해주세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    관련 정보:
+    {context}
+    
+    다음 예시와 같은 형식으로 답변해주세요:
+    {example}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_industry_general_chain() -> Runnable:
+    """Create a chain for general industry questions"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    창업 업계의 일반적인 질문에 대해 창플의 관점에서 대답해주세요. 트렌드보다는 방향성에 초점을 맞추세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    관련 정보:
+    {context}
+    
+    다음 예시와 같은 형식으로 답변해주세요:
+    {example}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_changple_info_chain() -> Runnable:
+    """Create a chain for questions about Changple itself"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    창플에 대한 질문에 정확하게 답변해주세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    관련 정보:
+    {context}
+    
+    다음 예시와 같은 형식으로 답변해주세요:
+    {example}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_default_chain() -> Runnable:
+    """Create a default chain for unknown question categories"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    사용자의 질문에 대한 답변을 알 수 없을 경우 "음, 잘 모르겠네요."라고 대답하고, 
+    창업과 관련된 질문이라면 추가적으로 정보를 요청하세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def format_docs(docs: Sequence[Document]) -> str:
+    """Format retrieved documents into a string"""
+    formatted_docs = []
+    for doc in docs:
+        metadata = doc.metadata
+        post_id = metadata.get("post_id")
+
+        # Get original content if post_id exists
+        if post_id:
+            original_content = get_post_content(post_id)
+            formatted_docs.append(original_content)
+        else:
+            # Fallback to document content
+            title = metadata.get("title", "No Title")
+            formatted_docs.append(f"Title: {title}\n\nContent: {doc.page_content}")
+
+    return "\n\n---\n\n".join(formatted_docs)
+
+
+def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
+    """Create the main chain for processing user questions"""
+    # Create specialized chains for each category
+    specific_advice_chain = create_specific_advice_chain()
+    question_advice_chain = create_question_advice_chain()
+    industry_general_chain = create_industry_general_chain()
+    changple_info_chain = create_changple_info_chain()
+    default_chain = create_default_chain()
+
+    # Create memory for conversation history
+    memory = ConversationBufferMemory(
+        return_messages=True,
+        output_key="answer",
+        input_key="question",
+        memory_key="chat_history",
+    )
+
+    # Process user input
+    def process_input(input_data):
+        question = input_data["question"]
+        user = input_data.get("user")
+        user_info = {}
+
+        # Get user information from User model if user is provided
+        if user:
+            user_info = user.information or {}
+
+        # Determine category
+        category = determine_category(question, user_info)
+
+        # Filter retriever based on category
+        if category in CATEGORIES:
+            # Update the filter to only retrieve documents with matching notation
+            retriever.search_kwargs["filter"] = {"notation": {"$in": [category]}}
+
+        return {
+            "question": question,
+            "user": user,
+            "user_info": user_info,
+            "category": category,
+            "chat_history": memory.load_memory_variables({})["chat_history"],
+        }
+
+    # Retrieve relevant documents
+    def retrieve_docs(input_data):
+        if input_data["category"] == "unknown":
+            return {"context": "", **input_data}
+
+        docs = retriever.invoke(input_data["question"])
+        return {"context": format_docs(docs), **input_data}
+
+    # Define the branch logic based on category
+    branch = RunnableBranch(
+        (
+            lambda x: x["category"] == "창플의 구체적 조언",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 구체적 조언"]
+            )
+            | specific_advice_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플의 질문과 조언",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 질문과 조언"]
+            )
+            | question_advice_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플의 업계 일반적 질문 대답",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 업계 일반적 질문 대답"]
+            )
+            | industry_general_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플과 관련된 질문 대답",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플과 관련된 질문 대답"]
+            )
+            | changple_info_chain,
+        ),
+        default_chain,
+    )
+
+    # Update user information and save to memory
+    def postprocess(input_data):
+        # Save the conversation to memory
+        memory.save_context(
+            {"question": input_data["question"]}, {"answer": input_data["answer"]}
+        )
+
+        # Update user information
+        updated_info = update_user_information(
+            input_data["user_info"], input_data["question"]
+        )
+
+        # Save updated information to user model if user is provided
+        user = input_data.get("user")
+        if user and updated_info:
+            user.information = updated_info
+            user.save()
+
+        return {"answer": input_data["answer"], "updated_user_info": updated_info}
+
+    # Combine all components into a chain
+    chain = (
+        RunnablePassthrough.assign(processed_input=process_input)
+        | RunnablePassthrough.assign(
+            question=lambda x: x["processed_input"]["question"],
+            user=lambda x: x["processed_input"]["user"],
+            user_info=lambda x: x["processed_input"]["user_info"],
+            category=lambda x: x["processed_input"]["category"],
+            chat_history=lambda x: x["processed_input"]["chat_history"],
+        )
+        | RunnableLambda(retrieve_docs)
+        | RunnablePassthrough.assign(answer=branch)
+        | RunnableLambda(postprocess)
+    )
+
+    return chain
+
+
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
-    # skip initialization when run_ingest command is executed
+    # Skip initialization when run_ingest command is executed
     if "run_ingest" in sys.argv:
         print("run_ingest command is executed, skip initialization")
         return None
-    answer_chain = "hello"
-    # global retriever, answer_chain
-    # if retriever is None or answer_chain is None:
-    #     retriever = get_retriever()
-    #     answer_chain = create_chain(llm, retriever)
+
+    global retriever, answer_chain
+    if retriever is None or answer_chain is None:
+        retriever = get_retriever()
+        answer_chain = create_chain(llm, retriever)
+
     return answer_chain
