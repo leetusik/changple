@@ -1,6 +1,6 @@
+import json
 import logging
 import os
-import json
 import uuid
 from datetime import datetime, timedelta
 
@@ -71,7 +71,7 @@ def chat_view(request, session_nonce=None):
             # Mark this session as having its initial message already saved
             chat_session.request_sent = True
             chat_session.save()
-            
+
             # Return clean URL without query parameters
             redirect_url = chat_session.get_absolute_url()
             logger.info(f"Returning redirect URL: {redirect_url}")
@@ -260,6 +260,10 @@ def chat(request):
             "session_id": str(chat_session.session_nonce),  # 세션 식별자
             "db_history": db_history,  # 데이터베이스에서 가져온 대화 기록
         }
+
+        # Add authenticated user to input if available
+        if request.user.is_authenticated:
+            chain_input["user"] = request.user
 
         # 체인 실행
         chain_response = answer_chain.invoke(chain_input)

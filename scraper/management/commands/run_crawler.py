@@ -4,10 +4,11 @@ import logging
 from django.core.management.base import BaseCommand
 
 from chatbot.services.ingest import ingest_docs
-from chatbot.services.whoosh_service import create_whoosh_index
 
 # Import crawler and ingestion functions
 from scraper.services.crawler import main as run_crawler_main
+
+# from chatbot.services.whoosh_service import create_whoosh_index
 
 
 class Command(BaseCommand):
@@ -98,21 +99,21 @@ class Command(BaseCommand):
                 )
             )
             logger.info("Skipping Whoosh and Pinecone ingestion steps as requested.")
-        else:
-            # Run Whoosh Indexing
-            self.stdout.write(self.style.SUCCESS("Starting Whoosh indexing..."))
-            logger.info("Starting Whoosh indexing...")
-            try:
-                create_whoosh_index()
-                self.stdout.write(
-                    self.style.SUCCESS("Whoosh indexing finished successfully.")
-                )
-                logger.info("Whoosh indexing finished successfully.")
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Whoosh indexing failed: {e}"))
-                logger.error(f"Whoosh indexing failed: {e}", exc_info=True)
-                # Decide if Pinecone ingestion should proceed if Whoosh fails
-                # For now, we will attempt Pinecone even if Whoosh fails.
+            # else:
+            #     # Run Whoosh Indexing
+            #     self.stdout.write(self.style.SUCCESS("Starting Whoosh indexing..."))
+            #     logger.info("Starting Whoosh indexing...")
+            #     try:
+            #         create_whoosh_index()
+            #         self.stdout.write(
+            #             self.style.SUCCESS("Whoosh indexing finished successfully.")
+            #         )
+            #         logger.info("Whoosh indexing finished successfully.")
+            #     except Exception as e:
+            #         self.stdout.write(self.style.ERROR(f"Whoosh indexing failed: {e}"))
+            #         logger.error(f"Whoosh indexing failed: {e}", exc_info=True)
+            #         # Decide if Pinecone ingestion should proceed if Whoosh fails
+            #         # For now, we will attempt Pinecone even if Whoosh fails.
 
             # Run Pinecone Ingestion
             self.stdout.write(self.style.SUCCESS("Starting Pinecone ingestion..."))
