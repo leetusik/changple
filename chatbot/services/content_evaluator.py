@@ -298,7 +298,7 @@ KEYWORDS:
     except Exception as e:
         # Log the error and return the original content with empty keywords
         print(f"Error in summary_and_keywords: {e}")
-        return content, []
+        raise ValueError(f"Error in summary_and_keywords: {e}")
 
 
 # Example usage

@@ -14,6 +14,7 @@ class NaverCafeData(models.Model):
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
     notation = models.JSONField(null=True, blank=True, default=None)
+    keywords = models.JSONField(null=True, blank=True, default=None)
 
     def __str__(self):
         return self.title
