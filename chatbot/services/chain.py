@@ -4,10 +4,10 @@ from operator import itemgetter
 from typing import Dict, List, Optional, Sequence
 
 from django.db import models
+from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
-from langchain_core.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
