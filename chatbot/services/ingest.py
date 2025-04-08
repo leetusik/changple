@@ -32,40 +32,74 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# Custom exception for document processing control flow
+class SkipDocumentError(Exception):
+    """Exception raised when a document should be skipped from processing."""
+
+    pass
+
+
 def gpt_summarize(doc: Document) -> Document:
     """
-    Summarize the content of a document using GPT.
+    Process document: evaluate content category (notation) and generate summary/keywords.
+
+    Args:
+        doc: Document object with metadata including post_id, title, notation, and keywords
+
+    Returns:
+        Processed document with updated page_content and metadata
+
+    Raises:
+        SkipDocumentError: If the document should be skipped (e.g., notation is ["none"])
     """
-    object = None
-    ### notation ###
-    if doc.metadata["notation"] is not None:
-        pass
-    else:
-        doc.metadata["notation"] = evaluate_content(doc.page_content)
+    post_id = doc.metadata["post_id"]
+    db_object = None
 
-        # Update the notation field in the NaverCafeData record
+    try:
+        # Get the database object once at the beginning
+        db_object = NaverCafeData.objects.get(post_id=post_id)
+    except NaverCafeData.DoesNotExist:
+        logger.error(f"Post with ID {post_id} not found in database")
+        raise SkipDocumentError(f"Post with ID {post_id} not found in database")
+
+    # Step 1: Process notation if needed
+    if doc.metadata["notation"] is None:
         try:
-            post_id = doc.metadata["post_id"]
-            object = NaverCafeData.objects.get(post_id=post_id)
-            object.notation = doc.metadata["notation"]
-            object.save()
+            doc.metadata["notation"] = evaluate_content(doc.page_content)
             logger.info(
-                f"Updated notation for post_id {post_id} to {doc.metadata['notation']}"
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to update notation for post_id {doc.metadata.get('post_id')}: {e}"
+                f"Evaluated notation for post_id {post_id}: {doc.metadata['notation']}"
             )
 
-    ### summary ###
-    doc.page_content, doc.metadata["keywords"] = summary_and_keywords(doc.page_content)
-    if object:
-        object.keywords = doc.metadata["keywords"]
-        object.save()
-    else:
-        object = NaverCafeData.objects.get(post_id=doc.metadata["post_id"])
-        object.keywords = doc.metadata["keywords"]
-        object.save()
+            # Update notation in database
+            db_object.notation = doc.metadata["notation"]
+            db_object.save(update_fields=["notation"])
+        except Exception as e:
+            logger.error(f"Failed to evaluate notation for post_id {post_id}: {e}")
+            raise SkipDocumentError(f"Failed to process notation: {e}")
+
+    # Skip documents with notation ["none"]
+    if doc.metadata["notation"] == ["none"]:
+        logger.info(f"Skipping post_id {post_id} with notation ['none']")
+        raise SkipDocumentError("Document has notation ['none'], skipping")
+
+    # Step 2: Process keywords if needed
+    if doc.metadata["keywords"] is None:
+        try:
+            # Generate summary and keywords
+            summary, keywords = summary_and_keywords(doc.page_content)
+            doc.page_content = summary
+            doc.metadata["keywords"] = keywords
+            logger.info(f"Generated summary and keywords for post_id {post_id}")
+
+            # Update keywords in database
+            db_object.keywords = keywords
+            db_object.save(update_fields=["keywords"])
+        except Exception as e:
+            logger.error(
+                f"Failed to generate summary/keywords for post_id {post_id}: {e}"
+            )
+            raise SkipDocumentError(f"Failed to generate summary/keywords: {e}")
+
     return doc
 
 
@@ -94,10 +128,12 @@ def load_posts_from_database(
         posts = (
             NaverCafeData.objects.annotate(content_length=Length("content"))
             .filter(
-                author__in=["창플"],
-                content_length__gt=1000,
+                author__in=[
+                    "창플",
+                ],
+                content_length__gt=min_content_length,
             )
-            .filter(Q(notation=None) | Q(keywords=None))
+            .filter(Q(notation__isnull=True) | Q(keywords__isnull=True))
         )
 
         logger.info(
@@ -182,7 +218,7 @@ def ingest_docs():
         batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
         for i in range(0, len(raw_docs), batch_size):
             batch_docs = raw_docs[i : i + batch_size]
-            batch_ids = [doc.metadata["post_id"] for doc in batch_docs]
+            batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
             logger.info(
                 f"Checking existence of {len(batch_docs)} documents in Pinecone (batch {i//batch_size + 1})..."
             )
@@ -230,51 +266,72 @@ def ingest_docs():
         raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
 
     # Filter out chunks that already exist
-    new_docs = [doc for doc in raw_docs if doc.metadata["post_id"] not in existing_ids]
+    new_docs = [
+        doc for doc in raw_docs if str(doc.metadata["post_id"]) not in existing_ids
+    ]
 
     if not new_docs:
         logger.info("No new documents to ingest.")
     else:
         logger.info(f"Preparing to ingest {len(new_docs)} new documents.")
 
-        # Ingest only the new chunks using LangchainPinecone helper
-        try:
-            # Create a list to track documents to remove due to summarization errors
-            docs_to_remove = []
+        # Process documents and track which ones to keep
+        processed_docs = []
 
-            for new_doc in new_docs:
-                if new_doc.metadata["keywords"] == []:
-                    try:
-                        new_doc = gpt_summarize(new_doc)
-                    except Exception as e:
-                        # Mark document for removal instead of keeping it with empty keywords
-                        logger.warning(
-                            f"Error summarizing document {new_doc.metadata['post_id']}: {e}"
-                        )
-                        docs_to_remove.append(new_doc)
-
-            # Remove documents that had errors during summarization
-            if docs_to_remove:
-                original_count = len(new_docs)
-                new_docs = [doc for doc in new_docs if doc not in docs_to_remove]
+        for new_doc in new_docs:
+            try:
+                # Process the document (evaluate notation, generate summary/keywords)
+                processed_doc = gpt_summarize(new_doc)
+                processed_docs.append(processed_doc)
                 logger.info(
-                    f"Excluded {original_count - len(new_docs)} documents due to summarization errors"
+                    f"Successfully processed document with post_id {new_doc.metadata['post_id']}"
+                )
+            except SkipDocumentError as skip_e:
+                # Expected skips (e.g., notation is ["none"])
+                logger.info(
+                    f"Skipping document with post_id {new_doc.metadata['post_id']}: {skip_e}"
+                )
+            except Exception as e:
+                # Unexpected errors
+                logger.error(
+                    f"Error processing document with post_id {new_doc.metadata['post_id']}: {e}"
                 )
 
-            if not new_docs:
-                logger.info("No documents to ingest after filtering out errors.")
-                return
+        if not processed_docs:
+            logger.info("No documents to ingest after processing.")
+            return
 
+        # Ingest processed documents in batches
+        try:
             vectorstore = LangchainPinecone(
                 index=index, embedding=embedding, text_key="text"
-            )  # Use text_key='text'
-            vectorstore.add_documents(
-                documents=new_docs,
-                ids=[doc.metadata["post_id"] for doc in new_docs],
             )
+
+            # Batch documents for embedding and ingestion to avoid token limits
+            embedding_batch_size = 20
+            total_batches = (len(processed_docs) - 1) // embedding_batch_size + 1
+
+            for i in range(0, len(processed_docs), embedding_batch_size):
+                batch_docs = processed_docs[i : i + embedding_batch_size]
+                batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
+
+                logger.info(
+                    f"Adding batch {i//embedding_batch_size + 1}/{total_batches} with {len(batch_docs)} documents to Pinecone..."
+                )
+
+                vectorstore.add_documents(
+                    documents=batch_docs,
+                    ids=batch_ids,
+                )
+
+                logger.info(
+                    f"Successfully added batch {i//embedding_batch_size + 1} to Pinecone."
+                )
+
             logger.info(
-                f"Successfully added {len(new_docs)} new documents to Pinecone."
+                f"Successfully added {len(processed_docs)} new documents to Pinecone."
             )
+
         except Exception as e:
             logger.error(f"Error adding documents to Pinecone: {e}", exc_info=True)
             # Raise an exception to signal failure to the caller

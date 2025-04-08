@@ -254,12 +254,12 @@ def summary_and_keywords(content):
     prompt = ChatPromptTemplate.from_template(
         """
 당신은 요식업 창업 컨설팅, 브랜딩 회사인 창플의 유능한 AI 어시스턴스입니다.
-당신의 할 일은 주어진 컨텐츠를 요약하고, 키워드를 추출하는 것입니다.
+당신의 할 일은 주어진 컨텐츠를 **한 문장**으로 요약하고, 키워드를 추출하는 것입니다.
 
 분석할 컨텐츠:
 {content}
 
-1. First, provide a concise summary of the content that preserves the key advice, insights, and practical information.
+1. First, provide a concise one sentence summary of the content that preserves the key advice, insights, and practical information.
 2. Then, extract a list of 10 keywords that best represent the main topics in the content.
    Focus on business-related terms, restaurant industry concepts, entrepreneurship topics and brand names.
 
