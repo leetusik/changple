@@ -28,10 +28,15 @@ from users.models import User
 
 # Template for rephrasing follow-up questions based on chat history
 REPHRASE_TEMPLATE = """\
-다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+다음 대화, 사용자 정보, 그리고 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+**중요** : 후속 질문에서 너무 크게 변형하거나 왜곡하지 마세요. 단 하나의 질문만 사용자가 질문하는 것처럼 만드세요.
 
 대화 기록:
 {chat_history}
+
+사용자 정보:
+{user_info}
+
 후속 질문: {question}
 독립적인 질문:"""
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
@@ -307,9 +312,6 @@ def create_specific_advice_chain() -> Runnable:
     당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
   
     당신은 상세하고, 실행가능한 조언을 합니다. 당신의 대답은 구체적인 숫자, 계산(필요시), 그리고 실용적인 단계를 제공해야합니다.
-      
-    사용자 질문:
-    {question}
   
     사용자 정보:
     {user_info}
@@ -334,8 +336,12 @@ def create_specific_advice_chain() -> Runnable:
     7. 400 단어를 사용해서 답변하세요.
     8. 말을 반복하지 마세요.
     9. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    10. 비유적 표현을 활용하세요.
     </답변 가이드>
-      
+
+    사용자 질문:
+    {question}
+
     답변:
     """
     )
@@ -350,9 +356,6 @@ def create_question_advice_chain() -> Runnable:
     당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
   
     상대의 질문을 명확하게 하는 질문으로 시작하세요. 그리고 다양한 선택지들을 제시하며 다양한 관점과 비즈니스 모델을 소개하세요.
-      
-    사용자 질문:
-    {question}
   
     사용자 정보:
     {user_info}
@@ -369,6 +372,7 @@ def create_question_advice_chain() -> Runnable:
     관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
     <답변 가이드>
     1. 상대의 질문을 구체화 하는 질문으로 시작하세요.
+    2. 구체적 조언을 해주기 위해 상대방의 창업 예산, 나이, 창업 경험 등을 물어보세요.
     2. 질문에서 구체적으로 발전할 수 있는 비즈니스의 형태 들을 소개하세요.
     3. 주어진 관련 에세이의 문체, 어투를 따라하세요.
     4. 400 단어를 사용해서 답변하세요.
@@ -376,8 +380,12 @@ def create_question_advice_chain() -> Runnable:
     6. 창플의 비즈니스 로직을 적극 활용하세요.
     7. 여러 상황에 맞는 조건부 조언을 하세요.
     8. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    9. 비유적 표현을 활용하세요.
     </답변 가이드>
-      
+    
+    사용자 질문:
+    {question}
+
     답변:
     """
     )
@@ -392,9 +400,6 @@ def create_industry_general_chain() -> Runnable:
     당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
  
     구체적인 추천보단, 폭 넓은 원칙을 제시하세요. 업계의 큰 변동성과 비즈니스 핵심을 설명하세요.
-      
-    사용자 질문:
-    {question}
 
     사용자 정보:
     {user_info}
@@ -417,7 +422,13 @@ def create_industry_general_chain() -> Runnable:
     7. 업계 트렌드에 대한 일반론적 접근과 추측에 반발하세요.
     8. 단기적 트렌드보다 장기적 사업 방향을 강조하세요
     9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    10. 비유적 표현을 활용하세요.
     </답변 가이드>
+
+    사용자 질문:
+    {question}
+
+    답변:
     """
     )
 
@@ -432,9 +443,6 @@ def create_changple_info_chain() -> Runnable:
     당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
      
     **창플의 철학**과 접근방법에 대해 설명하세요. 당신의 답변은 회사의 가치와 방법, 그리고 목표를 포함합니다.
-      
-    사용자 질문:
-    {question}
 
     사용자 정보:
     {user_info}
@@ -454,8 +462,12 @@ def create_changple_info_chain() -> Runnable:
     7. 창플의 접근 방법에 대한 구체적인 예시를 포함하세요.
     8. 창플의 접근 방식을 생존 전략과 이어서 설명하세요.
     9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    10. 비유적 표현을 활용하세요.
     </답변 가이드>
   
+    사용자 질문:
+    {question}
+
     답변:
     """
     )
@@ -526,7 +538,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     def process_input(input_data):
         original_question = input_data["question"]
         user = input_data.get("user")
-        user_info = {}
+        user_info = input_data.get("user_info", {})
         chat_history_messages = memory.load_memory_variables({})["chat_history"]
 
         # Rephrase question if chat history exists
@@ -543,7 +555,11 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
             try:
                 rephrased_question = condense_question_chain.invoke(
-                    {"chat_history": formatted_history, "question": original_question}
+                    {
+                        "chat_history": formatted_history,
+                        "question": original_question,
+                        "user_info": user_info,
+                    }
                 )
                 logger.info(f"Rephrased question: {rephrased_question}")
                 question_for_retrieval = rephrased_question
@@ -557,13 +573,13 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             logger.info("No chat history found, using original question for retrieval.")
             question_for_retrieval = original_question
 
-        # Get user information from User model if user is provided
+        # User info is now passed directly, no need to fetch from model
         if user:
-            logger.info(f"User object received: {user}")
-            user_info = user.information or {}
-            logger.info(f"Fetched user_info: {user_info}")
+            logger.info(f"User object received: {user.username}")
+            logger.info(f"Using provided user_info: {user_info}")
         else:
             logger.info("No user object provided, proceeding as anonymous.")
+            logger.info(f"Using provided user_info (or default empty): {user_info}")
 
         # Determine category
         category = determine_category(question_for_retrieval, user_info)
@@ -717,63 +733,18 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             {"answer": input_data["answer"]},
         )
 
-        # Update user information only if user exists
-        user = input_data.get("user")
-        updated_info = input_data.get("user_info", {})  # Start with original info
-
-        if user:
-            logger.info("Attempting to update user information.")
-            updated_info = update_user_information(
-                input_data["user_info"], original_question  # Use original question
-            )
-            logger.info(f"Updated user_info received: {updated_info}")
-
-            # Save updated information to user model if user is provided
-            try:
-                # Create dictionary with default empty values if this is first update
-                if user.information is None or not user.information:
-                    logger.info("Initializing empty user information structure")
-                    user.information = {
-                        "나이": "",
-                        "성별": "",
-                        "경력": "",
-                        "창업 경험 여부": "",
-                        "관심 업종": "",
-                        "관심 업종의 구체적 방향성": "",
-                        "창업 목표": "",
-                        "채팅 목적": "",
-                        "수익 목표": "",
-                        "창업 예산": "",
-                        "창업 예산 중 대출금 비중": "",
-                        "돌봐야하는 가족 구성원 여부": "",
-                        "관심 브랜드 여부": "",
-                        "관심 브랜드 종목": "",
-                        "기타 특이사항": "",
-                    }
-
-                # Check what changed
-                changes = False
-                for key, value in updated_info.items():
-                    if key not in user.information or user.information[key] != value:
-                        changes = True
-                        break
-
-                if changes or not user.information:
-                    # Force save with the updated info
-                    logger.info(f"Updating user information for {user.username}")
-                    user.information = updated_info
-                    user.save(update_fields=["information"])
-                    logger.info(f"Successfully saved updated information")
-                else:
-                    logger.info("No changes in user information, skipping save")
-            except Exception as e:
-                logger.error(f"Failed to save user information: {e}", exc_info=True)
-        else:
-            logger.info("No user object, skipping user information update.")
+        # Update user information based on the conversation
+        # Use the user_info that came into this step (potentially already updated if it came from session)
+        current_user_info = input_data.get("user_info", {})
+        logger.info("Attempting to update user information (temporarily).")
+        updated_info = update_user_information(
+            current_user_info, original_question  # Use original question
+        )
+        logger.info(f"Temporarily updated user_info: {updated_info}")
 
         return {
             "answer": input_data["answer"],
-            # Return the potentially updated info, even if not saved
+            # Return the updated info for the caller to manage (e.g., store in session)
             "updated_user_info": updated_info,
         }
 
