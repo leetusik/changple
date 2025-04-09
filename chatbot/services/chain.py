@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from operator import itemgetter
@@ -9,7 +10,7 @@ from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import (
     Runnable,
@@ -24,6 +25,16 @@ from pydantic import BaseModel
 from chatbot.services.ingest import get_embeddings_model
 from scraper.models import NaverCafeData
 from users.models import User
+
+# Template for rephrasing follow-up questions based on chat history
+REPHRASE_TEMPLATE = """\
+다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+
+대화 기록:
+{chat_history}
+후속 질문: {question}
+독립적인 질문:"""
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
 
 CATEGORIES = [
     "창플의 구체적 조언",
@@ -82,26 +93,24 @@ a. 창플은 초보창업자들의 생존을 위해 존재하는 회사입니다
 """,
 }
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    temperature=0.8,
+    max_tokens=4000,
+)
 
 retriever = None
 answer_chain = None
 
-
-# Define datastore model for original content access
-class Post(models.Model):
-    """Model to represent posts from the database"""
-
-    id = models.AutoField(primary_key=True)
-    content = models.TextField()
-    title = models.CharField(max_length=255)
+logger = logging.getLogger(__name__)
 
 
 def get_post_content(post_id: int) -> str:
     """Retrieve original post content from NaverCafeData using post_id"""
     try:
         post = NaverCafeData.objects.get(post_id=post_id)
-        return f"Title: {post.title}\n\nContent: {post.content}"
+        # return f"Title: {post.title}\n\nContent: {post.content}"
+        return f"{post.content}"
     except NaverCafeData.DoesNotExist:
         return "Post content not found."
 
@@ -117,11 +126,11 @@ def get_retriever() -> BaseRetriever:
 
     embeddings = get_embeddings_model()
 
-    vectorstore = LangchainPinecone(index, embeddings, "text", namespace="changple")
+    vectorstore = LangchainPinecone(index, embeddings, "text")
 
     return vectorstore.as_retriever(
         search_kwargs={
-            "k": 10,
+            "k": 40,
             "filter": {},  # Will be updated dynamically based on category
             # "score_threshold": 0.7,
         }
@@ -131,16 +140,16 @@ def get_retriever() -> BaseRetriever:
 def determine_category(question: str, user_info: Dict) -> str:
     """Determine the category of the question based on user info and question content"""
     # Create a context with user information and question
-    context = f"User Information: {user_info}\n\nQuestion: {question}"
+    context = f"유저 정보: {user_info}\n\n유저 질문: {question}"
 
     # Use LLM to determine the category
     category_prompt = ChatPromptTemplate.from_template(
         """
-    Based on the following user information and question, determine which category this question belongs to.
+    유저 질문과 유저 정보를 바탕으로 질문의 카테고리를 결정하세요.
     
     {context}
     
-    Here are example questions for each category:
+    각 카테고리 별 질문 예시:
     
     1. 창플의 구체적 조언:
     "30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다."
@@ -154,7 +163,7 @@ def determine_category(question: str, user_info: Dict) -> str:
     4. 창플과 관련된 질문 대답:
     "창플은 어떤 일을 하는 회사인가요?"
     
-    Select one of the following categories:
+    아래의 카테고리 중 하나를 선택하세요:
     - 창플의 구체적 조언
     - 창플의 질문과 조언
     - 창플의 업계 일반적 질문 대답
@@ -179,16 +188,18 @@ def determine_category(question: str, user_info: Dict) -> str:
 
 def update_user_information(user_info: Dict, question: str) -> Dict:
     """Update user information based on question content"""
+
     update_prompt = ChatPromptTemplate.from_template(
         """
-    Based on the following question from a user, extract any information that can update their profile.
-    Current user profile:
+    주어진 유저의 질문을 바탕으로, 업데이트 할 수 있는 정보를 추출하세요.
+
+    현재 유저 정보:
     {user_info}
     
-    User question:
+    유저의 질문:
     {question}
     
-    Extract any information from the question that can be used to update the following fields in the user profile:
+    유저 정보 항목:
     - 나이
     - 성별
     - 경력
@@ -201,12 +212,33 @@ def update_user_information(user_info: Dict, question: str) -> Dict:
     - 창업 예산
     - 창업 예산 중 대출금 비중
     - 돌봐야하는 가족 구성원 여부
-    - 관심 브랜드 여부
-    - 관심 브랜드 종목
+    - 관심 특정 브랜드 여부
+    - 관심 특정 브랜드 종목
     - 기타 특이사항
     
-    For each field, if new information is found, provide it. Otherwise, leave the field as is.
-    Respond in JSON format with the updated user information.
+    각 항목에 대해, 새로운 정보가 있으면 추가하세요. 그렇지 않으면 해당 항목을 그대로 두세요. 모순되는 정보가 있으면 최신화 하세요.
+    
+    YOUR RESPONSE MUST BE VALID JSON, nothing else, no explanations.
+
+    예시:
+    {{
+        "나이": "35세",
+        "성별": "남성",
+        "경력": "10년 IT 경력",
+        "창업 경험 여부": "있음",
+        "관심 업종": "치킨",
+        "관심 업종의 구체적 방향성": "동네에서 편하게 들를 수 있는 맥주 + 치킨집을 창업하려고 함. 치킨집 주변에 주차공간이 있으면 좋겠음.",
+        "창업 목표": "밤에는 장사하고, 낮에는 좀 쉴 수 있도록 워라밸을 지킬 수 있는 사업이 하고싶음.",
+        "채팅 목적": "치킨집 인테리어 조언을 듣기",
+        "수익 목표": "월 순수익 300만원",
+        "창업 예산": "5000만원",
+        "창업 예산 중 대출금 비중": "30%",
+        "돌봐야하는 가족 구성원 여부": "없음",
+        "관심 특정 브랜드 여부": "있음",
+        "관심 특정 브랜드 종목": "네네치킨, 호식이두마리치킨",
+        "기타 특이사항": "소심한 성격, 인상이 별로 안좋음, 치킨을 하루에 하나씩 먹음",
+        ...
+    }}
     """
     )
 
@@ -216,14 +248,55 @@ def update_user_information(user_info: Dict, question: str) -> Dict:
     try:
         import json
 
+        # Check if we received a proper response
+        if not result or result.strip() == "":
+            logger.warning("Empty result received from LLM")
+            return user_info
+
+        # Try to clean up the result by removing any non-JSON content
+        result = result.strip()
+        # If it starts with a backtick code block, clean it
+        if result.startswith("```json"):
+            result = result.split("```json")[1]
+            if "```" in result:
+                result = result.split("```")[0]
+        elif result.startswith("```"):
+            result = result.split("```")[1]
+            if "```" in result:
+                result = result.split("```")[0]
+
+        result = result.strip()
+        logger.info(f"Cleaned result: {result}")
+
         updated_info = json.loads(result)
-        # Merge with existing info, keeping existing values if no update
-        for key in user_info:
-            if key not in updated_info or not updated_info[key]:
-                updated_info[key] = user_info[key]
-        return updated_info
-    except:
-        # If parsing fails, return original info
+        logger.info(f"Parsed JSON: {updated_info}")
+
+        # Create a new dict to avoid reference problems
+        final_info = {}
+
+        # Start with all existing user_info values
+        for key, value in user_info.items():
+            final_info[key] = value
+
+        # Update with values from updated_info where they exist and aren't empty
+        for key, value in updated_info.items():
+            if value:  # Only update if value is not empty/None
+                final_info[key] = value
+                logger.info(f"Updated field {key} with value: {value}")
+
+        # Compare the original and final dicts to see if anything changed
+        if final_info != user_info:
+            logger.info(f"Information updated from {user_info} to {final_info}")
+        else:
+            logger.info("No changes detected in user information")
+
+        return final_info
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}")
+        logger.error(f"Failed to parse result as JSON: {result}")
+        return user_info
+    except Exception as e:
+        logger.error(f"Error updating user information: {e}", exc_info=True)
         return user_info
 
 
@@ -231,21 +304,38 @@ def create_specific_advice_chain() -> Runnable:
     """Create a chain for specific entrepreneurship advice questions"""
     prompt = ChatPromptTemplate.from_template(
         """
-    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
-    사용자 정보와 질문, 그리고 관련 정보를 바탕으로 구체적인 조언을 제공해주세요.
-    
-    사용자 정보:
-    {user_info}
-    
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+  
+    당신은 상세하고, 실행가능한 조언을 합니다. 당신의 대답은 구체적인 숫자, 계산(필요시), 그리고 실용적인 단계를 제공해야합니다.
+      
     사용자 질문:
     {question}
+  
+    사용자 정보:
+    {user_info}
+     
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
     
-    관련 정보:
-    {context}
-    
-    다음 예시와 같은 형식으로 답변해주세요:
+    창플 철학 참고 자료:
+    {philosophy_context}
+      
+    예시 질문과 대답:
     {example}
-    
+ 
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 질문의 핵심에 대해 답하세요.
+    2. 질문에 대해 구체적이고 실행 가능한 조언을 하세요.
+    3. 구체적인 숫자, 계산(필요시)을 적극적으로 활용하세요.
+    4. 창플의 비즈니스 로직을 적극 활용하세요.
+    5. 상대방이 직면할 수 있는 문제를 제시하고, 다른 접근 방법에 대해 설명하세요.
+    6. 현실적으로 기대할 수 있는 수익, 성공 가능성 등을 제시하세요.
+    7. 400 단어를 사용해서 답변하세요.
+    8. 말을 반복하지 마세요.
+    9. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    </답변 가이드>
+      
     답변:
     """
     )
@@ -257,21 +347,37 @@ def create_question_advice_chain() -> Runnable:
     """Create a chain for questions seeking advice"""
     prompt = ChatPromptTemplate.from_template(
         """
-    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
-    사용자가 묻는 창업 관련 질문에 대해 먼저 추가 정보가 필요한지 확인하고, 그에 따른 조언을 제공해주세요.
-    
-    사용자 정보:
-    {user_info}
-    
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+  
+    상대의 질문을 명확하게 하는 질문으로 시작하세요. 그리고 다양한 선택지들을 제시하며 다양한 관점과 비즈니스 모델을 소개하세요.
+      
     사용자 질문:
     {question}
+  
+    사용자 정보:
+    {user_info}
+     
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
     
-    관련 정보:
-    {context}
-    
-    다음 예시와 같은 형식으로 답변해주세요:
+    창플 철학 참고 자료:
+    {philosophy_context}
+      
+    예시 질문과 대답:
     {example}
-    
+ 
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 상대의 질문을 구체화 하는 질문으로 시작하세요.
+    2. 질문에서 구체적으로 발전할 수 있는 비즈니스의 형태 들을 소개하세요.
+    3. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    5. 다양한 비즈니스 모델과 접근 방법을 소개하세요.
+    6. 창플의 비즈니스 로직을 적극 활용하세요.
+    7. 여러 상황에 맞는 조건부 조언을 하세요.
+    8. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    </답변 가이드>
+      
     답변:
     """
     )
@@ -283,22 +389,35 @@ def create_industry_general_chain() -> Runnable:
     """Create a chain for general industry questions"""
     prompt = ChatPromptTemplate.from_template(
         """
-    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
-    창업 업계의 일반적인 질문에 대해 창플의 관점에서 대답해주세요. 트렌드보다는 방향성에 초점을 맞추세요.
-    
-    사용자 정보:
-    {user_info}
-    
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+ 
+    구체적인 추천보단, 폭 넓은 원칙을 제시하세요. 업계의 큰 변동성과 비즈니스 핵심을 설명하세요.
+      
     사용자 질문:
     {question}
+
+    사용자 정보:
+    {user_info}
+
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
     
-    관련 정보:
-    {context}
-    
-    다음 예시와 같은 형식으로 답변해주세요:
+    창플 철학 참고 자료:
+    {philosophy_context}
+
+    예시 질문과 대답:
     {example}
-    
-    답변:
+      
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 비즈니스의 원칙과 업계의 큰 변동성을 설명하세요.
+    2. 비슷한 유형의 일반적 질문들에 대해 창플의 철학을 설명하며 논하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    6. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    7. 업계 트렌드에 대한 일반론적 접근과 추측에 반발하세요.
+    8. 단기적 트렌드보다 장기적 사업 방향을 강조하세요
+    9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    </답변 가이드>
     """
     )
 
@@ -307,23 +426,36 @@ def create_industry_general_chain() -> Runnable:
 
 def create_changple_info_chain() -> Runnable:
     """Create a chain for questions about Changple itself"""
+    # This chain primarily relies on the philosophy context
     prompt = ChatPromptTemplate.from_template(
         """
-    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
-    창플에 대한 질문에 정확하게 답변해주세요.
-    
-    사용자 정보:
-    {user_info}
-    
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+     
+    **창플의 철학**과 접근방법에 대해 설명하세요. 당신의 답변은 회사의 가치와 방법, 그리고 목표를 포함합니다.
+      
     사용자 질문:
     {question}
-    
-    관련 정보:
-    {context}
-    
-    다음 예시와 같은 형식으로 답변해주세요:
+
+    사용자 정보:
+    {user_info}
+
+    관련 에세이 (창플 정보):
+    {primary_context} 
+
+    예시 질문과 대답:
     {example}
-    
+     
+    관련 에세이, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 창플의 철학과 방법, 창업에 대한 접근 방식에 대해 설명하세요.
+    2. 창플의 가치와 창플이 어떻게 창업 초심자, 자영업자 들을 돕는지 말하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    6. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    7. 창플의 접근 방법에 대한 구체적인 예시를 포함하세요.
+    8. 창플의 접근 방식을 생존 전략과 이어서 설명하세요.
+    9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    </답변 가이드>
+  
     답변:
     """
     )
@@ -333,9 +465,11 @@ def create_changple_info_chain() -> Runnable:
 
 def create_default_chain() -> Runnable:
     """Create a default chain for unknown question categories"""
+    # No context needed for the default chain
     prompt = ChatPromptTemplate.from_template(
         """
-    당신은 창플 AI 상담사입니다. 창플은 초보 창업자들이 생존할 수 있도록 돕는 회사입니다.
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+ 
     사용자의 질문에 대한 답변을 알 수 없을 경우 "음, 잘 모르겠네요."라고 대답하고, 
     창업과 관련된 질문이라면 추가적으로 정보를 요청하세요.
     
@@ -390,37 +524,154 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
     # Process user input
     def process_input(input_data):
-        question = input_data["question"]
+        original_question = input_data["question"]
         user = input_data.get("user")
         user_info = {}
+        chat_history_messages = memory.load_memory_variables({})["chat_history"]
+
+        # Rephrase question if chat history exists
+        if chat_history_messages:
+            logger.info("Chat history found, attempting to rephrase question.")
+            condense_question_chain = (
+                CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+            ).with_config(run_name="CondenseQuestion")
+
+            # Format chat history for the condense chain
+            formatted_history = "\n".join(
+                [f"{type(m).__name__}: {m.content}" for m in chat_history_messages]
+            )
+
+            try:
+                rephrased_question = condense_question_chain.invoke(
+                    {"chat_history": formatted_history, "question": original_question}
+                )
+                logger.info(f"Rephrased question: {rephrased_question}")
+                question_for_retrieval = rephrased_question
+            except Exception as e:
+                logger.error(
+                    f"Error rephrasing question: {e}. Using original question.",
+                    exc_info=True,
+                )
+                question_for_retrieval = original_question
+        else:
+            logger.info("No chat history found, using original question for retrieval.")
+            question_for_retrieval = original_question
 
         # Get user information from User model if user is provided
         if user:
+            logger.info(f"User object received: {user}")
             user_info = user.information or {}
+            logger.info(f"Fetched user_info: {user_info}")
+        else:
+            logger.info("No user object provided, proceeding as anonymous.")
 
         # Determine category
-        category = determine_category(question, user_info)
+        category = determine_category(question_for_retrieval, user_info)
+        logger.info(f"Determined category: {category}")
 
         # Filter retriever based on category
         if category in CATEGORIES:
             # Update the filter to only retrieve documents with matching notation
-            retriever.search_kwargs["filter"] = {"notation": {"$in": [category]}}
+            retriever.search_kwargs["filter"] = {
+                "notation": {
+                    "$in": [
+                        category,
+                    ]
+                }
+            }
+            logger.info(f"Set retriever filter: {retriever.search_kwargs['filter']}")
+        else:
+            # Reset or clear filter if category is unknown or not applicable
+            if "filter" in retriever.search_kwargs:
+                del retriever.search_kwargs["filter"]
+            logger.info(
+                "Category is unknown or not in CATEGORIES, filter removed/not applied."
+            )
 
         return {
-            "question": question,
+            "original_question": original_question,  # Keep original for postprocessing
+            "question_for_retrieval": question_for_retrieval,
             "user": user,
             "user_info": user_info,
             "category": category,
-            "chat_history": memory.load_memory_variables({})["chat_history"],
+            "chat_history": chat_history_messages,  # Pass loaded history
         }
 
     # Retrieve relevant documents
     def retrieve_docs(input_data):
         if input_data["category"] == "unknown":
-            return {"context": "", **input_data}
+            logger.info("Category is unknown, skipping document retrieval.")
+            return {"primary_context": "", "philosophy_context": "", **input_data}
 
-        docs = retriever.invoke(input_data["question"])
-        return {"context": format_docs(docs), **input_data}
+        query_to_use = input_data["question_for_retrieval"]
+        current_category = input_data["category"]
+        original_filter = retriever.search_kwargs.get("filter", {})
+        original_k = retriever.search_kwargs.get("k", 40)
+
+        primary_docs = []
+        philosophy_docs = []
+
+        # 1. Retrieve documents based on current question and category (Primary Context)
+        logger.info(
+            f"Retrieving primary documents for category '{current_category}' with query: {query_to_use[:50]}..."
+        )
+        try:
+            # Ensure filter is set for the current category
+            if current_category in CATEGORIES:
+                retriever.search_kwargs["filter"] = {
+                    "notation": {"$in": [current_category]}
+                }
+                retriever.search_kwargs["k"] = original_k
+                primary_docs = retriever.invoke(query_to_use)
+                logger.info(f"Retrieved {len(primary_docs)} primary documents.")
+                if not primary_docs:
+                    logger.warning("No primary documents retrieved.")
+            else:
+                # If category is not standard, primary retrieval might not apply or filter needs reset
+                if "filter" in retriever.search_kwargs:
+                    del retriever.search_kwargs["filter"]
+                logger.warning(
+                    f"Skipping primary retrieval due to category: {current_category}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error during primary document retrieval: {e}", exc_info=True)
+
+        # 2. Retrieve fixed 5 documents for "창플과 관련된 질문 대답" (Philosophy Context)
+        fixed_category = "창플과 관련된 질문 대답"
+        generic_query = f"질문 '{query_to_use}'에 도움이 되는 창플 회사 소개 및 철학"  # Generic query for philosophy docs
+        logger.info(
+            f"Retrieving fixed 5 philosophy documents for category '{fixed_category}'..."
+        )
+        try:
+            # Temporarily override filter and k for fixed retrieval
+            retriever.search_kwargs["filter"] = {"notation": {"$in": [fixed_category]}}
+            retriever.search_kwargs["k"] = 5
+            philosophy_docs = retriever.invoke(generic_query)
+            logger.info(f"Retrieved {len(philosophy_docs)} fixed philosophy documents.")
+        except Exception as e:
+            logger.error(
+                f"Error retrieving fixed philosophy documents: {e}", exc_info=True
+            )
+        finally:
+            # IMPORTANT: Restore original retriever settings
+            retriever.search_kwargs["filter"] = original_filter
+            retriever.search_kwargs["k"] = original_k
+            logger.info("Restored original retriever search_kwargs.")
+
+        # 3. Format documents into separate contexts
+        primary_context = format_docs(primary_docs) if primary_docs else ""
+        philosophy_context = format_docs(philosophy_docs) if philosophy_docs else ""
+
+        logger.info(
+            f"Primary context length: {len(primary_context)}, Philosophy context length: {len(philosophy_context)}"
+        )
+
+        return {
+            "primary_context": primary_context,
+            "philosophy_context": philosophy_context,
+            **input_data,
+        }
 
     # Define the branch logic based on category
     branch = RunnableBranch(
@@ -457,35 +708,97 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
     # Update user information and save to memory
     def postprocess(input_data):
+        # Use original question for memory and user info update
+        original_question = input_data["original_question"]
+
         # Save the conversation to memory
         memory.save_context(
-            {"question": input_data["question"]}, {"answer": input_data["answer"]}
+            {"question": original_question},  # Use original question
+            {"answer": input_data["answer"]},
         )
 
-        # Update user information
-        updated_info = update_user_information(
-            input_data["user_info"], input_data["question"]
-        )
-
-        # Save updated information to user model if user is provided
+        # Update user information only if user exists
         user = input_data.get("user")
-        if user and updated_info:
-            user.information = updated_info
-            user.save()
+        updated_info = input_data.get("user_info", {})  # Start with original info
 
-        return {"answer": input_data["answer"], "updated_user_info": updated_info}
+        if user:
+            logger.info("Attempting to update user information.")
+            updated_info = update_user_information(
+                input_data["user_info"], original_question  # Use original question
+            )
+            logger.info(f"Updated user_info received: {updated_info}")
+
+            # Save updated information to user model if user is provided
+            try:
+                # Create dictionary with default empty values if this is first update
+                if user.information is None or not user.information:
+                    logger.info("Initializing empty user information structure")
+                    user.information = {
+                        "나이": "",
+                        "성별": "",
+                        "경력": "",
+                        "창업 경험 여부": "",
+                        "관심 업종": "",
+                        "관심 업종의 구체적 방향성": "",
+                        "창업 목표": "",
+                        "채팅 목적": "",
+                        "수익 목표": "",
+                        "창업 예산": "",
+                        "창업 예산 중 대출금 비중": "",
+                        "돌봐야하는 가족 구성원 여부": "",
+                        "관심 브랜드 여부": "",
+                        "관심 브랜드 종목": "",
+                        "기타 특이사항": "",
+                    }
+
+                # Check what changed
+                changes = False
+                for key, value in updated_info.items():
+                    if key not in user.information or user.information[key] != value:
+                        changes = True
+                        break
+
+                if changes or not user.information:
+                    # Force save with the updated info
+                    logger.info(f"Updating user information for {user.username}")
+                    user.information = updated_info
+                    user.save(update_fields=["information"])
+                    logger.info(f"Successfully saved updated information")
+                else:
+                    logger.info("No changes in user information, skipping save")
+            except Exception as e:
+                logger.error(f"Failed to save user information: {e}", exc_info=True)
+        else:
+            logger.info("No user object, skipping user information update.")
+
+        return {
+            "answer": input_data["answer"],
+            # Return the potentially updated info, even if not saved
+            "updated_user_info": updated_info,
+        }
 
     # Combine all components into a chain
     chain = (
         RunnablePassthrough.assign(processed_input=process_input)
         | RunnablePassthrough.assign(
-            question=lambda x: x["processed_input"]["question"],
+            # Pass necessary fields from processed_input to the next steps
+            original_question=lambda x: x["processed_input"]["original_question"],
+            question_for_retrieval=lambda x: x["processed_input"][
+                "question_for_retrieval"
+            ],
+            # The 'question' for the answering branch is the rephrased one
+            question=lambda x: x["processed_input"]["question_for_retrieval"],
             user=lambda x: x["processed_input"]["user"],
             user_info=lambda x: x["processed_input"]["user_info"],
             category=lambda x: x["processed_input"]["category"],
             chat_history=lambda x: x["processed_input"]["chat_history"],
         )
         | RunnableLambda(retrieve_docs)
+        # Pass both contexts from retrieve_docs to the answering branch
+        | RunnablePassthrough.assign(
+            primary_context=lambda x: x["primary_context"],
+            philosophy_context=lambda x: x["philosophy_context"],
+        )
         | RunnablePassthrough.assign(answer=branch)
         | RunnableLambda(postprocess)
     )
