@@ -28,8 +28,10 @@ from users.models import User
 
 # Template for rephrasing follow-up questions based on chat history
 REPHRASE_TEMPLATE = """\
-다음 대화, 사용자 정보, 그리고 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
 **중요** : 후속 질문에서 너무 크게 변형하거나 왜곡하지 마세요. 단 하나의 질문만 사용자가 질문하는 것처럼 만드세요.
+AIMessage가 출력한 내용을 확인하고, 문맥 파악을 한 뒤에 포괄적인 질문을 만드세요.
+필요한 경우에 사용자 정보를 활용해서 질문을 구체화 하세요.
 
 대화 기록:
 {chat_history}
