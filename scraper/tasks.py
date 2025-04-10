@@ -9,10 +9,12 @@ from django_rq import job
 from rq import get_current_job
 
 from chatbot.services.ingest import ingest_docs
-from chatbot.services.whoosh_service import create_whoosh_index
 
 # Import crawler and ingestion/indexing functions
 from scraper.services.crawler import main as crawler_main
+
+# from chatbot.services.whoosh_service import create_whoosh_index
+
 
 # Configure logging
 logging.basicConfig(
@@ -67,19 +69,19 @@ def run_scheduled_crawler(
         logger.info(f"[Job {job_id}] Crawler finished successfully.")
         print(f"   [Job {job_id}] Crawler finished successfully.")
 
-        # 2. Run Whoosh Indexing
-        logger.info(f"[Job {job_id}] Running Whoosh indexing...")
-        print(f"   [Job {job_id}] Running Whoosh indexing...")
-        try:
-            create_whoosh_index()
-            logger.info(f"[Job {job_id}] Whoosh indexing finished successfully.")
-            print(f"   [Job {job_id}] Whoosh indexing finished successfully.")
-        except Exception as whoosh_e:
-            logger.error(
-                f"[Job {job_id}] Whoosh indexing failed: {whoosh_e}", exc_info=True
-            )
-            print(f"   ❌ [Job {job_id}] Whoosh indexing failed: {str(whoosh_e)}")
-            success = False  # Mark overall job as failed
+        # # 2. Run Whoosh Indexing
+        # logger.info(f"[Job {job_id}] Running Whoosh indexing...")
+        # print(f"   [Job {job_id}] Running Whoosh indexing...")
+        # try:
+        #     create_whoosh_index()
+        #     logger.info(f"[Job {job_id}] Whoosh indexing finished successfully.")
+        #     print(f"   [Job {job_id}] Whoosh indexing finished successfully.")
+        # except Exception as whoosh_e:
+        #     logger.error(
+        #         f"[Job {job_id}] Whoosh indexing failed: {whoosh_e}", exc_info=True
+        #     )
+        #     print(f"   ❌ [Job {job_id}] Whoosh indexing failed: {str(whoosh_e)}")
+        #     success = False  # Mark overall job as failed
 
         # 3. Run Pinecone Ingestion (Attempt even if Whoosh failed)
         logger.info(f"[Job {job_id}] Running Pinecone ingestion...")

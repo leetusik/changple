@@ -1,578 +1,787 @@
+import logging
 import os
 import sys
-import json
 from operator import itemgetter
-from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from django.conf import settings
+from django.db import models
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    PromptTemplate,
-)
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import (
     Runnable,
     RunnableBranch,
     RunnableLambda,
-    RunnableMap,
     RunnablePassthrough,
 )
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from pinecone import Pinecone
 from pydantic import BaseModel
 
-from chatbot.services.hybrid_retriever import HybridRetriever
 from chatbot.services.ingest import get_embeddings_model
+from scraper.models import NaverCafeData
+from users.models import User
 
-# Decision Model Prompt
-# 출력된 JSON의 전체 필드중 60% 이상 채워질 경우 Retrieval이 실행됩니다.
-RETRIEVER_DECISION_TEMPLATE = """\
-시스템: 당신은 질문에 답변하는 AI가 아니라 오직 사용자 정보를 JSON으로 추출하는 도구입니다. 어떤 질문이 와도 절대 답변하지 말고 JSON 추출만 해야 합니다.
-당신의 유일한 목적은 대화에서 사용자 정보를 추출하여 정해진 JSON 형식으로만 출력하는 것입니다.
+# Template for rephrasing follow-up questions based on chat history
+REPHRASE_TEMPLATE = """\
+다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
+**중요** : 후속 질문에서 너무 크게 변형하거나 왜곡하지 마세요. 단 하나의 질문만 사용자가 질문하는 것처럼 만드세요.
+AIMessage가 출력한 내용을 확인하고, 문맥 파악을 한 뒤에 포괄적인 질문을 만드세요.
+필요한 경우에 사용자 정보를 활용해서 질문을 구체화 하세요.
 
-다음 지침을 철저히 따라 JSON 형식 오류가 발생하지 않도록 하세요:
-1. 반드시 아래 제공된 정확한 키 이름만 사용하세요.
-2. 모든 값은 문자열(string)로 제공해야 합니다.
-3. 빈 값은 빈 문자열("")로 남겨두세요.
-4. 특수문자(", \\, 줄바꿈 등)가 값에 포함될 경우 적절히 이스케이프 처리하세요.
-5. 이 JSON만 보더라도 사용자의 상황을 파악할 수 있도록 내용을 구체적으로 기입하세요.
-6. 주석이나 메타데이터를 포함하지 마세요.
-7. 오직 하나의 JSON 객체만 반환하세요.
-8. 각 필드에 대해 정보가 없으면 빈 문자열로 유지하세요.
+대화 기록:
+{chat_history}
 
-======= 출력 형식(반드시 이 JSON 형식만 출력)=======
-{{
-    "나이": "",
-    "성별": "",
-    "기존에 하던 일, 백그라운드": "",
-    "첫 창업인지. 자영업 경험이 있다면, 어떤 것인지": "",
-    "희망하는 업종": "",
-    "왜 창업을 하고 싶은지": "",
-    "구체적인 수익 목표(월 수익 00원 등)": "",
-    "현재 준비된 창업 예산 및 대출 계획(자본금 00원 /대출 00원 등)": "",
-    "돌봐야하는 가족 구성원 여부": "",
-    "프랜차이즈를 희망하는지 자체 브랜드를 희망하는지": ""
-}}
+사용자 정보:
+{user_info}
 
-======= 올바른 출력 예시: ======= 
-{{
-    "나이": "",
-    "성별": "남성",
-    "기존에 하던 일, 백그라운드": "",
-    "첫 창업인지. 자영업 경험이 있다면, 어떤 것인지": "첫 창업",
-    "희망하는 업종": "김밥집",
-    "왜 창업을 하고 싶은지": "",
-    "구체적인 수익 목표(월 수익 00원 등)": "월 500만원",
-    "현재 준비된 창업 예산 및 대출 계획(자본금 00원 /대출 00원 등)": "자본금 5000만원",
-    "돌봐야하는 가족 구성원 여부": "",
-    "프랜차이즈를 희망하는지 자체 브랜드를 희망하는지": "자체 브랜드"
-}}
+후속 질문: {question}
+독립적인 질문:"""
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(REPHRASE_TEMPLATE)
 
-출력은 반드시 유효한 JSON 형식이어야 하며, 'user_data =' 같은 추가 텍스트 없이 JSON 객체만 반환하세요.
-Python의 json.loads() 함수로 즉시 파싱할 수 있도록 해주세요.
-경고: 질문에 직접 답변하지 마세요. 사용자 정보만 JSON으로 추출하세요. 정보가 없으면 빈 문자열로 두세요.
-"""
+CATEGORIES = [
+    "창플의 구체적 조언",
+    "창플의 질문과 조언",
+    "창플의 업계 일반적 질문 대답",
+    "창플과 관련된 질문 대답",
+]
 
-# No Retrieval Model Prompt
-SIMPLE_RESPONSE_TEMPLATE = """\
-당신은 요식업 창업 전문 컨설팅 회사인 "창플" 소속의 AI 챗봇입니다.
+# Define the example Q&A for each category
+EXAMPLE_QA_MAP = {
+    "창플의 구체적 조언": """
+q. 30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다.
 
-## 1. 정체성, 페르소나 (IDENTITY)
-- 당신의 최우선 목표는 질문을 통해 사용자가 **자신의 상황과 계획에 대해 최대한 많이 이야기하도록** 유도하는 것입니다.
-- 사용자 말에 대해 무조건적인 공감과 긍정이 아닌 **창업의 현실적인 어려움들**과 **생존 가능성**에 초점을 맞춘 핵심 도전 과제를 진지하게 전달합니다.
-- 창플의 핵심 가치에 대해 설명하고, 창플과 함께한다면 창업의 어려움들을 잘 헤쳐나갈 수 있음을 어필합니다.
+a. 분식집창업은 대표적인 상권입지가 중요한 업종입니다. 특별히 찾아가서 먹는 것이 아니라, 내가 다니는 입지에 눈으로 발로 걸치면 그곳에가서 부담없이 사먹는것이죠.. 분식뿐만 아니고 대부분의 부담없이 즐기는 저가커피,빵집,와플가게나 핫도그집들도 다 비슷하게 평수가 작아서 시설비는 적게 드는것처럼 보이지만, 사실 그 업종들은 점포구입비용(보증금+권리금)을 많이 써야 하는 업종들입니다. 지금 그런 업종으로 망하는 초보창업자들이 언제나 실패하는건 점포비용으로는 권리금도 없는 곳에 들어가고 프랜차이즈에서 자신들의 컨셉이라고 불리는 인테리어비용을 들여서 하다보니, 망하는것이죠.. 좋은 자리에 있어야 하는 업종인데 시설비용때문에 나쁜자리에 들어가는것이죠.. 창업자금 5천만원이면 프랜차이즈본사 인테리어비용에도 못미치는 비용입니다. 프랜차이즈를 하게 되면 결국 배달프랜차이즈를 하게 되는데 문제는 배달프랜차이즈는 사실상 물류공급유통회사이기 때문에 그에 맞게 원가율이 높아집니다. 원가율이 높아져서 35% 40%가 되면 배달관련비용 30%가 합해지게 되어 결국 남은 30%로 임대료내고 인건비주고 나면 사실상 남는게 없는 프랜차이즈의 노예가 될 가능성이 높습니다.
 
-## 2. 톤 & 커뮤니케이션 스타일 (TONE & COMMUNICATION STYLE)
-- 말투는 너무 형식적이거나 학술적이지 않고 직설적이어야 합니다.
+만약에 5천만원밖에 없다면, 동네상권에서 망한 식당을 보증금2천만원 권리금1천만원 총 3천만원짜리 식당을 인수해서, 안주를 떡볶이와 튀김류들을 같이 만들어내서 안주로서의 분식으로 접근하는것이 좋습니다. 창플에서 만든 브랜드인 레이디오분식과 크런디라는 브랜드를 참조해도 좋고, 망원동튀맥이라고 하는 매장의 모습도 참고하면 좋습니다. 분식을 빙자한 술집으로 하게 되면 어느동네던지 기본 테이블단가가 나오면서 사람을 덜쓰고도 생존할수 있습니다. 분식은 원가가 낮고 미리 끓여놓고 튀겨놓으면 사람인건비도 많이 안써도 되기 때문입니다. 아이가 없으시면 더더욱 저녁과 밤을 겸해서 다른 분식집들이 문닫을때 장사하면 오히려 경쟁자들이 없어서 더 잘될수도 있습니다.
+""",
+    "창플의 질문과 조언": """
+q. 돈까스집 창업을 생각 중인데 어떻게 시작해야 할까요?
 
-## 3. 대화 단계별 접근법 (DIALOGUE PHASE-BASED APPROACH)
-### 3.1. 첫 대화
-- User와 첫 대화인 경우, 첫인사로 창플이 어떤 곳이고 어떤 것을 중요하게 생각하는지에 대한 **개괄적인 소개를 5문장 정도 먼저 하고** 시작하세요.
-- 그리고 사용자의 상황을 파악하기위한 구체적인 질문을 번호를 매겨 **5-6개** 제시하세요. (아래 '핵심 질문 가이드라인' 참고)
-- 이러한 질문이 왜 필요한지 설명하고, 이 속에 창플의 창업 방식과 창업 정신을 자연스럽게 포함시키세요.
-    * "창플은 정답을 알려주는 사람이 아니야. 당신의 상황을 알아야 더 자세한 답변을 해줄 수 있어."
-    * "질문에 바로 답을 주기보다, 먼저 당신의 상황을 이해하는 게 중요해."
-    * "모든 레스토랑 창업은 상황이 달라. 당신의 경우를 정확히 알아야 도움이 될 거야."
+a. 일반적으로 부담없이 먹거나 배달시켜먹는 저렴한 돈가스집을 이야기하는것인가요? 아니면 차타고 와서 먹고 가는 경양식집돈가스를 얘기하는건가요? 아니면 외식성격으로 찾아와서 먹는 일본식 두꺼운 돈가스집을 이야기하시는 건가요?
 
-### 3.2. 이후 대화
-- 창플의 고유한 창업 방식과 중요하게 여기는 가치를 설명하고, 이를 중심으로 답변하세요.
-- 창업에 조언을 해야할 때는 다양한 요소들(시장 조사, 컨셉 설정, 공간 및 인테리어,인허가 절차, 운영 시스템, 마케팅 전략 등) 중 가장 핵심적인 것 1개만 언급하세요.
-- 핵심 질문 가이드라인에 따라 아직 수집되지 않은 사용자 정보가 있다면 질문하거나 사용자 답변에 대한 더 깊은 질문 1~2개를 제시하세요.
+일반적으로 같은 돈가스집이라고해도 부담없이 먹는 돈가스는 상권입지가 중요합니다. 가성비가 좋아야 하고 남녀노소 만족스러워야 하기 때문에 대중적인 맛을 유지를 잘해야 합니다. 상권입지가 좋으려면 점포구입비용에 더 투자를 해야 합니다 보증금과 권리금을 합한 금액이 최소 1억정도는 되어야 합니다. 그렇게 안되면 매출이 꾸준하지 않고 많이 나오는날은 많이 나오고 안나오는 날은 안나오는 편차가 있는 매출이 나게 됩니다. 그렇게 되면 고정비는 그대로인데 매출이 편차가 나면 문제가 생기죠.. 그렇게 입지가 안좋으면 결국 배달에 의존하게 되고, 배달에 의존하게 되면 30%의 수수료를 또 감당해야 하는데 그렇게 되면 매출은 나오는데 안남게 되는 상황도 발생합니다. 그래서 부담없이 먹는 돈가스집을 하려면 최소 2억이상의 투자금을 준비하셔야 합니다.
 
-## 4. 창플의 핵심 가치
-창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다. 
-- ✅ **생존 우선:** 첫 창업은 화려함보다 생존이 최우선 목표입니다.
-- 💡 **적은 창업비용:** 과도한 초기 투자는 큰 위험을 초래합니다.
-- 🔨 **자기 노동력 활용:** 초보 창업자는 가장 확실한 자원인 자신의 노동력을 중심으로 한 비즈니스 모델이 권장됩니다.
-- 🚫 **대박 신화 경계:** 유행 추종, 대박 추구보다는 착실한 수익을 기반으로 현실적인 성공 가능성을 중시합니다.
-- 🤝 **팀 비즈니스:** 창플이 만든 브랜드(예: 라라와케이, 엉클터치)를 기반으로 초보 창업자가 실패하지 않도록 '전수창업'을 시켜주는 구조. 운영 템플릿, 매출 구조, 마케팅 노하우까지 다 전수 해주고 오픈 후 자율 운영. (선택적 활용)
-- ⚙️ **아키 프로젝트:** 창플이 오직 한 사람만을 위한 새로운 자체 브랜드를 만들어주는 형태. 메뉴, 인테리어, 브랜드 철학, 운영 매뉴얼까지 다 가능한 시스템. (선택적 활용)
+찾아오는 스타일의 우리집만의 외식형 돈가스집이라면 오히려 단가도 더 올려도 되고 찾아오기 때문에 입지가 꼭 좋지 않아도 됩니다. 
 
-## 5. 응답 형식
-- 마크다운과 이모지를 활용하여 가독성 높은 답변을 제공하세요
-- 대화 시작 시 창플 소개를 간략히 하고 사용자의 상황 및 창업 계획에 대한 질문으로 시작하세요
-- 사용자와 이전 대화 history를 고려하여 일관성 있는 답변을 제공하세요.
+다만, 사람들이 몰리는 집객상권에는 있어야 합니다. 동네상권으로는 사람들이 안찾아오니.. 각 지역별 사람들이 모이는 곳에 들어가되 좋은입지에 들어가지 말고 온라인입지를 키워서 그곳으로 오게 하는 전략이 필요합니다.
 
-## 6. 예외 처리
-### 6.1. 외부 정보 필요 질문
-창플에서 운영하는 브랜드 이외의 정보가 필요한 질문(예: "메가커피 프랜차이즈 창업", "교촌치킨 가맹 비용")에는:
-- 인지도 높은 '대박 브랜드'에 대한 질문일 경우: 
-  "창플은 모두가 대박이라고 얘기하는 브랜드의 창업을 추천하지 않아요. 그런 브랜드들에는 초보 창업자가 걸리기 쉬운 함정들이 정말 많습니다. \
-첫 창업은 생존이 우선이고 적은 창업비용으로 나의 몸을 이용해서 창업하는 것을 권장합니다. 해당 브랜드는 창플에서 다루지 않는 브랜드이기 때문에 다른 루트를 통해 알아보시길 바랍니다."
-- 웹 검색이 필요한 질문이나 창플의 브랜드 외의 브랜드 관련 문의: 현재 외부 정보에 접근할 수 없기 때문에 정확한 답변이 어렵다고 정중히 안내하세요.
-창플에서 운영하는 브랜드 목록:
-(주)칸스, (주)평상집, (주)키즈더웨이브, (주)동백본가, (주)명동닭튀김, 김태용의 섬집, 산더미오리불고기 압도, 빙수솔루션 빙플, 감자탕전문점 미락, 한우전문점 봄내농원, 스몰분식다이닝 크런디, 하이볼바 수컷웅, 치킨할인점 닭있소, 돼지곰탕전문 만달곰집, 와인바 라라와케이, 오키나와펍 시사, 753베이글비스트로, 어부장
+돈가스클럽처럼 경양식돈가스같은 경우는, 해장국이나 설렁탕 입지에 들어가야 합니다. 차로 이동하면서 먹는 고객들을 대상으로 하기 때문에 주차와 평수에도 신경을 써야 합니다. 
 
-### 6.2. 창업과 완전히 무관한 질문
-정치, 날씨, 스포츠와 같이 창업과 완전히 무관한 질문(예: "트럼프 정권 외교정책", "오늘 날씨 어때요?")에 대해:
-"죄송하지만, 창플 챗봇은 창업 전문 상담에 특화되어 있어 해당 질문에는 도움을 드리기 어렵습니다. 창업 관련 질문을 주시면 친절히 안내해 드리겠습니다."라고 정중히 답변하세요.
+결론적으로 같은 돈가스집이라고 해도, 창업비용이 작으면 가성비로 남녀노소 다 좋아하는 돈가스집을 하면 안됩니다. 오히려 돈가스의 퀄리티와 주류를 동반한 머무를수 있는 요소를 가지고 공간기획까지 들어가서 오고싶은곳을 만드는것이 가장 안전한 방법입니다.
 
-## 7. 핵심 질문 가이드라인
-질문을 통해 수집해야 할 정보 항목은 다음과 같습니다:
-{{
-    "나이": "",
-    "성별": "",
-    "기존에 하던 일, 백그라운드": "",
-    "첫 창업인지. 자영업 경험이 있다면, 어떤 것인지": "",
-    "희망하는 업종": "",
-    "왜 창업을 하고 싶은지": "",
-    "구체적인 수익 목표(월 수익 00원 등)": "",
-    "현재 준비된 창업 예산 및 대출 계획(자본금 00원 /대출 00원 등)": "",
-    "돌봐야하는 가족 구성원 여부": "",
-    "프랜차이즈를 희망하는지 자체 브랜드를 희망하는지": ""
-}}
+항상 초보들은 본인들이 초보이기 때문에 가성비 부담없는 음식을 하려 하지만, 가성비에 부담없는 음식을 파는 평식업은 대기업과 큰 프랜차이즈들의 영역입니다. 우린 틈새로 가야 내가 가진 작은 창업비용으로 생존할수 있습니다.
+""",
+    "창플의 업계 일반적 질문 대답": """
+q. 요즘 트렌드인 식당 업종은 무엇인가요?
 
-다음은 창플이 실제 컨설팅에서 고객에게 종종 묻는 핵심 질문들입니다:
-(이 질문들을 반드시 그대로 할 필요는 없지만, 참고하여 비슷한 정보를 수집하세요)
-- 처음 창업하시는 건가요, 아니면 자영업 경험이 있으신가요?
-- 현재 나이, 성별, 직업은 어떻게 되시나요?
-- 창업에 투입 가능한 총 예산은 어느 정도인지요? (보증금, 월세, 시설 비용 등)
-- 자기자본과 대출금 비율은 어떻게 계획하고 계신가요?
-- 신규 창업인지, 기존 가게를 업종 변경하려는 것인지요?
-- 창업하시는 목적이나 목표가 무엇인가요? (순수 금전적 목적, 남들에게 보여질때 품위있는 창업, 내가 즐거워서 하는 일 등)
-- 목표하는 월 순이익이 있으신가요?
-- 밥집과 술집 중 어느 쪽을 선호하시나요?
-- 곁에서 돌봐야 하는 가족 구성원(어린 자녀나 노부모님 등)이 있으신가요?
-- 프랜차이즈/자체 브랜드/팀비즈니스 중 어떤 형태의 창업을 희망하시나요?
+a. 창플에서는 트랜드를 말하지 않습니다. 트렌드는 그 트렌드를 이용해서 수익을 창출하려는 사업가들의 상술에 불과합니다. 트렌드보다는 방향성에 주목합니다. 
 
-## 8. 응답 포맷 (RESPONSE FORMAT)
-챗봇은 다음 format에 따라 응답을 생성하는 것이 권장됩니다:
-(1 문장) 사용자의 마지막 발언에 대한 간단한 공감 또는 반응
-(3-4 문장) 초보 창업자가 직면하는 외식 창업의 현실적 어려움, 기존 프랜차이즈의 한계, 전문가 부재 리스크 등을 언급하며 회의적인 현실 제시
-(2-3 문장) 창플의 생존 중심 접근법과 문제 해결 능력 강조. 창플 대표님(창플지기)의 1대1 맞춤 상담, 아키프로젝트, 팀비즈니스 등 구체적 솔루션을 언급하며 희망적 관점 제시
-(1-2 문장) 사용자의 질문에 대한 가장 핵심적인 답변 1가지만 제공
-(1-2 문장) 개인 맞춤형 조언을 위해 사용자의 구체적인 상황, 생각, 선호도 파악이 중요함을 설명 
-(번호 매겨서 5-6개 질문) '핵심 질문 가이드라인'을 참고하여 사용자 상황 파악을 위한 구체적인 질문 제시
-"""
+가령 지금은 아주 초가성비로 가던지, 아니면 확실하게 소비를 자랑할수 있는곳으로 가던가 소비의 방향이 확실합니다.
 
-# RAG prompt
-RESPONSE_TEMPLATE = """\
-## 1. 정체성, 페르소나 (IDENTITY)
-당신은 요식업 창업 전문 컨설팅 회사인 "창플" 소속의 AI 챗봇입니다. 사용자에게 창업 관련 맞춤형 정보와 조언을 제공합니다.
+그러면 초가성비로 트랜드를 이끄는 브랜드가 있을것이고, 소비를 자랑할수 있는 그런 브랜딩을 통해서 이끄는 브랜드가 있을것이고, 기타 다른 브랜드들이 있을겁니다.
 
-## 2. 기본 원칙 (BASIC RULES)
-1. **근거 기반 응답:** 반드시 주어진 DOCUMENT 내용만 사용하여 답변하세요.
-2. **창플 가치 중심:** 모든 답변은 창플의 핵심 가치를 반영해야 합니다.
-3. **솔직한 한계 인정:** 정보가 불충분할 경우 "현재 당신에게 적절한 답변을 제공하기에 AI 챗봇으로서 저의 한계가 있습니다. 창플의 1:1 상담을 통해 더 정확한 답변을 받으실 수 있습니다."라고 명시하세요.
+초보창업자들은 그 방향성에 대한 생각을 안하고 그런 방향성에 부합하는 브랜드를 보고 그대로 따라가는 경향이 있습니다 그렇게 트랜드라는 이유로 그 브랜드자체를 따라가면 순식간에 컨텐츠소비가 끝나면서 공멸하는 경우들이 많습니다. 앞서 이야기한 칼럼들을 살펴보시고, 현재 시장의 모습과 전망을 알아가시길 바랍니다.
+""",
+    "창플과 관련된 질문 대답": """
+q. 창플은 어떤 일을 하는 회사인가요?
 
------------------------
-DOCUMENT:
-<context>
-{context}
-</context>
------------------------
-INSTRUCTIONS:
-위 DOCUMENT에 있는 정보만 사용하여 사용자의 문의에 답하세요. 답변은 DOCUMENT의 사실에 근거해야 합니다.
-이전 대화 기록(chat history)을 바탕으로 사용자가 문의하는 내용 및 사용자에 대한 정보를 파악한 후 답변하세요.
----
+a. 창플은 초보창업자들의 생존을 위해 존재하는 회사입니다. 생존포인트를 연구하고, 그에 따른 브랜드를 만들고(아키프로젝트) 또한 그렇게 만든 브랜드를 또다른 초보창업자들이 할수 있게(팀비즈니스)전수창업식의 창업도 추천하고 있습니다.
 
-## 3. 톤 & 커뮤니케이션 스타일 (TONE & COMMUNICATION STYLE)
-- 말투는 너무 형식적이거나 학술적이지 않고 직설적이어야 합니다.
+창플의 생존방식은 명확합니다. 창플의 생존공식이 담긴 파전에 막걸리집이론을 참조하시면 알겠지만, 중간유통거품없이 원재료를 받아서 원가를 낮추고, 인테리어같은 값비싼 비용을 들이지 않고 실제 고객들에게 임팩트를 주는 vmd작업을 통해서 시설비용을 아끼고. 사장 본인의 몸을 갈아넣어서 직원및 알바1명으로 같이 창업을 하면 결코 망하지 않는다는 것이죠
 
-## 4. 답변 구성 프로세스 (ANSWER CONSTRUCTION PROCESS)
-1. **관련 정보 파악:** 이전 대화 기록(chat history)에서 사용자의 문의 내용과 DOCUMENT 내 관련 정보를 연결
-2. **창플 가치 적용:** 핵심 가치를 기준으로 정보 분석
-3. **맞춤형 응답 작성:** 사용자 현재 상황 및 목표 등을 고려한 실용적 조언을 자세하고 길게 제공
+브랜드나 아이템 업종이 문제가 아니라, 밥집을 하던지 술집을 하던지 고깃집을 하던지 그 어떤 업을 하던지 장사구조를 그렇게 잡고 자신이 감당할수 있는 범위의 창업비용을 가지고, 내몸을 이용해서 생존할수 있게 해야 한다는것입니다.
 
-## 5. 창플의 핵심 가치
-창플은 차별화된 창업 관점을 바탕으로 외식 업계에서 80% 이상의 높은 실패율을 피하고, 지속 가능한 창업을 할 수 있도록 초보 창업자들을 도와주는 **생존 전략가**입니다. 
-- ✅ **생존 우선:** 첫 창업은 화려함보다 생존이 최우선 목표입니다.
-- 💡 **적은 창업비용:** 과도한 초기 투자는 큰 위험을 초래합니다.
-- 🔨 **자기 노동력 활용:** 초보 창업자는 가장 확실한 자원인 자신의 노동력을 중심으로 한 비즈니스 모델이 권장됩니다.
-- 🚫 **대박 신화 경계:** 유행 추종, 대박 추구보다는 착실한 수익을 기반으로 현실적인 성공 가능성을 중시합니다.
-- 🤝 **팀 비즈니스:** 창플이 만든 브랜드(예: 라라와케이, 엉클터치)를 기반으로 초보 창업자가 실패하지 않도록 '전수창업'을 시켜주는 구조. 운영 템플릿, 매출 구조, 마케팅 노하우까지 다 전수 해주고 오픈 후 자율 운영. (선택적 활용)
-- ⚙️ **아키 프로젝트:** 창플이 오직 한 사람만을 위한 새로운 자체 브랜드를 만들어주는 형태. 메뉴, 인테리어, 브랜드 철학, 운영 매뉴얼까지 다 가능한 시스템. (선택적 활용)
+그에 대한 사례가 창플카페에는 무수히 많습니다. 매출은 적어도 결코 죽지 않는다는 사례를 보여주며, 초보들의 첫창업을 망하지 않게 돕는 그런 회사입니다.
+""",
+}
 
-## 6. 응답시 주의사항
-- 마크다운과 이모지를 활용하여 가독성 높은 답변을 제공하세요
-- 대화 시작 시 창플 소개를 간략히 하고 사용자의 상황 및 창업 계획에 대해 다시 한번 요약합니다.
-- 일반적이고 뻔한 정보를 나열하는 것은 피하고, 창플만의 차별화된 가치와 철학을 중심으로 답변하세요.
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    temperature=0.8,
+    max_tokens=4000,
+)
 
-## 7. 응답 포맷 (RESPONSE FORMAT)
-챗봇은 다음 format에 따라 응답을 생성하는 것이 권장됩니다:
-(1 문장) 사용자의 마지막 발언에 대한 간단한 공감 또는 반응
-(2-3 문장) 일반적인 답변과 다른 창플만의 독특한 시각, 접근법 설명
-(10-15문장) 'DOCUMENT'의 정보에 기반한 구체적이고 실용적인 자세한 조언 제공
-(2-3 문장) 창업은 단 하나의 정답이 있지 않고 상황에 따라 대응을 해야하므로 창플과 함께 같이 생존 전략을 설계하는 것이 큰 도움이 될 것이라고 얘기하며, 창플의 1대1 맞춤 상담, 아키프로젝트, 팀비즈니스 등을 소개.
-(1-2 문장) 창플 네이버 카페에 읽어볼만한 좋은 글들이 많이 있으니 ⬇️ 아래 링크 ⬇️ 를 참고하면 좋다는 멘트로 답변의 마지막을 마무리 하세요.
-"""
+retriever = None
+answer_chain = None
 
-# Environment variables for Pinecone configuration
-PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
-PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
-PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
+logger = logging.getLogger(__name__)
 
 
-# Pydantic model defining the structure of chat requests
-class ChatRequest(BaseModel):
-    question: str  # The current user question
-    chat_history: Optional[List[Dict[str, str]]] = None  # Previous conversation history
-
-    # Pydantic v2 settings
-    # old: allow_population_by_field_name
-    # new: populate_by_name
-    class Config:
-        populate_by_name = True
+def get_post_content(post_id: int) -> str:
+    """Retrieve original post content from NaverCafeData using post_id"""
+    try:
+        post = NaverCafeData.objects.get(post_id=post_id)
+        # return f"Title: {post.title}\n\nContent: {post.content}"
+        return f"{post.content}"
+    except NaverCafeData.DoesNotExist:
+        return "Post content not found."
 
 
 def get_retriever() -> BaseRetriever:
-    """
-    Creates and returns a retriever connected to the Pinecone vector database.
+    """Initialize and return the Pinecone retriever"""
+    api_key = os.environ.get("PINECONE_API_KEY")
+    environment = os.environ.get("PINECONE_ENVIRONMENT")
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
 
-    The retriever is responsible for finding relevant documents based on the user's query.
-    It uses the text-embedding-3-large model to convert queries to vectors.
+    pc = Pinecone(api_key=api_key, environment=environment)
+    index = pc.Index(index_name)
 
-    Returns:
-        BaseRetriever: A retriever that searches Pinecone for relevant documents
-        hybrid retriever connected to the Pinecone vector database.
-    """
-    # Initialize Pinecone
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    embeddings = get_embeddings_model()
 
-    # Get embeddings model
-    embedding = get_embeddings_model()
+    vectorstore = LangchainPinecone(index, embeddings, "text")
 
-    # Create Langchain Pinecone vectorstore connected to our existing index
-    # This doesn't create a new index, just connects to an existing one
-    vectorstore = LangchainPinecone.from_existing_index(
-        index_name=PINECONE_INDEX_NAME,
-        embedding=embedding,
-        text_key="text",  # Field name where document text is stored
+    return vectorstore.as_retriever(
+        search_kwargs={
+            "k": 40,
+            "filter": {},  # Will be updated dynamically based on category
+            # "score_threshold": 0.7,
+        }
     )
 
-    # number of retrieved documents from settings
-    NUM_DOCS = settings.NUM_DOCS
-    #  weight between vector and BM25 scores from settings
-    HYBRID_ALPHA = settings.HYBRID_ALPHA
 
-    # Return as retriever with k=NUM_DOCS (retrieve NUM_DOCS most relevant chunks)
-    vector_retriever = vectorstore.as_retriever(search_kwargs={"k": NUM_DOCS})
+def determine_category(question: str, user_info: Dict) -> str:
+    """Determine the category of the question based on user info and question content"""
+    # Create a context with user information and question
+    context = f"유저 정보: {user_info}\n\n유저 질문: {question}"
 
-    return HybridRetriever(
-        vector_store=vector_retriever,
-        whoosh_index_dir=settings.WHOOSH_INDEX_DIR,
-        alpha=HYBRID_ALPHA,
-        k=NUM_DOCS,
+    # Use LLM to determine the category
+    category_prompt = ChatPromptTemplate.from_template(
+        """
+    유저 질문과 유저 정보를 바탕으로 질문의 카테고리를 결정하세요.
+    
+    {context}
+    
+    각 카테고리 별 질문 예시:
+    
+    1. 창플의 구체적 조언:
+    "30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다."
+    
+    2. 창플의 질문과 조언:
+    "돈까스집 창업을 생각 중인데 어떻게 시작해야 할까요?"
+    
+    3. 창플의 업계 일반적 질문 대답:
+    "요즘 트렌드인 식당 업종은 무엇인가요?"
+    
+    4. 창플과 관련된 질문 대답:
+    "창플은 어떤 일을 하는 회사인가요?"
+    
+    아래의 카테고리 중 하나를 선택하세요:
+    - 창플의 구체적 조언
+    - 창플의 질문과 조언
+    - 창플의 업계 일반적 질문 대답
+    - 창플과 관련된 질문 대답
+    
+    If none of the above categories fit, respond with "unknown".
+    
+    Category:
+    """
     )
+
+    category_chain = category_prompt | llm | StrOutputParser()
+    result = category_chain.invoke({"context": context})
+
+    # Clean up the response
+    for category in CATEGORIES:
+        if category in result:
+            return category
+
+    return "unknown"
+
+
+def update_user_information(user_info: Dict, question: str) -> Dict:
+    """Update user information based on question content"""
+
+    update_prompt = ChatPromptTemplate.from_template(
+        """
+    주어진 유저의 질문을 바탕으로, 업데이트 할 수 있는 정보를 추출하세요.
+
+    현재 유저 정보:
+    {user_info}
+    
+    유저의 질문:
+    {question}
+    
+    유저 정보 항목:
+    - 나이
+    - 성별
+    - 경력
+    - 창업 경험 여부
+    - 관심 업종
+    - 관심 업종의 구체적 방향성
+    - 창업 목표
+    - 채팅 목적
+    - 수익 목표
+    - 창업 예산
+    - 창업 예산 중 대출금 비중
+    - 돌봐야하는 가족 구성원 여부
+    - 관심 특정 브랜드 여부
+    - 관심 특정 브랜드 종목
+    - 기타 특이사항
+    
+    각 항목에 대해, 새로운 정보가 있으면 추가하세요. 그렇지 않으면 해당 항목을 그대로 두세요. 모순되는 정보가 있으면 최신화 하세요.
+    
+    YOUR RESPONSE MUST BE VALID JSON, nothing else, no explanations.
+
+    예시:
+    {{
+        "나이": "35세",
+        "성별": "남성",
+        "경력": "10년 IT 경력",
+        "창업 경험 여부": "있음",
+        "관심 업종": "치킨",
+        "관심 업종의 구체적 방향성": "동네에서 편하게 들를 수 있는 맥주 + 치킨집을 창업하려고 함. 치킨집 주변에 주차공간이 있으면 좋겠음.",
+        "창업 목표": "밤에는 장사하고, 낮에는 좀 쉴 수 있도록 워라밸을 지킬 수 있는 사업이 하고싶음.",
+        "채팅 목적": "치킨집 인테리어 조언을 듣기",
+        "수익 목표": "월 순수익 300만원",
+        "창업 예산": "5000만원",
+        "창업 예산 중 대출금 비중": "30%",
+        "돌봐야하는 가족 구성원 여부": "없음",
+        "관심 특정 브랜드 여부": "있음",
+        "관심 특정 브랜드 종목": "네네치킨, 호식이두마리치킨",
+        "기타 특이사항": "소심한 성격, 인상이 별로 안좋음, 치킨을 하루에 하나씩 먹음",
+        ...
+    }}
+    """
+    )
+
+    update_chain = update_prompt | llm | StrOutputParser()
+    result = update_chain.invoke({"user_info": user_info, "question": question})
+
+    try:
+        import json
+
+        # Check if we received a proper response
+        if not result or result.strip() == "":
+            logger.warning("Empty result received from LLM")
+            return user_info
+
+        # Try to clean up the result by removing any non-JSON content
+        result = result.strip()
+        # If it starts with a backtick code block, clean it
+        if result.startswith("```json"):
+            result = result.split("```json")[1]
+            if "```" in result:
+                result = result.split("```")[0]
+        elif result.startswith("```"):
+            result = result.split("```")[1]
+            if "```" in result:
+                result = result.split("```")[0]
+
+        result = result.strip()
+        logger.info(f"Cleaned result: {result}")
+
+        updated_info = json.loads(result)
+        logger.info(f"Parsed JSON: {updated_info}")
+
+        # Create a new dict to avoid reference problems
+        final_info = {}
+
+        # Start with all existing user_info values
+        for key, value in user_info.items():
+            final_info[key] = value
+
+        # Update with values from updated_info where they exist and aren't empty
+        for key, value in updated_info.items():
+            if value:  # Only update if value is not empty/None
+                final_info[key] = value
+                logger.info(f"Updated field {key} with value: {value}")
+
+        # Compare the original and final dicts to see if anything changed
+        if final_info != user_info:
+            logger.info(f"Information updated from {user_info} to {final_info}")
+        else:
+            logger.info("No changes detected in user information")
+
+        return final_info
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}")
+        logger.error(f"Failed to parse result as JSON: {result}")
+        return user_info
+    except Exception as e:
+        logger.error(f"Error updating user information: {e}", exc_info=True)
+        return user_info
+
+
+def create_specific_advice_chain() -> Runnable:
+    """Create a chain for specific entrepreneurship advice questions"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+  
+    당신은 상세하고, 실행가능한 조언을 합니다. 당신의 대답은 구체적인 숫자, 계산(필요시), 그리고 실용적인 단계를 제공해야합니다.
+  
+    사용자 정보:
+    {user_info}
+     
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
+    
+    창플 철학 참고 자료:
+    {philosophy_context}
+      
+    예시 질문과 대답:
+    {example}
+ 
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 질문의 핵심에 대해 답하세요.
+    2. 질문에 대해 구체적이고 실행 가능한 조언을 하세요.
+    3. 구체적인 숫자, 계산(필요시)을 적극적으로 활용하세요.
+    4. 창플의 비즈니스 로직을 적극 활용하세요.
+    5. 상대방이 직면할 수 있는 문제를 제시하고, 다른 접근 방법에 대해 설명하세요.
+    6. 현실적으로 기대할 수 있는 수익, 성공 가능성 등을 제시하세요.
+    7. 400 단어를 사용해서 답변하세요.
+    8. 말을 반복하지 마세요.
+    9. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    10. 비유적 표현을 활용하세요.
+    </답변 가이드>
+
+    사용자 질문:
+    {question}
+
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_question_advice_chain() -> Runnable:
+    """Create a chain for questions seeking advice"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+  
+    상대의 질문을 명확하게 하는 질문으로 시작하세요. 그리고 다양한 선택지들을 제시하며 다양한 관점과 비즈니스 모델을 소개하세요.
+  
+    사용자 정보:
+    {user_info}
+     
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
+    
+    창플 철학 참고 자료:
+    {philosophy_context}
+      
+    예시 질문과 대답:
+    {example}
+ 
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 상대의 질문을 구체화 하는 질문으로 시작하세요.
+    2. 구체적 조언을 해주기 위해 상대방의 창업 예산, 나이, 창업 경험 등을 물어보세요.
+    2. 질문에서 구체적으로 발전할 수 있는 비즈니스의 형태 들을 소개하세요.
+    3. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    5. 다양한 비즈니스 모델과 접근 방법을 소개하세요.
+    6. 창플의 비즈니스 로직을 적극 활용하세요.
+    7. 여러 상황에 맞는 조건부 조언을 하세요.
+    8. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    9. 비유적 표현을 활용하세요.
+    </답변 가이드>
+    
+    사용자 질문:
+    {question}
+
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_industry_general_chain() -> Runnable:
+    """Create a chain for general industry questions"""
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+ 
+    구체적인 추천보단, 폭 넓은 원칙을 제시하세요. 업계의 큰 변동성과 비즈니스 핵심을 설명하세요.
+
+    사용자 정보:
+    {user_info}
+
+    관련 에세이 (주요 답변 근거):
+    {primary_context}
+    
+    창플 철학 참고 자료:
+    {philosophy_context}
+
+    예시 질문과 대답:
+    {example}
+      
+    관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 비즈니스의 원칙과 업계의 큰 변동성을 설명하세요.
+    2. 비슷한 유형의 일반적 질문들에 대해 창플의 철학을 설명하며 논하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    6. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    7. 업계 트렌드에 대한 일반론적 접근과 추측에 반발하세요.
+    8. 단기적 트렌드보다 장기적 사업 방향을 강조하세요
+    9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    10. 비유적 표현을 활용하세요.
+    </답변 가이드>
+
+    사용자 질문:
+    {question}
+
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_changple_info_chain() -> Runnable:
+    """Create a chain for questions about Changple itself"""
+    # This chain primarily relies on the philosophy context
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+     
+    **창플의 철학**과 접근방법에 대해 설명하세요. 당신의 답변은 회사의 가치와 방법, 그리고 목표를 포함합니다.
+
+    사용자 정보:
+    {user_info}
+
+    관련 에세이 (창플 정보):
+    {primary_context} 
+
+    예시 질문과 대답:
+    {example}
+     
+    관련 에세이, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
+    <답변 가이드>
+    1. 창플의 철학과 방법, 창업에 대한 접근 방식에 대해 설명하세요.
+    2. 창플의 가치와 창플이 어떻게 창업 초심자, 자영업자 들을 돕는지 말하세요.
+    4. 400 단어를 사용해서 답변하세요.
+    6. 주어진 관련 에세이의 문체, 어투를 따라하세요.
+    7. 창플의 접근 방법에 대한 구체적인 예시를 포함하세요.
+    8. 창플의 접근 방식을 생존 전략과 이어서 설명하세요.
+    9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
+    10. 비유적 표현을 활용하세요.
+    </답변 가이드>
+  
+    사용자 질문:
+    {question}
+
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
+
+
+def create_default_chain() -> Runnable:
+    """Create a default chain for unknown question categories"""
+    # No context needed for the default chain
+    prompt = ChatPromptTemplate.from_template(
+        """
+    당신은 요식업 컨설팅, 브랜딩 전문 회사 창플의 대표 한범구의 AI Clone입니다.
+ 
+    사용자의 질문에 대한 답변을 알 수 없을 경우 "음, 잘 모르겠네요."라고 대답하고, 
+    창업과 관련된 질문이라면 추가적으로 정보를 요청하세요.
+    
+    사용자 정보:
+    {user_info}
+    
+    사용자 질문:
+    {question}
+    
+    답변:
+    """
+    )
+
+    return prompt | llm | StrOutputParser()
 
 
 def format_docs(docs: Sequence[Document]) -> str:
-    """
-    Formats retrieved documents into a structured string for the LLM.
-
-    Each document includes metadata (title, URL) and content with a unique ID.
-    This structured format helps the LLM understand and cite documents correctly.
-
-    Args:
-        docs: List of retrieved documents
-
-    Returns:
-        str: Formatted document string
-    """
+    """Format retrieved documents into a string"""
     formatted_docs = []
-    for i, doc in enumerate(docs):
-        # Format each document with metadata and content
-        # The ID allows for proper citation in the response
-        doc_string = f"<doc id='{i}'>\nTitle: {doc.metadata.get('title', 'No Title')}\nURL: {doc.metadata.get('url', 'No URL')}\nContent: {doc.page_content}\n</doc>"
-        formatted_docs.append(doc_string)
-    return "\n".join(formatted_docs)
+    for doc in docs:
+        metadata = doc.metadata
+        post_id = metadata.get("post_id")
 
+        # Get original content if post_id exists
+        if post_id:
+            original_content = get_post_content(post_id)
+            formatted_docs.append(original_content)
+        else:
+            # Fallback to document content
+            title = metadata.get("title", "No Title")
+            formatted_docs.append(f"Title: {title}\n\nContent: {doc.page_content}")
 
-def serialize_history(request: ChatRequest):
-    """
-    Converts the chat history from dict format to LangChain message objects.
-    """
-    chat_history = request["chat_history"] or []
-    converted_chat_history = []
-    for message in chat_history:
-        # Convert user messages - "human" instead of "user"
-        if message.get("user") is not None:
-            converted_chat_history.append(HumanMessage(content=message["user"]))
-        # Convert AI messages - "ai" instead of "assistant"
-        if message.get("assistant") is not None:
-            converted_chat_history.append(AIMessage(content=message["assistant"]))
-    return converted_chat_history
-
-def format_history_for_retrieval(chat_history: List) -> str:
-    """Formats chat history into a single string for retrieval."""
-    formatted_history = []
-    for msg in chat_history:
-        if isinstance(msg, HumanMessage):
-            formatted_history.append(f"Human: {msg.content}")
-        elif isinstance(msg, AIMessage):
-            formatted_history.append(f"AI: {msg.content}")
-    # 필요하다면 토큰 제한 등을 고려하여 최근 N개 메시지만 사용하도록 수정할 수 있습니다.
-    return "\n".join(formatted_history)
-
-# session memory
-session_memories = {}
+    return "\n\n---\n\n".join(formatted_docs)
 
 
 def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
-    """
-    LangChain RAG chain with RunnableBranch for conditional retrieval
-    """
+    """Create the main chain for processing user questions"""
+    # Create specialized chains for each category
+    specific_advice_chain = create_specific_advice_chain()
+    question_advice_chain = create_question_advice_chain()
+    industry_general_chain = create_industry_general_chain()
+    changple_info_chain = create_changple_info_chain()
+    default_chain = create_default_chain()
 
-    # get session memory
-    def get_session_memory(inputs):
-        session_id = inputs.get("session_id", "default")
+    # Create memory for conversation history
+    memory = ConversationBufferMemory(
+        return_messages=True,
+        output_key="answer",
+        input_key="question",
+        memory_key="chat_history",
+    )
 
-        if session_id not in session_memories:
-            # new session
-            session_memories[session_id] = ConversationBufferMemory(
-                memory_key="chat_history",
-                return_messages=True,
-                output_key="answer",
-                input_key="question",
+    # Process user input
+    def process_input(input_data):
+        original_question = input_data["question"]
+        user = input_data.get("user")
+        user_info = input_data.get("user_info", {})
+        chat_history_messages = memory.load_memory_variables({})["chat_history"]
+
+        # Rephrase question if chat history exists
+        if chat_history_messages:
+            logger.info("Chat history found, attempting to rephrase question.")
+            condense_question_chain = (
+                CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+            ).with_config(run_name="CondenseQuestion")
+
+            # Format chat history for the condense chain
+            formatted_history = "\n".join(
+                [f"{type(m).__name__}: {m.content}" for m in chat_history_messages]
             )
 
-            # load existing conversation history from database (optional)
-            if "db_history" in inputs and inputs["db_history"]:
-                for msg_pair in inputs["db_history"]:
-                    if "user" in msg_pair and "assistant" in msg_pair:
-                        session_memories[session_id].save_context(
-                            {"question": msg_pair["user"]},
-                            {"answer": msg_pair["assistant"]},
-                        )
-
-        memory_content = session_memories[session_id].load_memory_variables({})
-        chat_history = memory_content.get("chat_history", [])
-        return chat_history
-    
-    # 검색이 필요한지 판단하는 LLM
-    decision_llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.0
-    )
-    
-    # 검색 필요성 결정 체인 (from_messages 사용)
-    decision_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                RETRIEVER_DECISION_TEMPLATE, # 시스템 메시지로 전체 템플릿 사용
-            ),
-            MessagesPlaceholder(variable_name="chat_history"), # 대화 이력 주입
-            ("human", "{question}"), # 사용자 질문 주입
-        ]
-    )
-    decision_chain = decision_prompt | decision_llm | StrOutputParser()
-    
-    # 검색 필요 여부 결정 함수
-    def determine_retrieval_need(inputs):
-        question = inputs["question"]
-        chat_history = get_session_memory(inputs)
-        
-        json_output = decision_chain.invoke({
-            "question": question,
-            "chat_history": chat_history
-        }).strip()
-        
-        try:
-            # JSON 파싱
-            user_data = json.loads(json_output)
-            
-            # 전체 키 개수 및 빈 문자열이 아닌 값 개수 계산
-            total_keys = len(user_data)
-            if total_keys == 0:
-                return False # 키가 없으면 검색 불필요
-            
-            non_empty_values = sum(1 for value in user_data.values() if isinstance(value, str) and value != "")
-            
-            # 채워진 필드 비율 계산
-            filled_ratio = non_empty_values / total_keys
-
-            print(f"채워진 User data 필드 비율: {filled_ratio}")
-            
-            # 비율이 60% 이상이면 True 반환
-            return filled_ratio >= 0.6
-            
-        except json.JSONDecodeError:
-            # JSON 파싱 실패 시 False 반환 (검색 불필요)
-            print(f"Warning: Failed to parse JSON output from decision model: {json_output}")
-            return False
-        except Exception as e:
-            # 기타 예외 발생 시 False 반환
-            print(f"Error determining retrieval need: {e}")
-            return False
-    
-    # 검색이 필요한 경우의 프롬프트 템플릿
-    retrieval_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                RESPONSE_TEMPLATE.format(
-                    context="{context}"
-                ),
-            ),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{question}"),
-        ]
-    )
-    
-    # 검색이 필요하지 않은 경우의 간소화된 프롬프트 템플릿
-    simple_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                SIMPLE_RESPONSE_TEMPLATE
-            ),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{question}"),
-        ]
-    )
-    
-    # 검색 결과를 context 변수에 할당
-    context = (
-        RunnablePassthrough
-        # chat_history와 question을 함께 retriever에 전달
-        .assign(docs=lambda x: retriever.invoke(
-            # chat_history를 문자열로 포맷하고 현재 질문과 결합
-            f"대화 기록:\n{format_history_for_retrieval(x['chat_history'])}\n\n현재 질문: {x['question']}"
-        ))
-        .assign(context=lambda x: format_docs(x["docs"]))
-        .with_config(run_name="RetrieveDocs")
-    )
-    
-    # 검색이 필요한 경우의 체인
-    retrieval_chain = (
-        RunnablePassthrough.assign(chat_history=get_session_memory)
-        | context
-        | RunnablePassthrough.assign(
-            text=(retrieval_prompt | llm | StrOutputParser())
-        )
-    )
-    
-    # 검색이 필요하지 않은 경우의 체인
-    no_retrieval_chain = (
-        RunnablePassthrough.assign(chat_history=get_session_memory)
-        | RunnablePassthrough.assign(
-            text=(simple_prompt | llm | StrOutputParser())
-        )
-    )
-    
-    # RunnableBranch 사용하여 조건부 실행
-    branch_chain = RunnableBranch(
-        (determine_retrieval_need, retrieval_chain), # determine_retrieval_need가 True를 반환하면 retrieval_chain 실행
-        no_retrieval_chain,  # False를 반환하면 no_retrieval_chain 실행 (기본값)
-    )
-    
-    # format response function
-    def format_response(result):
-        # docs가 있는지 확인 (retrieval chain이 실행되었는지 확인)
-        docs_exist = "docs" in result['final'] if isinstance(result, dict) else False
-        
-        answer_text = result['final']['text'] 
-
-        if docs_exist and result['final']['docs']:
-            response = {
-                "answer": answer_text,
-                "source_documents": result['final']['docs'],
-                "similarity_scores": [doc.metadata.get("combined_score", 0) for doc in result['final']['docs']] if result['final']['docs'] else [],
-                "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
-            }
-            return response
+            try:
+                rephrased_question = condense_question_chain.invoke(
+                    {
+                        "chat_history": formatted_history,
+                        "question": original_question,
+                        "user_info": user_info,
+                    }
+                )
+                logger.info(f"Rephrased question: {rephrased_question}")
+                question_for_retrieval = rephrased_question
+            except Exception as e:
+                logger.error(
+                    f"Error rephrasing question: {e}. Using original question.",
+                    exc_info=True,
+                )
+                question_for_retrieval = original_question
         else:
-            # no retrieval
-            response = {
-                "answer": answer_text,
-                "source_documents": [],
-                "similarity_scores": [],
-                "session_id": result.get("session_id", "default"),
-                "question": result.get("question", "")
+            logger.info("No chat history found, using original question for retrieval.")
+            question_for_retrieval = original_question
+
+        # User info is now passed directly, no need to fetch from model
+        if user:
+            logger.info(f"User object received: {user.username}")
+            logger.info(f"Using provided user_info: {user_info}")
+        else:
+            logger.info("No user object provided, proceeding as anonymous.")
+            logger.info(f"Using provided user_info (or default empty): {user_info}")
+
+        # Determine category
+        category = determine_category(question_for_retrieval, user_info)
+        logger.info(f"Determined category: {category}")
+
+        # Filter retriever based on category
+        if category in CATEGORIES:
+            # Update the filter to only retrieve documents with matching notation
+            retriever.search_kwargs["filter"] = {
+                "notation": {
+                    "$in": [
+                        category,
+                    ]
+                }
             }
-            return response
-    
-    # 최종 체인 구성
-    final_chain = (
-        RunnablePassthrough.assign(
-            # keep original input values
-            session_id=lambda x: x.get("session_id", "default"),
-            question=lambda x: x.get("question", ""),
+            logger.info(f"Set retriever filter: {retriever.search_kwargs['filter']}")
+        else:
+            # Reset or clear filter if category is unknown or not applicable
+            if "filter" in retriever.search_kwargs:
+                del retriever.search_kwargs["filter"]
+            logger.info(
+                "Category is unknown or not in CATEGORIES, filter removed/not applied."
+            )
+
+        return {
+            "original_question": original_question,  # Keep original for postprocessing
+            "question_for_retrieval": question_for_retrieval,
+            "user": user,
+            "user_info": user_info,
+            "category": category,
+            "chat_history": chat_history_messages,  # Pass loaded history
+        }
+
+    # Retrieve relevant documents
+    def retrieve_docs(input_data):
+        if input_data["category"] == "unknown":
+            logger.info("Category is unknown, skipping document retrieval.")
+            return {"primary_context": "", "philosophy_context": "", **input_data}
+
+        query_to_use = input_data["question_for_retrieval"]
+        current_category = input_data["category"]
+        original_filter = retriever.search_kwargs.get("filter", {})
+        original_k = retriever.search_kwargs.get("k", 40)
+
+        primary_docs = []
+        philosophy_docs = []
+
+        # 1. Retrieve documents based on current question and category (Primary Context)
+        logger.info(
+            f"Retrieving primary documents for category '{current_category}' with query: {query_to_use[:50]}..."
         )
-        # 그 다음 chat_history를 get_session_memory로 할당
-        | RunnablePassthrough.assign(
-            chat_history=get_session_memory
-        )
-        # 이후에 branch_chain 실행 (chat_history가 이미 할당됨)
-        | RunnablePassthrough.assign(
-            final=branch_chain
-        )
-        | RunnableLambda(format_response)
-    )
-    
-    # memory update function
-    def update_memory_and_return(result):
         try:
-            session_id = result.get("session_id", "default")
+            # Ensure filter is set for the current category
+            if current_category in CATEGORIES:
+                retriever.search_kwargs["filter"] = {
+                    "notation": {"$in": [current_category]}
+                }
+                retriever.search_kwargs["k"] = original_k
+                primary_docs = retriever.invoke(query_to_use)
+                logger.info(f"Retrieved {len(primary_docs)} primary documents.")
+                if not primary_docs:
+                    logger.warning("No primary documents retrieved.")
+            else:
+                # If category is not standard, primary retrieval might not apply or filter needs reset
+                if "filter" in retriever.search_kwargs:
+                    del retriever.search_kwargs["filter"]
+                logger.warning(
+                    f"Skipping primary retrieval due to category: {current_category}"
+                )
 
-            if session_id in session_memories:
-                # extract question and answer
-                question = result.get("question", "")
-                answer = result.get("answer", "")
-
-                # if no answer, get from text field
-                if not answer and "text" in result:
-                    answer = result["text"]
-
-                # update memory
-                if question and answer:
-                    session_memories[session_id].save_context(
-                        {"question": question}, {"answer": answer}
-                    )
         except Exception as e:
-            pass
+            logger.error(f"Error during primary document retrieval: {e}", exc_info=True)
 
-        return result
+        # 2. Retrieve fixed 5 documents for "창플과 관련된 질문 대답" (Philosophy Context)
+        fixed_category = "창플과 관련된 질문 대답"
+        generic_query = f"질문 '{query_to_use}'에 도움이 되는 창플 회사 소개 및 철학"  # Generic query for philosophy docs
+        logger.info(
+            f"Retrieving fixed 5 philosophy documents for category '{fixed_category}'..."
+        )
+        try:
+            # Temporarily override filter and k for fixed retrieval
+            retriever.search_kwargs["filter"] = {"notation": {"$in": [fixed_category]}}
+            retriever.search_kwargs["k"] = 5
+            philosophy_docs = retriever.invoke(generic_query)
+            logger.info(f"Retrieved {len(philosophy_docs)} fixed philosophy documents.")
+        except Exception as e:
+            logger.error(
+                f"Error retrieving fixed philosophy documents: {e}", exc_info=True
+            )
+        finally:
+            # IMPORTANT: Restore original retriever settings
+            retriever.search_kwargs["filter"] = original_filter
+            retriever.search_kwargs["k"] = original_k
+            logger.info("Restored original retriever search_kwargs.")
 
-    return final_chain | RunnableLambda(update_memory_and_return)
+        # 3. Format documents into separate contexts
+        primary_context = format_docs(primary_docs) if primary_docs else ""
+        philosophy_context = format_docs(philosophy_docs) if philosophy_docs else ""
 
+        logger.info(
+            f"Primary context length: {len(primary_context)}, Philosophy context length: {len(philosophy_context)}"
+        )
 
-# Initialize LLM with settings from settings.py
-llm = ChatOpenAI(
-    model=settings.LLM_MODEL,
-    temperature=settings.LLM_TEMPERATURE,
-    streaming=settings.LLM_STREAMING,
-)
+        return {
+            "primary_context": primary_context,
+            "philosophy_context": philosophy_context,
+            **input_data,
+        }
 
-# Initialize retriever and answer chain
-# These are the main components that will be used by the API
-retriever = None
-answer_chain = None
+    # Define the branch logic based on category
+    branch = RunnableBranch(
+        (
+            lambda x: x["category"] == "창플의 구체적 조언",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 구체적 조언"]
+            )
+            | specific_advice_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플의 질문과 조언",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 질문과 조언"]
+            )
+            | question_advice_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플의 업계 일반적 질문 대답",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플의 업계 일반적 질문 대답"]
+            )
+            | industry_general_chain,
+        ),
+        (
+            lambda x: x["category"] == "창플과 관련된 질문 대답",
+            RunnablePassthrough.assign(
+                example=lambda _: EXAMPLE_QA_MAP["창플과 관련된 질문 대답"]
+            )
+            | changple_info_chain,
+        ),
+        default_chain,
+    )
+
+    # Update user information and save to memory
+    def postprocess(input_data):
+        # Use original question for memory and user info update
+        original_question = input_data["original_question"]
+
+        # Save the conversation to memory
+        memory.save_context(
+            {"question": original_question},  # Use original question
+            {"answer": input_data["answer"]},
+        )
+
+        # Update user information based on the conversation
+        # Use the user_info that came into this step (potentially already updated if it came from session)
+        current_user_info = input_data.get("user_info", {})
+        logger.info("Attempting to update user information (temporarily).")
+        updated_info = update_user_information(
+            current_user_info, original_question  # Use original question
+        )
+        logger.info(f"Temporarily updated user_info: {updated_info}")
+
+        return {
+            "answer": input_data["answer"],
+            # Return the updated info for the caller to manage (e.g., store in session)
+            "updated_user_info": updated_info,
+        }
+
+    # Combine all components into a chain
+    chain = (
+        RunnablePassthrough.assign(processed_input=process_input)
+        | RunnablePassthrough.assign(
+            # Pass necessary fields from processed_input to the next steps
+            original_question=lambda x: x["processed_input"]["original_question"],
+            question_for_retrieval=lambda x: x["processed_input"][
+                "question_for_retrieval"
+            ],
+            # The 'question' for the answering branch is the rephrased one
+            question=lambda x: x["processed_input"]["question_for_retrieval"],
+            user=lambda x: x["processed_input"]["user"],
+            user_info=lambda x: x["processed_input"]["user_info"],
+            category=lambda x: x["processed_input"]["category"],
+            chat_history=lambda x: x["processed_input"]["chat_history"],
+        )
+        | RunnableLambda(retrieve_docs)
+        # Pass both contexts from retrieve_docs to the answering branch
+        | RunnablePassthrough.assign(
+            primary_context=lambda x: x["primary_context"],
+            philosophy_context=lambda x: x["philosophy_context"],
+        )
+        | RunnablePassthrough.assign(answer=branch)
+        | RunnableLambda(postprocess)
+    )
+
+    return chain
 
 
 def initialize_chain():
     """Initialize retriever and answer chain if not already initialized."""
-    # skip initialization when run_ingest command is executed
+    # Skip initialization when run_ingest command is executed
     if "run_ingest" in sys.argv:
         print("run_ingest command is executed, skip initialization")
         return None
@@ -581,5 +790,5 @@ def initialize_chain():
     if retriever is None or answer_chain is None:
         retriever = get_retriever()
         answer_chain = create_chain(llm, retriever)
-    return answer_chain
 
+    return answer_chain
