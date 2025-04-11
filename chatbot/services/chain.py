@@ -30,7 +30,7 @@ from users.models import User
 REPHRASE_TEMPLATE = """\
 다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꾸세요.
 
-대화 기록:
+대화 기록: 
 {chat_history}
 
 <독립 질문 생성 가이드>
@@ -139,7 +139,7 @@ def get_retriever() -> BaseRetriever:
 
     return vectorstore.as_retriever(
         search_kwargs={
-            "k": 40,
+            "k": 10,
             "filter": {},  # Will be updated dynamically based on category
             # "score_threshold": 0.7,
         }
@@ -160,16 +160,16 @@ def determine_category(question: str, user_info: Dict) -> str:
     
     각 카테고리 별 질문 예시:
     
-    1. 창플의 구체적 조언:
+    1. 창플의 구체적 조언:(하고싶은 업종, 그리고 숫자가 질문에 포함되어 있는 경우)
     "30대 초반 남성인데, 분식집을 창업하려고 합니다. 자본금은 5천만원 정도 있고, 프랜차이즈로 시작하려고 하는데 어떤 점을 고려해야 할까요? 아이는 없고 사업에 온전히 시간을 할애할 수 있습니다."
     
-    2. 창플의 질문과 조언:
+    2. 창플의 질문과 조언:(하고싶은 업종이나 브랜드가 질문에 포함되어 있는 경우)
     "돈까스집 창업을 생각 중인데 어떻게 시작해야 할까요?"
     
-    3. 창플의 업계 일반적 질문 대답:
+    3. 창플의 업계 일반적 질문 대답:(창플과 직접적인 관련이 없는 업계 트렌드를 질문하는 경우)
     "요즘 트렌드인 식당 업종은 무엇인가요?"
     
-    4. 창플과 관련된 질문 대답:
+    4. 창플과 관련된 질문 대답:(창플과 직접적인 관련이 있는 질문을 하는 경우)
     "창플은 어떤 일을 하는 회사인가요?"
     
     아래의 카테고리 중 하나를 선택하세요:
@@ -328,6 +328,9 @@ def create_specific_advice_chain() -> Runnable:
       
     예시 질문과 대답:
     {example}
+
+    대화 기록: q. 
+    {chat_history}
  
     관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
     <답변 가이드>
@@ -341,6 +344,8 @@ def create_specific_advice_chain() -> Runnable:
     8. 말을 반복하지 마세요.
     9. 주어진 관련 에세이의 문체, 어투를 따라하세요.
     10. 비유적 표현을 활용하세요.
+    11. 말을 반복하지 마세요.
+    12. 대화기록이 있다면, 활용해서 어색하지 않은 대답을 하세요.
     </답변 가이드>
 
     사용자 질문:
@@ -372,6 +377,9 @@ def create_question_advice_chain() -> Runnable:
       
     예시 질문과 대답:
     {example}
+
+    대화 기록:
+    {chat_history}
  
     관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
     <답변 가이드>
@@ -385,6 +393,8 @@ def create_question_advice_chain() -> Runnable:
     7. 여러 상황에 맞는 조건부 조언을 하세요.
     8. 유저 정보에 대해서 직접적으로 언급하지 마세요.
     9. 비유적 표현을 활용하세요.
+    11. 말을 반복하지 마세요.
+    12. 대화기록이 있다면, 활용해서 어색하지 않은 대답을 하세요.
     </답변 가이드>
     
     사용자 질문:
@@ -416,6 +426,9 @@ def create_industry_general_chain() -> Runnable:
 
     예시 질문과 대답:
     {example}
+
+    대화 기록:
+    {chat_history}
       
     관련 에세이, 창플 철학 참고 자료, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
     <답변 가이드>
@@ -427,6 +440,8 @@ def create_industry_general_chain() -> Runnable:
     8. 단기적 트렌드보다 장기적 사업 방향을 강조하세요
     9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
     10. 비유적 표현을 활용하세요.
+    11. 말을 반복하지 마세요.
+    12. 대화기록이 있다면, 활용해서 어색하지 않은 대답을 하세요.
     </답변 가이드>
 
     사용자 질문:
@@ -456,6 +471,9 @@ def create_changple_info_chain() -> Runnable:
 
     예시 질문과 대답:
     {example}
+
+    대화 기록:
+    {chat_history}
      
     관련 에세이, 예시 질문과 대답을 활용하여 사용자 질문에 답하세요.
     <답변 가이드>
@@ -467,6 +485,8 @@ def create_changple_info_chain() -> Runnable:
     8. 창플의 접근 방식을 생존 전략과 이어서 설명하세요.
     9. 유저 정보에 대해서 직접적으로 언급하지 마세요.
     10. 비유적 표현을 활용하세요.
+    11. 말을 반복하지 마세요.
+    12. 대화기록이 있다면, 활용해서 어색하지 않은 대답을 하세요.
     </답변 가이드>
   
     사용자 질문:
@@ -491,6 +511,9 @@ def create_default_chain() -> Runnable:
     
     사용자 정보:
     {user_info}
+    
+    대화 기록:
+    {chat_history}
     
     사용자 질문:
     {question}
@@ -683,7 +706,7 @@ def create_chain(
         try:
             # Temporarily override filter and k for fixed retrieval
             retriever.search_kwargs["filter"] = {"notation": {"$in": [fixed_category]}}
-            retriever.search_kwargs["k"] = 5
+            retriever.search_kwargs["k"] = 3
             philosophy_docs = retriever.invoke(generic_query)
             logger.info(f"Retrieved {len(philosophy_docs)} fixed philosophy documents.")
         except Exception as e:
@@ -770,6 +793,16 @@ def create_chain(
             example=lambda x: EXAMPLE_QA_MAP.get(
                 x["category"], ""
             ),  # Add example directly
+            chat_history=lambda _: "\n".join(
+                [
+                    (
+                        f"사용자: {msg.content}"
+                        if type(msg).__name__ == "HumanMessage"
+                        else f"AI: {msg.content}"
+                    )
+                    for msg in memory.chat_memory.messages
+                ]
+            ),
         )
         | RunnablePassthrough.assign(answer=branch)  # Branch uses the cleaned inputs
         | RunnableLambda(
