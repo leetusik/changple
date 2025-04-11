@@ -34,7 +34,7 @@ body {
   position: relative;
   max-width: 1040px;
   width: 100%;
-  height: calc(100vh - 250px); /* 기존 값보다 더 많은 공간 확보 */
+  height: calc(100vh - 250px);
   overflow-y: auto;
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
@@ -74,7 +74,7 @@ body {
     flex-direction: row;
     align-items: flex-start;
     padding-left: 40px;
-    padding-bottom: 10px; /* 하단 패딩 추가 */
+    padding-bottom: 10px; 
 }
 
 .prompt-links-cards {
@@ -82,7 +82,7 @@ body {
     height: 100px;
     border-radius: 10px;
     outline: 1px solid #617DAE;
-    margin-right: 10px; /* 오른쪽 여백 추가 */
+    margin-right: 10px; 
 }
 
 /* 마지막 카드의 여백 제거 */
@@ -140,36 +140,36 @@ body {
 }
 
 .free-use-count {
-    display: inline-block; /* 컨테이너를 내용물 크기에 맞게 조절 */
+    display: inline-block; 
     height: 40px;
     /* background-color: white; */
     border-radius: 10px;
     outline: 1px solid #8097C0;
-    padding: 0 8px; /* 좌우 4px 패딩 추가 */
+    padding: 0 8px; 
 }
 
 .free-use-count p {
-  line-height: 40px; /* 수직 중앙 정렬을 위해 컨테이너 높이와 동일하게 설정 */
-  white-space: nowrap; /* 텍스트를 한 줄로 유지 */
-  margin: 0; /* 기본 마진 제거 */
+  line-height: 40px;
+  white-space: nowrap;
+  margin: 0;
   color: #617dae;
 }
 
+/* 
 .pay-use-btn {
-  display: inline-block; /* 컨테이너를 내용물 크기에 맞게 조절 */
+  display: inline-block; 
   height: 40px;
-  /* background-color: white; */
   border-radius: 10px;
   outline: 1px solid #8097c0;
-  padding: 0 4px; /* 좌우 4px 패딩 추가 */
-}
+  padding: 0 4px; 
+} */
 
-.pay-use-btn p {
-  line-height: 40px; /* 수직 중앙 정렬을 위해 컨테이너 높이와 동일하게 설정 */
-  white-space: nowrap; /* 텍스트를 한 줄로 유지 */
-  margin: 0; /* 기본 마진 제거 */
+/* .pay-use-btn p {
+  line-height: 40px; 
+  white-space: nowrap; 
+  margin: 0;
   color: #617dae;
-}
+} */
 
 .prompt-p {
     width: 100%;
@@ -190,14 +190,14 @@ body {
     color: white;
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.10);
     border-radius: 20px;
-    text-align: left; /* 오른쪽 정렬 대신 왼쪽 정렬로 변경 (일반적인 말풍선) */
-    word-wrap: break-word; /* 긴 단어 줄바꿈 */
-    white-space: normal; /* 줄바꿈 허용 */
+    text-align: left; 
+    word-wrap: break-word; 
+    white-space: normal;
 }
 
 .prompt-text-area p {
-  margin: 0; /* 기본 마진 제거 */
-  padding: 10px 15px; /* 좌우 패딩 조정 */
+  margin: 0; 
+  padding: 10px 15px; 
 }
 
 .header {
@@ -237,7 +237,7 @@ body {
   flex-direction: row;
   justify-content: center;
   /* align-items: center; */
-  gap: 10px; /* 기존보다 더 좁은 간격 */
+  gap: 10px; 
 }
 
 .login-btn,
@@ -382,7 +382,6 @@ body {
 
 .input-box-unlocked {
   width: 100%;
-  /* height: 100%; */ /* 고정 높이 제거 */
   height: 80px; /* 초기 높이 (한 줄 정도) */
   min-height: 80px; /* 최소 높이 */
   max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
@@ -538,8 +537,7 @@ footer {
   }
 
   .input-container-unlocked {
-    /* height: auto; */ /* 이미 auto 또는 제거됨 */
-    min-height: 60px; /* 모바일 최소 높이 조정 */
+    min-height: 60px; 
   }
 
   .input-box-locked {
@@ -548,11 +546,11 @@ footer {
   }
 
   .input-box-unlocked {
-    font-size: 18px; /* 모바일 폰트 크기 조정 */
-    padding: 8px 70px 8px 20px; /* 모바일 패딩 조정 */
-    height: 36px; /* 모바일 초기 높이 */
+    font-size: 18px; 
+    padding: 8px 70px 8px 20px; 
+    height: 36px; 
     min-height: 36px;
-    max-height: 150px; /* 모바일 최대 높이 */
+    max-height: 150px;
   }
 
   .locked-btn {
@@ -564,10 +562,10 @@ footer {
 
   .send-btn,
   .changple-btn {
-    width: 40px; /* 모바일 버튼 크기 */
+    width: 40px; 
     height: 40px;
     right: 10px;
-    bottom: 10px; /* 하단 간격 유지 */
+    bottom: 10px;
   }
 
     /* footer {
