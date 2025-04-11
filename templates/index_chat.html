@@ -137,9 +137,20 @@
                 </div>
             </div>
 
+            <!-- 아래로 스크롤 버튼 위치 이동 -->
+            {% comment %} <button id="scroll-down-btn" class="scroll-down-button" style="display: none;">
+                ↓
+            </button> {% endcomment %}
+
             <div class="input-container-prompt">
-                <input type="text" class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요" />
-                
+                <!-- 스크롤 버튼을 input-container-prompt 내부 상단으로 이동 -->
+                <button id="scroll-down-btn" class="scroll-down-button" style="display: none;">
+                    ↓
+                </button>
+
+                {% comment %} <input type="text" class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요" /> {% endcomment %}
+                <textarea class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요"></textarea>
+
                 <!-- 창플 아이콘 (input 미입력) -->
                 <div class="changple-btn">
                     <svg class="changple-icon" width="30" height="34" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -149,11 +160,18 @@
                 </div>
 
                 <!--send btn 글자 입력시-->
-                <div class="send-btn">
+                <div class="send-btn" style="display: none;">
                     <svg class="send-icon" width="23" height="26" viewBox="0 0 23 26" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M1.03659 12.7966C0.741862 12.5018 0.576294 12.102 0.576294 11.6852C0.576294 11.2683 0.741862 10.8685 1.03659 10.5737L10.4693 1.14096C10.7641 0.846232 11.1639 0.680664 11.5808 0.680664C11.9977 0.680664 12.3975 0.846232 12.6923 1.14096L22.125 10.5737C22.4114 10.8702 22.5698 11.2673 22.5662 11.6795C22.5627 12.0917 22.3973 12.486 22.1058 12.7775C21.8143 13.069 21.42 13.2343 21.0078 13.2379C20.5956 13.2415 20.1985 13.083 19.902 12.7966L13.1529 6.04754V24.2621C13.1529 24.679 12.9873 25.0789 12.6924 25.3738C12.3976 25.6686 11.9977 25.8342 11.5808 25.8342C11.1638 25.8342 10.764 25.6686 10.4691 25.3738C10.1743 25.0789 10.0087 24.679 10.0087 24.2621V6.04754L3.25956 12.7966C2.96475 13.0914 2.56495 13.2569 2.14808 13.2569C1.73121 13.2569 1.3314 13.0914 1.03659 12.7966Z" fill="#617DAE"/>
                     </svg>
-                </div>         
+                </div>
+
+                <!-- Locked Button (Initially Hidden) -->
+                <div class="locked-btn" style="display: none;">
+                    <svg class="lock-icon" xmlns="http://www.w3.org/2000/svg" width="27" height="30" viewBox="0 0 27 30" fill="none">
+                        <path d="M13.4574 19.9639V22.9639M4.4574 28.9639H22.4574C23.253 28.9639 24.0161 28.6478 24.5787 28.0852C25.1413 27.5226 25.4574 26.7595 25.4574 25.9639V16.9639C25.4574 16.1682 25.1413 15.4052 24.5787 14.8425C24.0161 14.2799 23.253 13.9639 22.4574 13.9639H4.4574C3.66175 13.9639 2.89869 14.2799 2.33608 14.8425C1.77347 15.4052 1.4574 16.1682 1.4574 16.9639V25.9639C1.4574 26.7595 1.77347 27.5226 2.33608 28.0852C2.89869 28.6478 3.66175 28.9639 4.4574 28.9639ZM19.4574 13.9639V7.96387C19.4574 6.37257 18.8253 4.84644 17.7 3.72123C16.5748 2.59601 15.0487 1.96387 13.4574 1.96387C11.8661 1.96387 10.34 2.59601 9.21476 3.72123C8.08954 4.84644 7.4574 6.37257 7.4574 7.96387V13.9639H19.4574Z" stroke="#90A4C8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
             </div>
         </div>
 
@@ -223,6 +241,7 @@
             let remainingQueries = {{ remaining_queries|default:0 }};
             let queryLimit = {{ query_limit|default:10 }};
             let isPremium = {{ is_premium|default:"false" }};
+            let one_o_one_condition = false; // 조건 변수 추가 및 false로 초기화
             
             // Process initial message in these cases:
             // 1. When redirected from index.html (has initial_message but no AI response yet)
@@ -241,14 +260,23 @@
             const inputBox = document.querySelector('.input-box-unlocked');
             const sendBtn = document.querySelector('.send-btn');
             const changpleBtn = document.querySelector('.changple-btn');
+            const initialHeight = inputBox.style.height; // 초기 높이 저장
+
+            // Function to adjust textarea height
+            function adjustTextareaHeight() {
+                inputBox.style.height = 'auto'; // Temporarily shrink height to calculate scrollHeight correctly
+                let scrollHeight = inputBox.scrollHeight;
+                const maxHeight = parseInt(window.getComputedStyle(inputBox).maxHeight, 10); // Get max-height from CSS
+
+                // Apply scrollHeight if less than max-height, otherwise apply max-height
+                if (scrollHeight <= maxHeight) {
+                    inputBox.style.height = scrollHeight + 'px';
+                } else {
+                    inputBox.style.height = maxHeight + 'px';
+                }
+            }
             
-            // Change placeholder text based on whether we have existing chat history
-            {% if chat_history %}
             inputBox.placeholder = "추가 질문을 입력하세요";
-            {% else %}
-            inputBox.placeholder = "창업의 모든 것을 물어보세요";
-            {% endif %}
-            
             // Show/hide the appropriate button based on input content
             inputBox.addEventListener('input', function() {
                 if (this.value.trim() !== '') {
@@ -258,9 +286,13 @@
                     changpleBtn.style.display = 'flex';
                     sendBtn.style.display = 'none';
                 }
+                adjustTextareaHeight(); // Adjust height on input
             });
-            
-            // Trigger input event to set initial state
+
+            // Adjust height on initial load in case there's pre-filled text (unlikely here but good practice)
+            adjustTextareaHeight();
+
+            // Trigger input event to set initial button state
             inputBox.dispatchEvent(new Event('input'));
             
             // 전송 버튼 클릭 이벤트
@@ -269,33 +301,49 @@
                 if (message) {
                     callChatAPI(message);
                     inputBox.value = ''; // 입력 필드 비우기
-                    inputBox.dispatchEvent(new Event('input')); // Update button display
+                    adjustTextareaHeight(); // Reset height after sending
+                    // inputBox.dispatchEvent(new Event('input')); // Update button display - callChatAPI 내부에서 처리
                 }
             });
             
             // 엔터키 이벤트
             inputBox.addEventListener('keyup', function(event) {
-                if (event.key === 'Enter') {
+                if (event.key === 'Enter' && !event.shiftKey) { // Shift+Enter 제외
+                    event.preventDefault(); // Enter 키 기본 동작(줄바꿈) 방지
                     const message = this.value.trim();
                     if (message) {
                         callChatAPI(message);
                         this.value = ''; // 입력 필드 비우기
-                        this.dispatchEvent(new Event('input')); // Update button display
+                        adjustTextareaHeight(); // Reset height after sending
                     }
+                } else {
+                    // Adjust height for other keyups as well, e.g., backspace
+                     adjustTextareaHeight();
                 }
             });
             
             // Chat API 호출 함수
             function callChatAPI(query, isInitialMessage = false) {
+                // --- 로딩 시작 시 UI 변경 ---
+                const inputBox = document.querySelector('.input-box-unlocked');
+                const sendBtn = document.querySelector('.send-btn');
+                const changpleBtn = document.querySelector('.changple-btn');
+                const lockedBtn = document.querySelector('.locked-btn'); // locked-btn 참조 추가
+
+                sendBtn.style.display = 'none'; // 전송 버튼 숨김
+                changpleBtn.style.display = 'none'; // 창플 버튼 숨김
+                lockedBtn.style.display = 'flex'; // 잠금 버튼 표시
+                // --- 로딩 시작 시 UI 변경 끝 ---
+
                 // Only add user message to the UI if it's not the initial message
                 // Initial messages are already rendered from the server-side chat_history
                 if (!isInitialMessage) {
                     addMessageToChat('user', query);
                 }
-                
+
                 // 로딩 메시지 추가
                 const loadingId = addLoadingMessage();
-                
+
                 fetch('/api/chat/', {
                     method: 'POST',
                     headers: {
@@ -311,40 +359,37 @@
                 .then(data => {
                     // 로딩 메시지 제거
                     removeLoadingMessage(loadingId);
-                    
+
                     // Check for errors first
                     if (data.error) {
                         addMessageToChat('assistant', `오류가 발생했습니다: ${data.error}`);
-                        
+
                         // Update query count from server data if available
                         if (data.remaining_queries !== undefined) {
                             remainingQueries = data.remaining_queries;
                             queryLimit = data.query_limit || queryLimit;
                             isPremium = data.is_premium || isPremium;
                         }
-                        
+
                         addFreeUseCount(remainingQueries, queryLimit);
-                        return;
-                    }
-                    
-                    // API 응답 처리
-                    if (data.response) {
+                    } else if (data.response) {
+                        // API 응답 처리
                         // 응답을 대화 영역에 추가
                         addMessageToChat('assistant', data.response);
-                        
+
                         // 검색 결과로 카드 업데이트
                         if (data.search_results && data.search_results.length > 0) {
                             console.log("Received search results:", data.search_results);
                             updateSearchCards(data.search_results);
                         }
-                            
+
                         // Update query count from server data
                         if (data.remaining_queries !== undefined) {
                             remainingQueries = data.remaining_queries;
                             queryLimit = data.query_limit || queryLimit;
                             isPremium = data.is_premium || isPremium;
                         }
-                        
+
                         // Display updated count
                         addFreeUseCount(remainingQueries, queryLimit);
                     }
@@ -356,6 +401,11 @@
                     // 오류 메시지 추가
                     addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
                     addFreeUseCount(remainingQueries, queryLimit);
+                })
+                .finally(() => {
+                    lockedBtn.style.display = 'none'; // 잠금 버튼 숨김
+                    // input 이벤트를 발생시켜 changple/send 버튼 상태 업데이트
+                    inputBox.dispatchEvent(new Event('input'));
                 });
             }
             
@@ -369,39 +419,54 @@
                 
                 // 고유 ID 생성
                 const counterId = 'free-use-count-' + Date.now();
-                // Create unique ID for consultation button
-                const buttonId = 'open-consultation-modal-' + Date.now();
+                let buttonId = null; // 버튼 ID 변수 초기화
                 
                 let displayText = `무료 사용(${count}/${limit})`;
                 if (isPremium) {
                     displayText = "프리미엄 이용자";
                 }
+
+                let buttonHTML = ''; // 버튼 HTML 초기화
+
+                // one_o_one_condition이 true일 때만 버튼 HTML 생성 및 ID 할당
+                if (one_o_one_condition) {
+                    buttonId = 'open-consultation-modal-' + Date.now();
+                    buttonHTML = `
+                        <div class="free-use-count">
+                            <p id="${buttonId}" class="consultation-btn" role="button" tabindex="0">1:1 상담 신청</p>
+                        </div>
+                    `;
+                }
                 
+                // 최종 HTML 구성 (버튼 HTML은 조건에 따라 포함되거나 비어있음)
                 const freeUseCountHTML = `
                     <div id="${counterId}" class="free-use-count-container">
                         <div class="free-use-count">
                             <p>${displayText}</p>
                         </div>
-                        <div class="free-use-count">
-                            <p id="${buttonId}" class="consultation-btn" role="button" tabindex="0">1:1 상담 신청</p>
-                        </div>
+                        ${buttonHTML} 
                     </div>
                 `;
                 
                 promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
                 
-                // Add event listener to the specific button using the unique ID
-                document.getElementById(buttonId).addEventListener('click', function() {
-                    openConsultationModal();
-                });
-                
-                // Add keyboard accessibility for the p tag
-                document.getElementById(buttonId).addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.click();
+                // 버튼이 실제로 추가되었을 경우 (one_o_one_condition이 true였을 경우)에만 이벤트 리스너 추가
+                if (one_o_one_condition && buttonId) {
+                    const buttonElement = document.getElementById(buttonId);
+                    if (buttonElement) { // 버튼 요소가 존재하는지 확인
+                        buttonElement.addEventListener('click', function() {
+                            openConsultationModal();
+                        });
+                        
+                        // 키보드 접근성 이벤트 리스너 추가
+                        buttonElement.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                this.click();
+                            }
+                        });
                     }
-                });
+                }
             }
             
             // 대화 메시지를 화면에 추가하는 함수
@@ -680,6 +745,48 @@
                     });
                 });
             }
+
+            const promptContainer = document.querySelector('.prompt-container');
+            const scrollDownBtn = document.getElementById('scroll-down-btn'); // 스크롤 버튼 가져오기
+            
+            // 스크롤 이벤트 리스너 추가 (스크롤 버튼 표시/숨김)
+            promptContainer.addEventListener('scroll', function() {
+                // scrollHeight: 총 스크롤 가능 높이
+                // scrollTop: 현재 스크롤 위치 (상단 기준)
+                // clientHeight: 컨테이너의 보이는 높이
+                const scrollHeight = promptContainer.scrollHeight;
+                const scrollTop = promptContainer.scrollTop;
+                const clientHeight = promptContainer.clientHeight;
+
+                // 맨 아래에서 약간의 오차(10px)를 허용하여 거의 맨 아래인지 확인
+                const isNearBottom = scrollTop + clientHeight >= scrollHeight - 10; 
+                
+                // 사용자가 상단 80% 영역에 있을 때 버튼 표시 (맨 아래에 가까우면 숨김)
+                // (0~50% 요청하셨지만, 너무 빨리 사라지는 느낌일 수 있어 80% 정도로 조절)
+                const showButtonThreshold = 0.8; 
+                const currentScrollRatio = (scrollTop + clientHeight) / scrollHeight;
+
+                if (!isNearBottom && currentScrollRatio < showButtonThreshold) {
+                    scrollDownBtn.classList.add('visible'); // CSS 클래스로 표시
+                    scrollDownBtn.style.display = 'flex'; // display 속성도 직접 제어
+                } else {
+                    scrollDownBtn.classList.remove('visible'); // CSS 클래스로 숨김
+                    // opacity transition 후 display none 처리
+                    setTimeout(() => {
+                        if (!scrollDownBtn.classList.contains('visible')) {
+                             scrollDownBtn.style.display = 'none';
+                        }
+                    }, 300); // transition 시간과 일치
+                }
+            });
+
+            // 스크롤 버튼 클릭 이벤트 리스너
+            scrollDownBtn.addEventListener('click', function() {
+                promptContainer.scrollTo({
+                    top: promptContainer.scrollHeight,
+                    behavior: 'smooth' // 부드럽게 스크롤
+                });
+            });
         });
 
          // cp-logo-container 클릭 이벤트 리스너 추가

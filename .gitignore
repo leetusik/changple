@@ -183,3 +183,6 @@ cython_debug/
 # Whoosh index files
 whoosh_index/
 **/whoosh_index/
+
+# Google Cloud Service Account Key
+changple-456216-ca6f0e36993a.json

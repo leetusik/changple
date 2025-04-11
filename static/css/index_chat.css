@@ -32,10 +32,10 @@ body {
 
 .prompt-container {
   position: relative;
-  width: 1040px;
-  height: calc(100vh - 288px); /* 기존 값보다 더 많은 공간 확보 */
+  max-width: 1040px;
+  width: 100%;
+  height: calc(100vh - 250px); /* 기존 값보다 더 많은 공간 확보 */
   overflow-y: auto;
-  padding-bottom: 200px; /* 하단 패딩 증가 */
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
@@ -134,7 +134,7 @@ body {
     flex-direction: row;
     align-items: flex-start;
     padding-left: 40px;
-    padding-bottom: 100px;
+    padding-bottom: 50px;
     gap: 10px;
     
 }
@@ -172,7 +172,7 @@ body {
 }
 
 .prompt-p {
-    width: 1040px;
+    width: 100%;
     white-space: pre-line;
     line-height: 1.2;
     word-break: keep-all;
@@ -181,25 +181,23 @@ body {
     padding-left: 40px;
     padding-right: 200px;
     color: #2A4169;
-
-
 }
 
 .prompt-text-area {
     width: fit-content;
+    max-width: 60%; /* 최대 너비를 부모 요소의 60%로 제한 */
     background-color: #617DAE;
     color: white;
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.10);
     border-radius: 20px;
-    text-align: right;
-    white-space: nowrap; /* 텍스트를 한 줄로 표시 */
-    overflow: hidden; /* 넘치는 텍스트 숨김 */
-    text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+    text-align: left; /* 오른쪽 정렬 대신 왼쪽 정렬로 변경 (일반적인 말풍선) */
+    word-wrap: break-word; /* 긴 단어 줄바꿈 */
+    white-space: normal; /* 줄바꿈 허용 */
 }
 
 .prompt-text-area p {
   margin: 0; /* 기본 마진 제거 */
-  padding: 10px; /* 원하는 패딩 추가 */
+  padding: 10px 15px; /* 좌우 패딩 조정 */
 }
 
 .header {
@@ -280,33 +278,16 @@ body {
   cursor: pointer;
 }
 
-.main-content {
-    margin-top: 100px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-bottom: 268px; /* input-container-unlocked(148px) + footer(~100px) + 여유 공간 */
-    min-height: 100vh; /* 최소 화면 높이만큼 확보 */
-    width: 100%;
-    overflow-y: auto; /* 내용이 넘칠 경우 스크롤 가능하도록 */
-}
-
 .main-content-prompt {
-    /* margin-top: 200px; */
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 20px;
-    padding-top: 80px;
-    padding-bottom: 254px;
+    padding-bottom: 180px;
     width: 100%;
-    overflow-y: hidden; /* Disable scrolling */
     position: relative;
-    /* height: calc(100vh - 80px); */
+    margin-top: 50px; /* 헤더 높이만큼 마진 추가 */
 }
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
@@ -370,7 +351,9 @@ body {
 .input-container-prompt {
   width: 100%;
   max-width: 1040px;
-  height: 148px;
+  /* height: 148px; */ /* 고정 높이 제거 */
+  min-height: 80px; /* 최소 높이 설정 (예시) */
+  height: auto; /* 내용에 따라 높이 자동 조절 */
   position: fixed;
   bottom: 90px; /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
   left: 50%;
@@ -399,9 +382,11 @@ body {
 
 .input-box-unlocked {
   width: 100%;
-  height: 100%;
-  padding: 31px 34px;
-  padding-right: 90px; /* 버튼 공간 확보 */
+  /* height: 100%; */ /* 고정 높이 제거 */
+  height: 80px; /* 초기 높이 (한 줄 정도) */
+  min-height: 80px; /* 최소 높이 */
+  max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
+  padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -411,7 +396,12 @@ body {
   font-family: "SpoqaHanSansNeo-Regular", sans-serif;
   font-size: 20px;
   font-weight: 400;
-  padding-bottom: 90px;
+  resize: none; /* 크기 조절 핸들 숨김 */
+  overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
+  white-space: normal; /* 자동 줄바꿈 활성화 */
+  word-wrap: break-word; /* 단어 단위 줄바꿈 */
+  line-height: 1.4; /* 줄 간격 조정 */
+  box-sizing: border-box; /* 패딩과 테두리를 높이에 포함 */
 }
 
 .input-box-unlocked::placeholder {
@@ -423,7 +413,7 @@ body {
 .send-btn,
 .changple-btn {
   position: absolute;
-  bottom: 44px; /* 수정된 값 */
+  top: 10%;
   right: 17px;
   width: 60px;
   height: 60px;
@@ -548,8 +538,8 @@ footer {
   }
 
   .input-container-unlocked {
-    height: auto;
-    min-height: 120px;
+    /* height: auto; */ /* 이미 auto 또는 제거됨 */
+    min-height: 60px; /* 모바일 최소 높이 조정 */
   }
 
   .input-box-locked {
@@ -558,8 +548,11 @@ footer {
   }
 
   .input-box-unlocked {
-    font-size: 20px;
-    padding: 20px;
+    font-size: 18px; /* 모바일 폰트 크기 조정 */
+    padding: 8px 70px 8px 20px; /* 모바일 패딩 조정 */
+    height: 36px; /* 모바일 초기 높이 */
+    min-height: 36px;
+    max-height: 150px; /* 모바일 최대 높이 */
   }
 
   .locked-btn {
@@ -569,18 +562,12 @@ footer {
     bottom: 10px;
   }
 
-  .send-btn {
-    width: 50px;
-    height: 50px;
-    right: 10px;
-    bottom: 10px;
-  }
-
+  .send-btn,
   .changple-btn {
-    width: 50px;
-    height: 50px;
+    width: 40px; /* 모바일 버튼 크기 */
+    height: 40px;
     right: 10px;
-    bottom: 10px;
+    bottom: 10px; /* 하단 간격 유지 */
   }
 
     /* footer {
@@ -632,22 +619,19 @@ footer {
 
   .input-box-unlocked {
     font-size: 16px;
-    padding: 15px;
+    padding: 6px 60px 6px 15px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 120px;
   }
 
-  .locked-btn {
-    width: 40px;
-    height: 40px;
-  }
-
-  .send-btn {
-    width: 40px;
-    height: 40px;
-  }
-
+  .locked-btn,
+  .send-btn,
   .changple-btn {
-    width: 40px;
-    height: 40px;
+    width: 35px;
+    height: 35px;
+    right: 8px;
+    bottom: 8px;
   }
 
   .locked-icon {
@@ -692,8 +676,6 @@ input::placeholder {
 /* input::placeholder {
     text-align: right;
   } */
-
-
 
 
 
@@ -772,5 +754,46 @@ ul {
 
 li {
     line-height: 1.2;
+}
+
+
+/* ------------아래로 스크롤 버튼 스타일------------- */
+.scroll-down-button {
+    position: absolute; /* 부모(.input-container-prompt) 기준으로 위치 설정 */
+    bottom: 100%; /* 버튼의 아래쪽 경계를 부모의 위쪽 경계에 맞춤 */
+    left: 50%; /* 가로 중앙 기준으로 설정 */
+    transform: translateX(-50%); /* 요소 자체 너비의 50%만큼 왼쪽으로 이동하여 정확히 중앙 정렬 */
+    margin-bottom: 10px; /* 입력 컨테이너와의 간격 */
+    width: 32px;
+    height: 32px;
+    background-color: rgba(170, 185, 215, 0.7); /* 배경과 비슷하지만 살짝 진한 톤 (투명도 유지) */
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 24px; /* 화살표 크기 키움 (20px -> 24px) */
+    cursor: pointer;
+    display: flex; /* 기본값은 flex로 두고 JS에서 none으로 변경 */
+    justify-content: center;
+    align-items: center;
+    z-index: 1001; /* 다른 요소 위에 표시 (input container 내부이므로 z-index 중요도 낮아짐) */
+    box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.15); /* 그림자 약간 조정 */
+    transition: opacity 0.3s ease, background-color 0.3s ease;
+    opacity: 0; /* 기본적으로 숨김 (JS로 제어) */
+    visibility: hidden; /* 기본적으로 숨김 */
+}
+
+.scroll-down-button.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+.scroll-down-button:hover {
+    background-color: rgba(150, 170, 200, 0.8); /* 호버 시 조금 더 진하게 */
+}
+
+/* 미디어 쿼리 부분은 변경 없음 */
+@media screen and (max-width: 1100px) { 
+    /* 미디어 쿼리 내 left 조정 불필요 */
 }
 
