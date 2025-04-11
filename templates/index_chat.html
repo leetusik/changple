@@ -56,11 +56,10 @@
         <div class="header">
 
             <!-- 창플 메인 로고(좌측)) -->
-            {% comment %} <div class="cp-logo-container"> {% endcomment %}
             <div class="cp-logo-container" id="cp-logo" style="cursor: pointer;">
 
                 <svg class="cp-logo">
-                    {% comment %} <img src="{% static '../static/img/cp-logo-main.svg' %}" alt="CHAI Logo" /> {% endcomment %}
+                    
                     <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 513.51 109.45">
                         <defs>
                         <style>
@@ -102,14 +101,6 @@
 
             <div class="right-menu">
                 <!-- 마이페이지 (로그인 후) -->
-                {% comment %} <div class="mypage-btn">
-                    <svg class="mypage-icon" width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evened" clip-rule="evenodd" d="M8.24279 6.8065C9.09527 6.8065 9.91284 6.46786 10.5156 5.86506C11.1184 5.26226 11.4571 4.4447 11.4571 3.59222C11.4571 2.73973 11.1184 1.92217 10.5156 1.31937C9.91284 0.716577 9.09527 0.37793 8.24279 0.37793C7.39031 0.37793 6.57274 0.716577 5.96994 1.31937C5.36715 1.92217 5.0285 2.73973 5.0285 3.59222C5.0285 4.4447 5.36715 5.26226 5.96994 5.86506C6.57274 6.46786 7.39031 6.8065 8.24279 6.8065ZM0.742787 16.4494C0.742787 15.4644 0.936781 14.4892 1.31369 13.5792C1.6906 12.6693 2.24305 11.8425 2.93949 11.1461C3.63593 10.4496 4.46272 9.89717 5.37266 9.52026C6.2826 9.14335 7.25787 8.94936 8.24279 8.94936C9.2277 8.94936 10.203 9.14335 11.1129 9.52026C12.0229 9.89717 12.8496 10.4496 13.5461 11.1461C14.2425 11.8425 14.795 12.6693 15.1719 13.5792C15.5488 14.4892 15.7428 15.4644 15.7428 16.4494H0.742787Z" fill="#889DC4"/>
-                    </svg>
-                    <div class="mypage-btn-text">마이 페이지</div>  
-                </div> {% endcomment %}
-
-
                 <div class="mypage-btn" onclick="location.href='{% url 'mypage' %}'">
                     <svg class="mypage-icon" width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M8.24279 6.8065C9.09527 6.8065 9.91284 6.46786 10.5156 5.86506C11.1184 5.26226 11.4571 4.4447 11.4571 3.59222C11.4571 2.73973 11.1184 1.92217 10.5156 1.31937C9.91284 0.716577 9.09527 0.37793 8.24279 0.37793C7.39031 0.37793 6.57274 0.716577 5.96994 1.31937C5.36715 1.92217 5.0285 2.73973 5.0285 3.59222C5.0285 4.4447 5.36715 5.26226 5.96994 5.86506C6.57274 6.46786 7.39031 6.8065 8.24279 6.8065ZM0.742787 16.4494C0.742787 15.4644 0.936781 14.4892 1.31369 13.5792C1.6906 12.6693 2.24305 11.8425 2.93949 11.1461C3.63593 10.4496 4.46272 9.89717 5.37266 9.52026C6.2826 9.14335 7.25787 8.94936 8.24279 8.94936C9.2277 8.94936 10.203 9.14335 11.1129 9.52026C12.0229 9.89717 12.8496 10.4496 13.5461 11.1461C14.2425 11.8425 14.795 12.6693 15.1719 13.5792C15.5488 14.4892 15.7428 15.4644 15.7428 16.4494H0.742787Z" fill="#889DC4"/>
@@ -138,8 +129,14 @@
             </div>
 
             <div class="input-container-prompt">
-                <input type="text" class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요" />
+                <!-- 스크롤 버튼을 input-container-prompt 내부 상단으로 이동 -->
+                <button id="scroll-down-btn" class="scroll-down-button" style="display: none;">
+                    ↓
+                </button>
+
                 
+                <textarea class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요"></textarea>
+
                 <!-- 창플 아이콘 (input 미입력) -->
                 <div class="changple-btn">
                     <svg class="changple-icon" width="30" height="34" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -149,11 +146,18 @@
                 </div>
 
                 <!--send btn 글자 입력시-->
-                <div class="send-btn">
+                <div class="send-btn" style="display: none;">
                     <svg class="send-icon" width="23" height="26" viewBox="0 0 23 26" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M1.03659 12.7966C0.741862 12.5018 0.576294 12.102 0.576294 11.6852C0.576294 11.2683 0.741862 10.8685 1.03659 10.5737L10.4693 1.14096C10.7641 0.846232 11.1639 0.680664 11.5808 0.680664C11.9977 0.680664 12.3975 0.846232 12.6923 1.14096L22.125 10.5737C22.4114 10.8702 22.5698 11.2673 22.5662 11.6795C22.5627 12.0917 22.3973 12.486 22.1058 12.7775C21.8143 13.069 21.42 13.2343 21.0078 13.2379C20.5956 13.2415 20.1985 13.083 19.902 12.7966L13.1529 6.04754V24.2621C13.1529 24.679 12.9873 25.0789 12.6924 25.3738C12.3976 25.6686 11.9977 25.8342 11.5808 25.8342C11.1638 25.8342 10.764 25.6686 10.4691 25.3738C10.1743 25.0789 10.0087 24.679 10.0087 24.2621V6.04754L3.25956 12.7966C2.96475 13.0914 2.56495 13.2569 2.14808 13.2569C1.73121 13.2569 1.3314 13.0914 1.03659 12.7966Z" fill="#617DAE"/>
                     </svg>
-                </div>         
+                </div>
+
+                <!-- Locked Button (Initially Hidden) -->
+                <div class="locked-btn" style="display: none;">
+                    <svg class="lock-icon" xmlns="http://www.w3.org/2000/svg" width="27" height="30" viewBox="0 0 27 30" fill="none">
+                        <path d="M13.4574 19.9639V22.9639M4.4574 28.9639H22.4574C23.253 28.9639 24.0161 28.6478 24.5787 28.0852C25.1413 27.5226 25.4574 26.7595 25.4574 25.9639V16.9639C25.4574 16.1682 25.1413 15.4052 24.5787 14.8425C24.0161 14.2799 23.253 13.9639 22.4574 13.9639H4.4574C3.66175 13.9639 2.89869 14.2799 2.33608 14.8425C1.77347 15.4052 1.4574 16.1682 1.4574 16.9639V25.9639C1.4574 26.7595 1.77347 27.5226 2.33608 28.0852C2.89869 28.6478 3.66175 28.9639 4.4574 28.9639ZM19.4574 13.9639V7.96387C19.4574 6.37257 18.8253 4.84644 17.7 3.72123C16.5748 2.59601 15.0487 1.96387 13.4574 1.96387C11.8661 1.96387 10.34 2.59601 9.21476 3.72123C8.08954 4.84644 7.4574 6.37257 7.4574 7.96387V13.9639H19.4574Z" stroke="#90A4C8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
             </div>
         </div>
 
@@ -189,7 +193,10 @@
 
     
     {% load static %}
-    <script src="{% static 'js/index.js' %}"></script>
+    {# 외부 JavaScript 파일을 먼저 로드 #}
+    <script src="{% static 'js/index_chat.js' %}"></script> 
+    
+    {# HTML 내부에 남겨둘 스크립트 #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Load chat history from Django context if available
@@ -204,7 +211,7 @@
             {% if chat_history %}
                 // Render existing chat messages from the server
                 {% for message in chat_history %}
-                    addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`);
+                    addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`); // addMessageToChat는 index_chat.js에 정의됨
                 {% endfor %}
             {% endif %}
             
@@ -214,6 +221,7 @@
                 if (savedHistory) {
                     chatHistory = JSON.parse(savedHistory);
                     console.log("세션 스토리지에서 대화 기록 복원:", chatHistory.length, "개");
+                    // 필요하다면 복원된 기록도 화면에 렌더링 (현재는 렌더링 로직 없음)
                 }
             } catch (error) {
                 console.error("대화 기록 복원 오류:", error);
@@ -223,389 +231,178 @@
             let remainingQueries = {{ remaining_queries|default:0 }};
             let queryLimit = {{ query_limit|default:10 }};
             let isPremium = {{ is_premium|default:"false" }};
+            let one_o_one_condition = false; // 조건 변수 추가 및 false로 초기화
             
-            // Process initial message in these cases:
-            // 1. When redirected from index.html (has initial_message but no AI response yet)
-            // 2. When the session has only one user message but no AI response
-            {% if initial_message %}
-                // Check if we have an initial user message but no AI response yet
-                {% if chat_history|length == 1 and chat_history.0.role == 'user' %}
-                    const initialMessage = "{{ initial_message|escapejs }}";
-                    if (initialMessage) {
-                        callChatAPI(initialMessage, true);
-                    }
-                {% endif %}
-            {% endif %}
-            
-            // 입력 필드와 전송 버튼 가져오기
-            const inputBox = document.querySelector('.input-box-unlocked');
-            const sendBtn = document.querySelector('.send-btn');
-            const changpleBtn = document.querySelector('.changple-btn');
-            
-            // Change placeholder text based on whether we have existing chat history
-            {% if chat_history %}
-            inputBox.placeholder = "추가 질문을 입력하세요";
-            {% else %}
-            inputBox.placeholder = "창업의 모든 것을 물어보세요";
-            {% endif %}
-            
-            // Show/hide the appropriate button based on input content
-            inputBox.addEventListener('input', function() {
-                if (this.value.trim() !== '') {
-                    changpleBtn.style.display = 'none';
-                    sendBtn.style.display = 'flex';
-                } else {
-                    changpleBtn.style.display = 'flex';
-                    sendBtn.style.display = 'none';
-                }
-            });
-            
-            // Trigger input event to set initial state
-            inputBox.dispatchEvent(new Event('input'));
-            
-            // 전송 버튼 클릭 이벤트
-            sendBtn.addEventListener('click', function() {
-                const message = inputBox.value.trim();
-                if (message) {
-                    callChatAPI(message);
-                    inputBox.value = ''; // 입력 필드 비우기
-                    inputBox.dispatchEvent(new Event('input')); // Update button display
-                }
-            });
-            
-            // 엔터키 이벤트
-            inputBox.addEventListener('keyup', function(event) {
-                if (event.key === 'Enter') {
-                    const message = this.value.trim();
-                    if (message) {
-                        callChatAPI(message);
-                        this.value = ''; // 입력 필드 비우기
-                        this.dispatchEvent(new Event('input')); // Update button display
-                    }
-                }
-            });
-            
-            // Chat API 호출 함수
+             // Chat API 호출 함수 (session_nonce 때문에 HTML에 남김)
             function callChatAPI(query, isInitialMessage = false) {
+                // --- 로딩 시작 시 UI 변경 ---
+                const inputBox = document.querySelector('.input-box-unlocked');
+                const sendBtn = document.querySelector('.send-btn');
+                const changpleBtn = document.querySelector('.changple-btn');
+                const lockedBtn = document.querySelector('.locked-btn'); // locked-btn 참조 추가
+
+                // 요소 존재 여부 확인 후 스타일 변경
+                 if(sendBtn) sendBtn.style.display = 'none'; 
+                 if(changpleBtn) changpleBtn.style.display = 'none'; 
+                 if(lockedBtn) lockedBtn.style.display = 'flex'; 
+                // --- 로딩 시작 시 UI 변경 끝 ---
+
                 // Only add user message to the UI if it's not the initial message
                 // Initial messages are already rendered from the server-side chat_history
                 if (!isInitialMessage) {
-                    addMessageToChat('user', query);
+                    addMessageToChat('user', query); // index_chat.js 함수 호출
                 }
-                
+
                 // 로딩 메시지 추가
-                const loadingId = addLoadingMessage();
-                
+                const loadingId = addLoadingMessage(); // index_chat.js 함수 호출
+
                 fetch('/api/chat/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken') // CSRF 토큰 가져오기
+                        'X-CSRFToken': getCookie('csrftoken') // index_chat.js 함수 호출
                     },
                     body: JSON.stringify({
                         query: query,
-                        session_nonce: "{{ chat_session.session_nonce }}"
+                        session_nonce: "{{ chat_session.session_nonce }}" // Django 템플릿 변수 사용
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
                     // 로딩 메시지 제거
-                    removeLoadingMessage(loadingId);
-                    
+                    removeLoadingMessage(loadingId); // index_chat.js 함수 호출
+
                     // Check for errors first
                     if (data.error) {
-                        addMessageToChat('assistant', `오류가 발생했습니다: ${data.error}`);
-                        
+                        addMessageToChat('assistant', `오류가 발생했습니다: ${data.error}`); // index_chat.js 함수 호출
+
                         // Update query count from server data if available
                         if (data.remaining_queries !== undefined) {
                             remainingQueries = data.remaining_queries;
                             queryLimit = data.query_limit || queryLimit;
                             isPremium = data.is_premium || isPremium;
                         }
-                        
-                        addFreeUseCount(remainingQueries, queryLimit);
-                        return;
-                    }
-                    
-                    // API 응답 처리
-                    if (data.response) {
+
+                        addFreeUseCount(remainingQueries, queryLimit); // 아래 정의된 함수 호출
+                    } else if (data.response) {
+                        // API 응답 처리
                         // 응답을 대화 영역에 추가
-                        addMessageToChat('assistant', data.response);
-                        
+                        addMessageToChat('assistant', data.response); // index_chat.js 함수 호출
+
                         // 검색 결과로 카드 업데이트
                         if (data.search_results && data.search_results.length > 0) {
                             console.log("Received search results:", data.search_results);
-                            updateSearchCards(data.search_results);
+                            updateSearchCards(data.search_results); // index_chat.js 함수 호출
                         }
-                            
+
                         // Update query count from server data
                         if (data.remaining_queries !== undefined) {
                             remainingQueries = data.remaining_queries;
                             queryLimit = data.query_limit || queryLimit;
                             isPremium = data.is_premium || isPremium;
                         }
-                        
+
                         // Display updated count
-                        addFreeUseCount(remainingQueries, queryLimit);
+                        addFreeUseCount(remainingQueries, queryLimit); // 아래 정의된 함수 호출
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     // 로딩 메시지 제거
-                    removeLoadingMessage(loadingId);
+                    removeLoadingMessage(loadingId); // index_chat.js 함수 호출
                     // 오류 메시지 추가
-                    addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.');
-                    addFreeUseCount(remainingQueries, queryLimit);
+                    addMessageToChat('assistant', '오류가 발생했습니다. 다시 시도해주세요.'); // index_chat.js 함수 호출
+                    addFreeUseCount(remainingQueries, queryLimit); // 아래 정의된 함수 호출
+                })
+                .finally(() => {
+                    // --- 로딩 종료 시 UI 복원 ---
+                     if(lockedBtn) lockedBtn.style.display = 'none'; // 잠금 버튼 숨김
+                    // input 이벤트를 발생시켜 changple/send 버튼 상태 업데이트
+                     if(inputBox) inputBox.dispatchEvent(new Event('input'));
+                    // --- 로딩 종료 시 UI 복원 끝 ---
                 });
             }
-            
-            // 무료 사용 카운트 추가 함수
-            function addFreeUseCount(remainingCount, totalLimit) {
+
+            // 무료 사용 카운트 추가 함수 (openConsultationModal 호출 필요, HTML에 남김)
+             function addFreeUseCount(remainingCount, totalLimit) {
                 // Use function parameters or default to global variables
                 const count = remainingCount !== undefined ? remainingCount : remainingQueries;
                 const limit = totalLimit !== undefined ? totalLimit : queryLimit;
                 
                 const promptContainer = document.querySelector('.prompt-wrapper');
+                if (!promptContainer) return;
                 
                 // 고유 ID 생성
                 const counterId = 'free-use-count-' + Date.now();
-                // Create unique ID for consultation button
-                const buttonId = 'open-consultation-modal-' + Date.now();
+                let buttonId = null; // 버튼 ID 변수 초기화
                 
                 let displayText = `무료 사용(${count}/${limit})`;
                 if (isPremium) {
                     displayText = "프리미엄 이용자";
                 }
+
+                let buttonHTML = ''; // 버튼 HTML 초기화
+
+                // one_o_one_condition이 true일 때만 버튼 HTML 생성 및 ID 할당
+                if (one_o_one_condition) {
+                    buttonId = 'open-consultation-modal-' + Date.now();
+                    buttonHTML = `
+                        <div class="free-use-count">
+                            <p id="${buttonId}" class="consultation-btn" role="button" tabindex="0">1:1 상담 신청</p>
+                        </div>
+                    `;
+                }
                 
+                // 최종 HTML 구성 (버튼 HTML은 조건에 따라 포함되거나 비어있음)
                 const freeUseCountHTML = `
                     <div id="${counterId}" class="free-use-count-container">
                         <div class="free-use-count">
                             <p>${displayText}</p>
                         </div>
-                        <div class="free-use-count">
-                            <p id="${buttonId}" class="consultation-btn" role="button" tabindex="0">1:1 상담 신청</p>
-                        </div>
+                        ${buttonHTML} 
                     </div>
                 `;
                 
                 promptContainer.insertAdjacentHTML('beforeend', freeUseCountHTML);
                 
-                // Add event listener to the specific button using the unique ID
-                document.getElementById(buttonId).addEventListener('click', function() {
-                    openConsultationModal();
-                });
-                
-                // Add keyboard accessibility for the p tag
-                document.getElementById(buttonId).addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.click();
+                // 버튼이 실제로 추가되었을 경우 (one_o_one_condition이 true였을 경우)에만 이벤트 리스너 추가
+                if (one_o_one_condition && buttonId) {
+                    const buttonElement = document.getElementById(buttonId);
+                    if (buttonElement) { // 버튼 요소가 존재하는지 확인
+                        buttonElement.addEventListener('click', function() {
+                            openConsultationModal(); // index_chat.js 함수 호출
+                        });
+                        
+                        // 키보드 접근성 이벤트 리스너 추가
+                        buttonElement.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                this.click();
+                            }
+                        });
                     }
-                });
-            }
-            
-            // 대화 메시지를 화면에 추가하는 함수
-            function addMessageToChat(role, content) {
-                const promptContainer = document.querySelector('.prompt-wrapper');
-                
-                if (role === 'user') {
-                    // 고유 ID 생성
-                    const messageId = 'user-message-' + Date.now();
-                    
-                    // 사용자 메시지 추가
-                    const userMessageHTML = `
-                        <div id="${messageId}" class="prompt-answer-block">
-                            <div class="prompt-text-area">
-                                <p>${content}</p>
-                            </div>
-                        </div>
-                    `;
-                    promptContainer.insertAdjacentHTML('beforeend', userMessageHTML);
-                    
-                    // 새 메시지로 스크롤 (smoothly)
-                    document.getElementById(messageId).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else if (role === 'assistant') {
-                    // 챗봇 응답에 고유 ID 부여
-                    const botMessageId = 'bot-message-' + Date.now();
-                    
-                    // 마크다운 렌더링 적용
-                    const renderedContent = DOMPurify.sanitize(marked.parse(content));
-                    
-                    const botMessageHTML = `
-                        <br>
-                        <div id="${botMessageId}" class="prompt-p">${renderedContent}</div>
-                    `;
-                    promptContainer.insertAdjacentHTML('beforeend', botMessageHTML);
-                    
-                    // 새 메시지로 스크롤
-                    document.getElementById(botMessageId).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }
-            
-            // 로딩 메시지 추가
-            function addLoadingMessage() {
-                const loadingId = 'loading-' + Date.now();
-                const promptContainer = document.querySelector('.prompt-wrapper');
-                const loadingHTML = `
-                    <div id="${loadingId}" class="prompt-p">생성중...</div>
-                `;
-                promptContainer.insertAdjacentHTML('beforeend', loadingHTML);
 
-                // 새 메시지로 스크롤 (smoothly)
-                document.getElementById(loadingId).scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return loadingId;
-            }
-            
-            // 로딩 메시지 제거
-            function removeLoadingMessage(loadingId) {
-                const loadingElement = document.getElementById(loadingId);
-                if (loadingElement) {
-                    loadingElement.remove();
-                }
-            }
-            
-            // 검색 결과 카드 업데이트
-            function updateSearchCards(searchResults) {
-                if (searchResults && searchResults.length > 0) {
-                    // 새로운 검색 결과 컨테이너 생성
-                    const promptContainer = document.querySelector('.prompt-wrapper');
-                    
-                    // 새 검색 결과 컨테이너 생성
-                    const newLinksContainer = document.createElement('div');
-                    newLinksContainer.className = 'prompt-links-container';
-                    
-                    // 최대 3개까지만 표시
-                    const maxCardsToShow = Math.min(searchResults.length, 3);
-                    
-                    for (let i = 0; i < maxCardsToShow; i++) {
-                        const result = searchResults[i];
-                        const title = result.metadata && result.metadata.title || '제목 없음';
-                        // 타이틀 25자로 제한
-                        const shortTitle = title.length > 25
-                            ? title.substring(0, 25) + '...' 
-                            : title;
-                        const content = result.content || '';
-                        
-                        // content 첫 15자만 표시 (있을 경우)
-                        const shortContent = content.length > 15 
-                            ? content.substring(0, 15) + '...' 
-                            : content;
-                        
-                        const url = result.metadata && result.metadata.url || 'https://cafe.naver.com';
-                        
-                        // 카드 요소 생성
-                        const cardHTML = `
-                            <div class="prompt-links-cards">
-                                <a href="${url}" target="_blank" class="link-card">
-                                    <div class="card-content">
-                                        <div class="card-title">${shortTitle}</div>
-                                        <div class="card-description">${shortContent}</div>
-                                    </div>
-                                </a>
-                            </div>
-                        `;
-                        
-                        // 새 컨테이너에 카드 추가
-                        newLinksContainer.innerHTML += cardHTML;
-                    }
-                    
-                    // 각 대화 후 새 컨테이너를 추가
-                    promptContainer.appendChild(newLinksContainer);
-                }
-            }
-            
-            // CSRF 토큰 가져오기 위한 함수
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            
-            // 상담 신청 모달 열기 함수
-            function openConsultationModal() {
-                console.log("Opening consultation modal"); // Debug log
-                
-                // 모달이 이미 있는지 확인
-                if (document.getElementById('consultation-modal')) {
-                    console.log("Modal already exists, showing it");
-                    document.getElementById('consultation-modal').style.display = 'block';
-                    return;
-                }
-                
-                console.log("Creating new modal");
-                
-                // 모달 HTML 생성
-                const modalHTML = `
-                    <div id="consultation-modal" class="modal">
-                        <div class="modal-content">
-                            <span class="close">&times;</span>
-                            <h2>1:1 상담 신청</h2>
-                            <p>상담 요청을 위해 이메일 주소를 입력해주세요.</p>
-                            <form id="consultation-form">
-                                <div class="form-group">
-                                    <label for="user-email">이메일 주소</label>
-                                    <input type="email" id="user-email" name="user-email" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="additional-message">추가 메시지 (선택사항)</label>
-                                    <textarea id="additional-message" name="additional-message" rows="4"></textarea>
-                                </div>
-                                <button type="submit" class="submit-btn">상담 신청하기</button>
-                            </form>
-                        </div>
-                    </div>
-                `;
-                
-                // 모달을 body에 추가
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-                
-                // Explicitly set the modal to be visible immediately after creating it
-                const modal = document.getElementById('consultation-modal');
-                modal.style.display = 'block';
-                
-                // 닫기 버튼 이벤트 리스너
-                document.querySelector('.close').addEventListener('click', function() {
-                    document.getElementById('consultation-modal').style.display = 'none';
-                });
-                
-                // 모달 외부 클릭시 닫기
-                window.addEventListener('click', function(event) {
-                    if (event.target == document.getElementById('consultation-modal')) {
-                        document.getElementById('consultation-modal').style.display = 'none';
-                    }
-                });
-                
-                // 폼 제출 이벤트 리스너
-                document.getElementById('consultation-form').addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    sendConsultationRequest();
-                });
-            }
-            
-            // 상담 신청 요청 보내기
+             // 상담 신청 요청 보내기 (session_nonce 때문에 HTML에 남김)
             function sendConsultationRequest() {
                 console.log("Sending consultation request");
-                const userEmail = document.getElementById('user-email').value;
-                const additionalMessage = document.getElementById('additional-message').value;
+                const userEmailInput = document.getElementById('user-email');
+                const additionalMessageInput = document.getElementById('additional-message');
+                const userEmail = userEmailInput ? userEmailInput.value : '';
+                const additionalMessage = additionalMessageInput ? additionalMessageInput.value : '';
+
                 console.log("Email:", userEmail);
                 
                 // 모달 내용을 로딩 상태로 변경
-                const modalContent = document.querySelector('.modal-content');
+                const modalContent = document.querySelector('#consultation-modal .modal-content');
+                 if (!modalContent) return;
                 const originalContent = modalContent.innerHTML;
                 modalContent.innerHTML = '<div style="text-align: center; padding: 20px;"><p>상담 요청을 전송 중입니다...</p></div>';
                 
                 const requestData = {
                     user_email: userEmail,
-                    session_nonce: "{{ chat_session.session_nonce }}",
+                    session_nonce: "{{ chat_session.session_nonce }}", // Django 템플릿 변수 사용
                     message: additionalMessage
                 };
                 console.log("Request data:", requestData);
@@ -615,12 +412,16 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
+                        'X-CSRFToken': getCookie('csrftoken') // index_chat.js 함수 호출
                     },
                     body: JSON.stringify(requestData)
                 })
                 .then(response => {
                     console.log("Response status:", response.status);
+                    if (!response.ok) {
+                         // Handle HTTP errors (like 404, 500)
+                         throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     return response.json();
                 })
                 .then(data => {
@@ -634,9 +435,13 @@
                                 <button id="close-success-modal" class="submit-btn">닫기</button>
                             </div>
                         `;
-                        document.getElementById('close-success-modal').addEventListener('click', function() {
-                            document.getElementById('consultation-modal').style.display = 'none';
-                        });
+                        const closeSuccessBtn = document.getElementById('close-success-modal');
+                        if (closeSuccessBtn) {
+                           closeSuccessBtn.addEventListener('click', function() {
+                                const modal = document.getElementById('consultation-modal');
+                                if(modal) modal.style.display = 'none';
+                           });
+                        }
                     } else {
                         modalContent.innerHTML = `
                             <div style="text-align: center; padding: 20px;">
@@ -645,74 +450,161 @@
                                 <button id="try-again-btn" class="submit-btn">다시 시도하기</button>
                             </div>
                         `;
-                        document.getElementById('try-again-btn').addEventListener('click', function() {
-                            modalContent.innerHTML = originalContent;
-                            // 이벤트 리스너 다시 추가
-                            document.querySelector('.close').addEventListener('click', function() {
-                                document.getElementById('consultation-modal').style.display = 'none';
-                            });
-                            document.getElementById('consultation-form').addEventListener('submit', function(e) {
-                                e.preventDefault();
-                                sendConsultationRequest();
-                            });
-                        });
+                        const tryAgainBtn = document.getElementById('try-again-btn');
+                        if (tryAgainBtn) {
+                           tryAgainBtn.addEventListener('click', function() {
+                                modalContent.innerHTML = originalContent;
+                                // 이벤트 리스너 다시 추가 (openConsultationModal에서 처리하므로 여기선 복원만)
+                                // 주의: 원래 폼/닫기 이벤트 리스너를 다시 붙여야 할 수 있음
+                                // openConsultationModal을 다시 호출하는 것이 더 안전할 수 있음
+                                // 여기서는 간단히 내용만 복원
+                           });
+                        }
                     }
                 })
                 .catch(error => {
                     console.error("Fetch error:", error);
-                    modalContent.innerHTML = `
+                     modalContent.innerHTML = `
                         <div style="text-align: center; padding: 20px;">
                             <h3>오류가 발생했습니다</h3>
-                            <p>상담 요청을 처리하는 중 오류가 발생했습니다.</p>
-                            <button id="try-again-btn" class="submit-btn">다시 시도하기</button>
+                            <p>네트워크 오류 또는 처리 중 문제가 발생했습니다.</p>
+                            <button id="try-again-error-btn" class="submit-btn">다시 시도하기</button>
                         </div>
                     `;
-                    document.getElementById('try-again-btn').addEventListener('click', function() {
-                        modalContent.innerHTML = originalContent;
-                        // 이벤트 리스너 다시 추가
-                        document.querySelector('.close').addEventListener('click', function() {
-                            document.getElementById('consultation-modal').style.display = 'none';
+                     const tryAgainErrorBtn = document.getElementById('try-again-error-btn');
+                     if (tryAgainErrorBtn) {
+                        tryAgainErrorBtn.addEventListener('click', function() {
+                           modalContent.innerHTML = originalContent;
+                           // 이벤트 리스너 다시 추가 필요
                         });
-                        document.getElementById('consultation-form').addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            sendConsultationRequest();
-                        });
+                     }
+                });
+            }
+
+             // --- 초기 메시지 처리 로직 ---
+            {% if initial_message %}
+                // Check if we have an initial user message but no AI response yet
+                {% if chat_history|length == 1 and chat_history.0.role == 'user' %}
+                    const initialMessage = "{{ initial_message|escapejs }}";
+                    if (initialMessage) {
+                        callChatAPI(initialMessage, true); // callChatAPI는 HTML 내에 정의됨
+                    }
+                {% endif %}
+            {% endif %}
+            
+            // --- DOM 요소 가져오기 및 이벤트 리스너 설정 ---
+            const inputBox = document.querySelector('.input-box-unlocked');
+            const sendBtn = document.querySelector('.send-btn');
+            const changpleBtn = document.querySelector('.changple-btn');
+            const promptContainer = document.querySelector('.prompt-container');
+            const scrollDownBtn = document.getElementById('scroll-down-btn');
+            const cpLogoContainer = document.getElementById('cp-logo');
+            const helpBtn = document.querySelector('.help-btn');
+            const helpBox = document.getElementById('help-box');
+
+            // 입력 필드 이벤트 리스너 (adjustTextareaHeight는 index_chat.js에 정의됨)
+            if (inputBox) {
+                inputBox.placeholder = "추가 질문을 입력하세요"; // Placeholder 변경
+                const initialHeight = inputBox.style.height; // 초기 높이 저장
+
+                inputBox.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                         if(changpleBtn) changpleBtn.style.display = 'none';
+                         if(sendBtn) sendBtn.style.display = 'flex';
+                    } else {
+                         if(changpleBtn) changpleBtn.style.display = 'flex';
+                         if(sendBtn) sendBtn.style.display = 'none';
+                    }
+                    adjustTextareaHeight(); // index_chat.js 함수 호출
+                });
+
+                // Adjust height on initial load
+                adjustTextareaHeight(); // index_chat.js 함수 호출
+
+                // Trigger input event to set initial button state
+                inputBox.dispatchEvent(new Event('input'));
+
+                // 엔터키 이벤트 (callChatAPI는 HTML 내에 정의됨)
+                inputBox.addEventListener('keyup', function(event) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        const message = this.value.trim();
+                        if (message) {
+                            callChatAPI(message); // HTML 내 함수 호출
+                            this.value = '';
+                            adjustTextareaHeight(); // index_chat.js 함수 호출
+                        }
+                    } else {
+                         adjustTextareaHeight(); // index_chat.js 함수 호출
+                    }
+                });
+            }
+            
+            // 전송 버튼 클릭 이벤트 (callChatAPI는 HTML 내에 정의됨)
+            if (sendBtn) {
+                sendBtn.addEventListener('click', function() {
+                    const message = inputBox ? inputBox.value.trim() : '';
+                    if (message) {
+                        callChatAPI(message); // HTML 내 함수 호출
+                        if (inputBox) inputBox.value = '';
+                        adjustTextareaHeight(); // index_chat.js 함수 호출
+                    }
+                });
+            }
+            
+            // 스크롤 이벤트 리스너
+            if (promptContainer && scrollDownBtn) {
+                promptContainer.addEventListener('scroll', function() {
+                    const scrollHeight = promptContainer.scrollHeight;
+                    const scrollTop = promptContainer.scrollTop;
+                    const clientHeight = promptContainer.clientHeight;
+                    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 10; 
+                    const showButtonThreshold = 0.8; 
+                    const currentScrollRatio = (scrollTop + clientHeight) / scrollHeight;
+
+                    if (!isNearBottom && currentScrollRatio < showButtonThreshold) {
+                        scrollDownBtn.classList.add('visible');
+                        scrollDownBtn.style.display = 'flex';
+                    } else {
+                        scrollDownBtn.classList.remove('visible');
+                        setTimeout(() => {
+                            if (!scrollDownBtn.classList.contains('visible')) {
+                                 scrollDownBtn.style.display = 'none';
+                            }
+                        }, 300); 
+                    }
+                });
+
+                // 스크롤 버튼 클릭 이벤트 리스너
+                scrollDownBtn.addEventListener('click', function() {
+                    promptContainer.scrollTo({
+                        top: promptContainer.scrollHeight,
+                        behavior: 'smooth'
                     });
                 });
             }
-        });
 
-         // cp-logo-container 클릭 이벤트 리스너 추가
-         const cpLogoContainer = document.getElementById('cp-logo');
-         cpLogoContainer.addEventListener('click', function() {
-             // 클릭 시 이동할 URL
-             location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
-         });
-
-
-
-
-
-
-
-
-
+            // cp-logo-container 클릭 이벤트 리스너 추가
+            cpLogoContainer.addEventListener('click', function() {
+                location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
+            });
          
-         // Help Box 이벤트 리스너 추가
-         const helpBtn = document.querySelector('.help-btn');
-         const helpBox = document.getElementById('help-box');
+            // Help Box 이벤트 리스너 추가
+            if (helpBtn && helpBox) {
+                 helpBtn.addEventListener('click', function(event) {
+                     event.stopPropagation(); 
+                     helpBox.style.display = 'flex'; 
+                 });
 
-         // Show help box when help button is clicked
-         helpBtn.addEventListener('click', function(event) {
-             event.stopPropagation(); // Prevent the click from bubbling up to the document
-             helpBox.style.display = 'flex'; // Show the help box
-         });
+                 document.addEventListener('click', function(event) {
+                     // 클릭된 요소가 도움말 버튼이나 박스 자신이 아니면 숨김
+                      if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
+                           helpBox.style.display = 'none'; 
+                      }
+                 });
+            }
 
-         // Hide help box when clicking anywhere else
-         document.addEventListener('click', function() {
-             helpBox.style.display = 'none'; // Hide the help box
-         });
-
+        }); // End of DOMContentLoaded listener
     </script>
 </body>
 </html>
