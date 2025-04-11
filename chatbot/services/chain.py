@@ -28,16 +28,19 @@ from users.models import User
 
 # Template for rephrasing follow-up questions based on chat history
 REPHRASE_TEMPLATE = """\
-다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꿔주세요.
-**중요** : 후속 질문에서 너무 크게 변형하거나 왜곡하지 마세요. 단 하나의 질문만 사용자가 질문하는 것처럼 만드세요.
-AIMessage가 출력한 내용을 확인하고, 문맥 파악을 한 뒤에 포괄적인 질문을 만드세요.
-필요한 경우에 사용자 정보를 활용해서 질문을 구체화 하세요.
+다음 대화와 후속 질문을 바탕으로, 후속 질문을 독립적인 질문으로 바꾸세요.
 
 대화 기록:
 {chat_history}
 
-사용자 정보:
-{user_info}
+<독립 질문 생성 가이드>
+1. 후속 질문에서 크게 변형하거나 왜곡하지 마세요.
+2. 대화 기록을 통해 전체적인 문맥을 파악하세요.
+3. 단 하나의 독립 질문을 생성하세요.
+4. 충분히 이해가능한 수준으로 판단된다면, 바꾸지 마세요.
+5. 창플에 관한 질문이라면, 앞에 [창플] 이라고 붙이세요.
+6. 후속 질문에서 등장하는 단어를 모두 사용하세요.
+</독립 질문 생성 가이드>
 
 후속 질문: {question}
 독립적인 질문:"""
@@ -107,7 +110,6 @@ llm = ChatGoogleGenerativeAI(
 )
 
 retriever = None
-answer_chain = None
 
 logger = logging.getLogger(__name__)
 
@@ -519,7 +521,9 @@ def format_docs(docs: Sequence[Document]) -> str:
     return "\n\n---\n\n".join(formatted_docs)
 
 
-def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
+def create_chain(
+    llm: LanguageModelLike, retriever: BaseRetriever, memory: ConversationBufferMemory
+) -> Runnable:
     """Create the main chain for processing user questions"""
     # Create specialized chains for each category
     specific_advice_chain = create_specific_advice_chain()
@@ -528,63 +532,77 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
     changple_info_chain = create_changple_info_chain()
     default_chain = create_default_chain()
 
-    # Create memory for conversation history
-    memory = ConversationBufferMemory(
-        return_messages=True,
-        output_key="answer",
-        input_key="question",
-        memory_key="chat_history",
-    )
-
     # Process user input
     def process_input(input_data):
         original_question = input_data["question"]
         user = input_data.get("user")
         user_info = input_data.get("user_info", {})
+
+        # Load history from memory
         chat_history_messages = memory.load_memory_variables({})["chat_history"]
+        logger.info(f"Loaded chat history: {chat_history_messages}")
 
-        # Rephrase question if chat history exists
-        if chat_history_messages:
-            logger.info("Chat history found, attempting to rephrase question.")
-            condense_question_chain = (
-                CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
-            ).with_config(run_name="CondenseQuestion")
-
-            # Format chat history for the condense chain
-            formatted_history = "\n".join(
-                [f"{type(m).__name__}: {m.content}" for m in chat_history_messages]
+        # Instead of counting messages, we can directly check if chat history is truly empty
+        # This ensures we NEVER condense on first message
+        if len(chat_history_messages) == 0:
+            logger.info(
+                "This is definitely the first message, using original question."
             )
-
-            try:
-                rephrased_question = condense_question_chain.invoke(
-                    {
-                        "chat_history": formatted_history,
-                        "question": original_question,
-                        "user_info": user_info,
-                    }
-                )
-                logger.info(f"Rephrased question: {rephrased_question}")
-                question_for_retrieval = rephrased_question
-            except Exception as e:
-                logger.error(
-                    f"Error rephrasing question: {e}. Using original question.",
-                    exc_info=True,
-                )
-                question_for_retrieval = original_question
+            final_question = original_question
         else:
-            logger.info("No chat history found, using original question for retrieval.")
-            question_for_retrieval = original_question
+            # We have history, check if we have at least one COMPLETE message exchange
+            # A complete exchange is a HumanMessage followed by an AIMessage
+            has_complete_exchange = False
+            for i in range(len(chat_history_messages) - 1):
+                if (
+                    type(chat_history_messages[i]).__name__ == "HumanMessage"
+                    and type(chat_history_messages[i + 1]).__name__ == "AIMessage"
+                ):
+                    has_complete_exchange = True
+                    break
+
+            if has_complete_exchange:
+                logger.info(
+                    "Found at least one complete message exchange, attempting to rephrase."
+                )
+                condense_question_chain = (
+                    CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+                ).with_config(run_name="CondenseQuestion")
+
+                # Format chat history for the condense chain
+                formatted_history = "\n".join(
+                    [f"{type(m).__name__}: {m.content}" for m in chat_history_messages]
+                )
+
+                try:
+                    final_question = condense_question_chain.invoke(
+                        {
+                            "chat_history": formatted_history,
+                            "question": original_question,
+                            "user_info": user_info,
+                        }
+                    )
+                    logger.info(f"Rephrased question: {final_question}")
+                except Exception as e:
+                    logger.error(
+                        f"Error rephrasing question: {e}. Using original question.",
+                        exc_info=True,
+                    )
+                    final_question = original_question
+            else:
+                logger.info("No complete exchanges found, using original question.")
+                final_question = original_question
 
         # User info is now passed directly, no need to fetch from model
         if user:
             logger.info(f"User object received: {user.username}")
-            logger.info(f"Using provided user_info: {user_info}")
         else:
             logger.info("No user object provided, proceeding as anonymous.")
-            logger.info(f"Using provided user_info (or default empty): {user_info}")
+
+        logger.info(f"Using provided user_info: {user_info}")
 
         # Determine category
-        category = determine_category(question_for_retrieval, user_info)
+        category = determine_category(final_question, user_info)
         logger.info(f"Determined category: {category}")
 
         # Filter retriever based on category
@@ -606,22 +624,24 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 "Category is unknown or not in CATEGORIES, filter removed/not applied."
             )
 
+        # Return the minimal needed data
+        # We need original_question only for memory saving
         return {
-            "original_question": original_question,  # Keep original for postprocessing
-            "question_for_retrieval": question_for_retrieval,
+            "question": final_question,  # The ONLY question we'll use for answering
+            "category": category,
             "user": user,
             "user_info": user_info,
-            "category": category,
-            "chat_history": chat_history_messages,  # Pass loaded history
+            # "_original_question": original_question,  # Prefix with _ to indicate internal use only
         }
 
-    # Retrieve relevant documents
+    # Update the retrieve_docs function to use the single question field
     def retrieve_docs(input_data):
         if input_data["category"] == "unknown":
             logger.info("Category is unknown, skipping document retrieval.")
             return {"primary_context": "", "philosophy_context": "", **input_data}
 
-        query_to_use = input_data["question_for_retrieval"]
+        query_to_use = input_data["question"]  # Single question field
+        logger.info(f"Retrieving documents using question: {query_to_use[:50]}...")
         current_category = input_data["category"]
         original_filter = retriever.search_kwargs.get("filter", {})
         original_k = retriever.search_kwargs.get("k", 40)
@@ -631,7 +651,7 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
 
         # 1. Retrieve documents based on current question and category (Primary Context)
         logger.info(
-            f"Retrieving primary documents for category '{current_category}' with query: {query_to_use[:50]}..."
+            f"Retrieving primary documents for category '{current_category}'..."
         )
         try:
             # Ensure filter is set for the current category
@@ -639,7 +659,6 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
                 retriever.search_kwargs["filter"] = {
                     "notation": {"$in": [current_category]}
                 }
-                retriever.search_kwargs["k"] = original_k
                 primary_docs = retriever.invoke(query_to_use)
                 logger.info(f"Retrieved {len(primary_docs)} primary documents.")
                 if not primary_docs:
@@ -691,104 +710,71 @@ def create_chain(llm: LanguageModelLike, retriever: BaseRetriever) -> Runnable:
             **input_data,
         }
 
-    # Define the branch logic based on category
+    # Define the branch logic based on category but don't add examples in each branch
+    # They're already added by the previous step
     branch = RunnableBranch(
         (
             lambda x: x["category"] == "창플의 구체적 조언",
-            RunnablePassthrough.assign(
-                example=lambda _: EXAMPLE_QA_MAP["창플의 구체적 조언"]
-            )
-            | specific_advice_chain,
+            specific_advice_chain,  # Example already in 'example' field
         ),
         (
             lambda x: x["category"] == "창플의 질문과 조언",
-            RunnablePassthrough.assign(
-                example=lambda _: EXAMPLE_QA_MAP["창플의 질문과 조언"]
-            )
-            | question_advice_chain,
+            question_advice_chain,  # Example already in 'example' field
         ),
         (
             lambda x: x["category"] == "창플의 업계 일반적 질문 대답",
-            RunnablePassthrough.assign(
-                example=lambda _: EXAMPLE_QA_MAP["창플의 업계 일반적 질문 대답"]
-            )
-            | industry_general_chain,
+            industry_general_chain,  # Example already in 'example' field
         ),
         (
             lambda x: x["category"] == "창플과 관련된 질문 대답",
-            RunnablePassthrough.assign(
-                example=lambda _: EXAMPLE_QA_MAP["창플과 관련된 질문 대답"]
-            )
-            | changple_info_chain,
+            changple_info_chain,  # Example already in 'example' field
         ),
         default_chain,
     )
 
-    # Update user information and save to memory
+    # Update postprocess to use the _original_question field
     def postprocess(input_data):
         # Use original question for memory and user info update
-        original_question = input_data["original_question"]
+        # original_question = input_data["_original_question"]
+        final_question = input_data["question"]
 
         # Save the conversation to memory
         memory.save_context(
-            {"question": original_question},  # Use original question
+            {"question": final_question},  # Use original question for consistency
             {"answer": input_data["answer"]},
         )
 
         # Update user information based on the conversation
-        # Use the user_info that came into this step (potentially already updated if it came from session)
         current_user_info = input_data.get("user_info", {})
-        logger.info("Attempting to update user information (temporarily).")
+        logger.info("Attempting to update user information.")
         updated_info = update_user_information(
-            current_user_info, original_question  # Use original question
+            current_user_info, final_question  # Use original question
         )
-        logger.info(f"Temporarily updated user_info: {updated_info}")
+        logger.info(f"Updated user_info: {updated_info}")
 
+        # Return only what's needed by the caller
         return {
             "answer": input_data["answer"],
-            # Return the updated info for the caller to manage (e.g., store in session)
             "updated_user_info": updated_info,
         }
 
-    # Combine all components into a chain
+    # Radically simplify the chain structure
     chain = (
-        RunnablePassthrough.assign(processed_input=process_input)
-        | RunnablePassthrough.assign(
-            # Pass necessary fields from processed_input to the next steps
-            original_question=lambda x: x["processed_input"]["original_question"],
-            question_for_retrieval=lambda x: x["processed_input"][
-                "question_for_retrieval"
-            ],
-            # The 'question' for the answering branch is the rephrased one
-            question=lambda x: x["processed_input"]["question_for_retrieval"],
-            user=lambda x: x["processed_input"]["user"],
-            user_info=lambda x: x["processed_input"]["user_info"],
-            category=lambda x: x["processed_input"]["category"],
-            chat_history=lambda x: x["processed_input"]["chat_history"],
-        )
-        | RunnableLambda(retrieve_docs)
-        # Pass both contexts from retrieve_docs to the answering branch
+        RunnableLambda(
+            process_input
+        )  # Direct function call, no intermediate assignment
+        | RunnableLambda(retrieve_docs)  # Uses the single "question" field
         | RunnablePassthrough.assign(
             primary_context=lambda x: x["primary_context"],
             philosophy_context=lambda x: x["philosophy_context"],
+            example=lambda x: EXAMPLE_QA_MAP.get(
+                x["category"], ""
+            ),  # Add example directly
         )
-        | RunnablePassthrough.assign(answer=branch)
-        | RunnableLambda(postprocess)
+        | RunnablePassthrough.assign(answer=branch)  # Branch uses the cleaned inputs
+        | RunnableLambda(
+            postprocess
+        )  # Postprocess handles memory with _original_question
     )
 
     return chain
-
-
-def initialize_chain():
-    """Initialize retriever and answer chain if not already initialized."""
-    # Skip initialization when run_ingest command is executed
-    if "run_ingest" in sys.argv:
-        print("run_ingest command is executed, skip initialization")
-        return None
-
-    global retriever, answer_chain
-    if retriever is None or answer_chain is None:
-        retriever = get_retriever()
-        answer_chain = create_chain(llm, retriever)
-
-    return answer_chain

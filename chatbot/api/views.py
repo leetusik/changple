@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
 from dotenv import load_dotenv
+from langchain.memory import ConversationBufferMemory
+from langchain_core.messages import AIMessage, HumanMessage
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -19,15 +21,22 @@ from chatbot.models import ChatMessage, ChatSession
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Try to import answer_chain, handle import errors gracefully
+# Import necessary components from chain service
+# Make sure llm and get_retriever are accessible
 try:
-    from chatbot.services.chain import initialize_chain
+    from chatbot.services.chain import create_chain, get_retriever, llm
 
-    answer_chain = initialize_chain()
-    logger.info("Successfully imported and initialized answer_chain")
+    # Initialize retriever globally (assuming thread-safety)
+    retriever = get_retriever()
+    logger.info("Successfully imported chain components and initialized retriever.")
 except ImportError as e:
-    logger.critical(f"Failed to import answer_chain: {str(e)}")
+    logger.critical(f"Failed to import chain components: {str(e)}")
     raise RuntimeError("챗봇 서비스 초기화 실패. 서버를 시작할 수 없습니다.")
+except Exception as e:
+    logger.critical(f"Failed to initialize retriever: {str(e)}")
+    raise RuntimeError(
+        "챗봇 서비스 초기화 실패 (Retriever). 서버를 시작할 수 없습니다."
+    )
 
 # load_dotenv()
 load_dotenv()
@@ -233,46 +242,68 @@ def chat(request):
         if session_nonce:
             chat_session = ChatSession.objects.get(session_nonce=session_nonce)
         else:
-            chat_session = ChatSession.objects.create(
-                session_id=f"session_{uuid.uuid4().hex[:8]}", session_nonce=uuid.uuid4()
-            )
+            # If no nonce provided in API, it's likely an error or needs specific handling
+            # For now, let's assume a nonce is required for the chat API
+            return Response({"error": "Session nonce is required."}, status=400)
 
+        # --- Load User Info from Django Session ---
+        user_info = request.session.get(f"user_info_{session_nonce}", {})
+        logger.info(f"Loaded user_info from session: {user_info}")
+        # -----------------------------------------
+
+        # --- Memory and Chain Creation per Request ---
         # 데이터베이스에서 대화 내역 가져오기
         messages = chat_session.messages.all().order_by("created_at")
-        db_history = []
-        i = 0
-        while i < len(messages):
-            if (
-                i + 1 < len(messages)
-                and messages[i].role == "user"
-                and messages[i + 1].role == "assistant"
-            ):
-                db_history.append(
-                    {"user": messages[i].content, "assistant": messages[i + 1].content}
-                )
-                i += 2
-            else:
-                i += 1
+
+        # Create a new memory buffer for this request
+        memory = ConversationBufferMemory(
+            return_messages=True,
+            output_key="answer",
+            input_key="question",
+            memory_key="chat_history",
+        )
+
+        # Populate memory from DB messages
+        for msg in messages:
+            if msg.role == "user":
+                memory.chat_memory.add_user_message(msg.content)
+            elif msg.role == "assistant":
+                memory.chat_memory.add_ai_message(msg.content)
+
+        # Create the chain for this specific request, passing the populated memory
+        request_chain = create_chain(llm=llm, retriever=retriever, memory=memory)
+        # ----------------------------------------------
 
         # 세션 ID와 대화 기록을 포함한 체인 입력 구성
         chain_input = {
             "question": query,
-            "session_id": str(chat_session.session_nonce),  # 세션 식별자
-            "db_history": db_history,  # 데이터베이스에서 가져온 대화 기록
+            # "session_id": str(chat_session.session_nonce), # session_id might not be needed by the chain anymore
+            # "db_history": db_history, # REMOVE: History is now in the memory object
+            "user_info": user_info,  # Pass the user info loaded from the session
         }
 
-        # Add authenticated user to input if available
+        # Add authenticated user object to input if available (chain might use it)
         if request.user.is_authenticated:
             chain_input["user"] = request.user
 
-        # 체인 실행
-        chain_response = answer_chain.invoke(chain_input)
+        # 체인 실행 (using the request-specific chain)
+        chain_response = request_chain.invoke(chain_input)
         # print(f"체인 응답: {json.dumps(chain_response, indent=2, ensure_ascii=False, default=str)}")
 
         # Extract response text and relevance scores
         if isinstance(chain_response, dict):
-            # 응답은 answer 필드에서 우선 가져오고, 없으면 text 필드에서 가져옴
+            # --- Extract answer and updated user info ---
             response = chain_response.get("answer", "")
+            # Get potentially updated user info from the chain
+            updated_user_info = chain_response.get("updated_user_info")
+            if updated_user_info is not None:  # Check if it was actually returned
+                # --- Save Updated User Info back to Django Session ---
+                request.session[f"user_info_{session_nonce}"] = updated_user_info
+                logger.info(f"Saved updated user_info to session: {updated_user_info}")
+                # ----------------------------------------------------
+            # ---------------------------------------------
+
+            # 응답은 answer 필드에서 우선 가져오고, 없으면 text 필드에서 가져옴 (Fallback, should use 'answer')
             if not response and "text" in chain_response:
                 response = chain_response.get("text", "")
 
@@ -373,6 +404,8 @@ def chat(request):
             }
         )
 
+    except ChatSession.DoesNotExist:
+        return Response({"error": "Invalid session nonce provided."}, status=404)
     except Exception as e:
         import traceback
 
