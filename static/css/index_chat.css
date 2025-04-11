@@ -183,6 +183,20 @@ body {
     color: #2A4169;
 }
 
+.prompt-p span { /* Streaming content span */
+    white-space: pre-wrap; /* Preserve whitespace and allow wrapping */
+    word-break: break-word; /* Break long words */
+}
+
+/* Blinking cursor effect */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.blinking-cursor {
+  animation: blink 1s step-end infinite;
+}
+
+
 .prompt-text-area {
     width: fit-content;
     max-width: 60%; /* 최대 너비를 부모 요소의 60%로 제한 */
@@ -426,6 +440,41 @@ body {
   z-index: 1001;
 }
 
+/* Stop streaming button style */
+.stop-streaming-button {
+    position: absolute;
+    top: 10%;
+    right: 17px; /* locked-btn, send-btn과 같은 위치 */
+    width: 60px;
+    height: 60px;
+    background: #8097c0;
+    color: white; /* Dark red text/icon */
+    box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
+    border-radius: 30px;
+    border: 1px solid #8097c0;
+    display: flex; /* Initially hidden via style="display: none;" */
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 1002; /* Ensure it's above other buttons if they overlap */
+    font-size: 20px; /* Adjust icon size */
+    font-weight: bold;
+}
+
+.stop-streaming-button:hover {
+    background-color: #8097c0;
+    color: white;
+    border: 1px solid #8097c0;
+    box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
+    font-size: 20px; /* Adjust icon size */
+    font-weight: bold;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+    z-index: 1002; /* Ensure it's above other buttons if they overlap */
+}
+
+
 .lock-icon {
   width: 20px;
   height: 23px;
@@ -567,6 +616,14 @@ footer {
     right: 10px;
     bottom: 10px;
   }
+   .stop-streaming-button {
+        width: 40px;
+        height: 40px;
+        right: 10px;
+        bottom: 10px; /* Adjust if needed based on other buttons */
+        font-size: 20px;
+    }
+
 
     /* footer {
         padding: 15px;
@@ -631,6 +688,14 @@ footer {
     right: 8px;
     bottom: 8px;
   }
+   .stop-streaming-button {
+        width: 35px;
+        height: 35px;
+        right: 8px;
+        bottom: 8px; /* Adjust if needed */
+        font-size: 18px;
+    }
+
 
   .locked-icon {
     width: 18px;

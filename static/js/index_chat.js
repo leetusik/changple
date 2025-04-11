@@ -18,73 +18,72 @@ function adjustTextareaHeight() {
 // 대화 메시지를 화면에 추가하는 함수
 function addMessageToChat(role, content) {
     const promptContainer = document.querySelector('.prompt-wrapper');
-    if (!promptContainer) return;
+    if (!promptContainer) return null; // ID를 반환해야 하므로 null 반환
+
+    let messageId = ''; // 메시지 블록 ID
+    let contentSpanId = null; // 내용 표시용 span ID (assistant 경우)
 
     if (role === 'user') {
-        // 고유 ID 생성
-        const messageId = 'user-message-' + Date.now();
-        
-        // 사용자 메시지 추가
+        messageId = 'user-message-' + Date.now();
         const userMessageHTML = `
             <div id="${messageId}" class="prompt-answer-block">
                 <div class="prompt-text-area">
-                    <p>${content}</p>
+                    <p>${content}</p> 
                 </div>
             </div>
         `;
         promptContainer.insertAdjacentHTML('beforeend', userMessageHTML);
-        
-        // 새 메시지로 스크롤 (smoothly)
-        const element = document.getElementById(messageId);
-        if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
     } else if (role === 'assistant') {
-        // 챗봇 응답에 고유 ID 부여
-        const botMessageId = 'bot-message-' + Date.now();
-        
-        // 마크다운 렌더링 적용 (marked와 DOMPurify는 HTML에 로드되어 있다고 가정)
-        const renderedContent = DOMPurify.sanitize(marked.parse(content));
-        
+        messageId = 'bot-message-' + Date.now();
+        contentSpanId = 'bot-content-' + Date.now(); // span에 고유 ID 부여
+
+        // 초기에는 비어있는 span을 포함하여 추가
         const botMessageHTML = `
             <br>
-            <div id="${botMessageId}" class="prompt-p">${renderedContent}</div>
+            <div id="${messageId}" class="prompt-p">
+                <span id="${contentSpanId}">${content}</span> 
+            </div>
         `;
         promptContainer.insertAdjacentHTML('beforeend', botMessageHTML);
-        
-        // 새 메시지로 스크롤
-        const element = document.getElementById(botMessageId);
-         if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
     }
-}
-
-// 로딩 메시지 추가
-function addLoadingMessage() {
-    const loadingId = 'loading-' + Date.now();
-    const promptContainer = document.querySelector('.prompt-wrapper');
-     if (!promptContainer) return loadingId; // ID 반환은 유지
-
-    const loadingHTML = `
-        <div id="${loadingId}" class="prompt-p">생성중...</div>
-    `;
-    promptContainer.insertAdjacentHTML('beforeend', loadingHTML);
 
     // 새 메시지로 스크롤 (smoothly)
-    const element = document.getElementById(loadingId);
+    const element = document.getElementById(messageId);
     if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    return loadingId;
+
+    // assistant 역할일 경우, 내용 span의 ID 반환
+    return contentSpanId;
 }
 
-// 로딩 메시지 제거
+// 로딩 메시지 추가 (현재 사용되지 않음 - 스트리밍 UI로 대체)
+function addLoadingMessage() {
+    const loadingId = 'loading-' + Date.now();
+    // const promptContainer = document.querySelector('.prompt-wrapper');
+    //  if (!promptContainer) return loadingId; // ID 반환은 유지
+
+    // const loadingHTML = `
+    //     <div id="${loadingId}" class="prompt-p">생성중...</div>
+    // `;
+    // promptContainer.insertAdjacentHTML('beforeend', loadingHTML);
+
+    // 새 메시지로 스크롤 (smoothly)
+    // const element = document.getElementById(loadingId);
+    // if (element) {
+    //     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // }
+    console.warn("addLoadingMessage is deprecated and replaced by streaming UI.");
+    return loadingId; // 이전 코드 호환성을 위해 ID 반환
+}
+
+// 로딩 메시지 제거 (현재 사용되지 않음)
 function removeLoadingMessage(loadingId) {
-    const loadingElement = document.getElementById(loadingId);
-    if (loadingElement) {
-        loadingElement.remove();
-    }
+    // const loadingElement = document.getElementById(loadingId);
+    // if (loadingElement) {
+    //     loadingElement.remove();
+    // }
+     console.warn("removeLoadingMessage is deprecated.");
 }
 
 // 검색 결과 카드 업데이트
