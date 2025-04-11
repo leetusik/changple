@@ -1,11 +1,15 @@
 import csv
 import os
+import nest_asyncio
 
 import pandas as pd
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+nest_asyncio.apply()
+# langchain-google-genai 라이브러리가 내부적으로 비동기(asyncio) 기능을 사용하기 때문에 nest-asyncioo 설치
 
 load_dotenv()
 
