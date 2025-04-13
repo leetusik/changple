@@ -95,6 +95,7 @@
 
         <div class="main-content">
 
+            {% if user.is_authenticated %}
             <!------------ 좌측패널 ------------------------------>
             <div class="history-pannel-block">
                 <button class="icon-block">
@@ -148,6 +149,7 @@
                     </div>
                 </div>    
             </div>
+            {% endif %}
 
 
             <div class="main-block">
@@ -269,9 +271,37 @@
 
     {% csrf_token %}
 
-    {% if user.is_authenticated %}
+    
     <script src="{% static 'js/index.js' %}"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // cp-logo-container 클릭 이벤트 리스너 추가
+            const cpLogoContainer = document.getElementById('cp-logo');
+            cpLogoContainer.addEventListener('click', function() {
+                // 클릭 시 이동할 URL
+                location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
+            });
+
+
+        });
+        // Help Box 이벤트 리스너 추가
+        const helpBtn = document.querySelector('.help-btn');
+        const helpBox = document.getElementById('help-box');
+
+        // Show help box when help button is clicked
+        helpBtn.addEventListener('click', function(event) {
+            event.stopPropagation(); // Prevent the click from bubbling up to the document
+            helpBox.style.display = 'flex'; // Show the help box
+        });
+
+        // Hide help box when clicking anywhere else
+        document.addEventListener('click', function() {
+            helpBox.style.display = 'none'; // Hide the help box
+        });
+
+
+
+        {% if user.is_authenticated %}
         document.addEventListener('DOMContentLoaded', function() {
             const inputBox = document.querySelector('.input-box-unlocked');
             const sendBtn = document.querySelector('.send-btn');
@@ -369,57 +399,7 @@
                 });
             });
 
-            // cp-logo-container 클릭 이벤트 리스너 추가
-            const cpLogoContainer = document.getElementById('cp-logo');
-            cpLogoContainer.addEventListener('click', function() {
-                // 클릭 시 이동할 URL
-                location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
-            });
-        });
-
-
-        // Help Box 이벤트 리스너 추가
-        const helpBtn = document.querySelector('.help-btn');
-        const helpBox = document.getElementById('help-box');
-
-        // Show help box when help button is clicked
-        helpBtn.addEventListener('click', function(event) {
-            event.stopPropagation(); // Prevent the click from bubbling up to the document
-            helpBox.style.display = 'flex'; // Show the help box
-        });
-
-        // Hide help box when clicking anywhere else
-        document.addEventListener('click', function() {
-            helpBox.style.display = 'none'; // Hide the help box
-        });
-        
-
-
-    </script>
-
-
-    {% else %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-        // Help Box 이벤트 리스너 추가
-        const helpBtn = document.querySelector('.help-btn');
-        const helpBox = document.getElementById('help-box');
-
-        // Show help box when help button is clicked
-        helpBtn.addEventListener('click', function(event) {
-            event.stopPropagation(); // Prevent the click from bubbling up to the document
-            helpBox.style.display = 'flex'; // Show the help box
-        });
-
-        // Hide help box when clicking anywhere else
-        document.addEventListener('click', function() {
-            helpBox.style.display = 'none'; // Hide the help box
-        });
-
-    });
-
-   // 좌측 패널 켜졌다 꺼졌다 하도록 조정 -------------------------------------------------------
-        document.addEventListener("DOMContentLoaded", function () {
+            //--------history pannel -------------
             const buttons = document.querySelectorAll(".icon-block");
         
             buttons.forEach(button => {
@@ -444,10 +424,9 @@
                 listArea.style.display = "none";
                 panel.classList.add("minimized");
             });
-        });
-        
 
+        });
+        {% endif %}
     </script>
-    {% endif %}
 </body>
 </html>
