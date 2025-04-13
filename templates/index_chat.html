@@ -370,7 +370,9 @@
                                     if (data.token) {
                                         accumulatedResponse += data.token;
                                         if (aiContentSpan) {
-                                            aiContentSpan.textContent = accumulatedResponse;
+                                            // 이전: aiContentSpan.textContent = accumulatedResponse;
+                                            // 변경: 스트리밍 중 마크다운 실시간 렌더링
+                                            aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(accumulatedResponse));
                                         }
                                     } else if (data.end) {
                                         console.log('End signal received.');
@@ -428,8 +430,6 @@
 
                     // 최종 렌더링 (오류가 없었거나 중단된 경우)
                     if (aiContentSpan && !aiContentSpan.textContent.startsWith('오류') && !aiContentSpan.textContent.startsWith('스트리밍 중 오류')) {
-                        // 커서 제거 및 최종 마크다운 렌더링
-                        // 미리 저장해둔 wasAborted 변수 사용
                          aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(accumulatedResponse + (wasAborted ? '\n\n**(응답 생성 중단됨)**' : '')));
                         // 최종 스크롤
                         aiContentSpan.parentElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
