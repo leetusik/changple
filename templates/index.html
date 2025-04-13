@@ -425,6 +425,9 @@
                         // 보여주기
                         listArea.style.display = "flex";
                         panel.classList.remove("minimized"); // 전체 너비로
+                        
+                        // 스크롤 위치 초기화
+                        listArea.scrollTop = 0;
                     } else {
                         // 숨기기
                         listArea.style.display = "none";
