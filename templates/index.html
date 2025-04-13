@@ -341,13 +341,23 @@
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                     console.log("CSRF token obtained:", csrfToken ? "Yes" : "No");
                     
-                    // Do not disable input - just clear it
+                    // Temporarily disable the input and buttons to prevent double submissions
+                    inputBox.disabled = true;
+                    if (sendBtn) sendBtn.style.pointerEvents = 'none';
+                    if (changpleBtn) changpleBtn.style.pointerEvents = 'none';
+                    
+                    // Show a simple loading indicator
+                    const originalPlaceholder = inputBox.placeholder;
+                    inputBox.placeholder = "메시지 전송 중...";
+                    
+                    // Clear the input
+                    const originalMessage = message;
                     inputBox.value = "";
                     inputBox.dispatchEvent(new Event('input'));
                     
                     // Simple approach - just use FormData
                     const formData = new FormData();
-                    formData.append('message', message);
+                    formData.append('message', originalMessage);
                     
                     fetch('/chat/', {
                         method: 'POST',
@@ -367,6 +377,11 @@
                         console.log("Response data:", data);
                         if (data.error) {
                             alert(`오류가 발생했습니다: ${data.error}`);
+                            // Re-enable input
+                            inputBox.disabled = false;
+                            inputBox.placeholder = originalPlaceholder;
+                            if (sendBtn) sendBtn.style.pointerEvents = 'auto';
+                            if (changpleBtn) changpleBtn.style.pointerEvents = 'auto';
                             return;
                         }
                         
@@ -379,6 +394,12 @@
                     .catch(error => {
                         console.error('Error:', error);
                         alert("요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+                        
+                        // Re-enable input
+                        inputBox.disabled = false;
+                        inputBox.placeholder = originalPlaceholder;
+                        if (sendBtn) sendBtn.style.pointerEvents = 'auto';
+                        if (changpleBtn) changpleBtn.style.pointerEvents = 'auto';
                     });
                 }
             }

@@ -87,11 +87,11 @@ def chat_view(request, session_nonce=None):
             chat_session.request_sent = True
             chat_session.save()
 
-            # Return clean URL without query parameters
-            redirect_url = chat_session.get_absolute_url()
+            # Return clean URL without query parameters, but add a new_chat=1 parameter
+            # to indicate this is a newly created chat session and AI should respond right away
+            redirect_url = f"{chat_session.get_absolute_url()}?new_chat=1"
             logger.info(f"Returning redirect URL: {redirect_url}")
             return JsonResponse({"redirect_url": redirect_url})
-
         except Exception as e:
             import traceback
 
@@ -149,10 +149,36 @@ def chat_view(request, session_nonce=None):
                 )
             i += 2
 
-        # Check if there's an initial message already in the database
+        # We're only checking for the existence of user messages, not returning the content
+        # to avoid displaying it twice
+        has_initial_message = chat_messages.filter(role="user").exists()
         initial_message = None
-        if chat_messages.filter(role="user").exists():
+
+        # Check if this is likely a navigation from history
+        is_from_history = False
+        # First check if new_chat parameter exists - if so, this is a new chat, not from history
+        if request.GET.get("new_chat") == "1":
+            is_from_history = False
+            logger.info("Detected new chat from URL parameter")
+        # Otherwise check the referer
+        elif request.META.get("HTTP_REFERER", ""):
+            referer = request.META.get("HTTP_REFERER", "")
+            logger.info(f"Request referer: {referer}")
+            # If referer exists and contains index.html or the root path, it's likely coming from history
+            if "index.html" in referer or referer.endswith("/"):
+                is_from_history = True
+                logger.info(f"Detected navigation from history: {referer}")
+
+        # Only set initial_message if there's exactly one user message and not coming from history
+        if chat_messages.count() == 1 and has_initial_message and not is_from_history:
             initial_message = chat_messages.filter(role="user").first().content
+            logger.info(
+                f"Setting initial message for auto-API call: {initial_message[:50]}..."
+            )
+        else:
+            logger.info(
+                f"Not setting initial message. Chat count: {chat_messages.count()}, Has initial: {has_initial_message}, From history: {is_from_history}"
+            )
 
     except ChatSession.DoesNotExist:
         # Invalid nonce, create a new session
@@ -192,6 +218,7 @@ def chat_view(request, session_nonce=None):
         "remaining_queries": remaining_queries,
         "query_limit": query_limit,
         "is_premium": is_premium,
+        "is_from_history": is_from_history,  # Pass this flag to template
     }
 
     return render(request, "index_chat.html", context)
@@ -205,6 +232,10 @@ def chat(request):
         data = json.loads(request.body)
         query = data.get("query", "")
         session_nonce = data.get("session_nonce", "")
+
+        # Clean up session_nonce if it contains query parameters
+        if session_nonce and "?" in session_nonce:
+            session_nonce = session_nonce.split("?")[0]
 
         # user query
         logger.info(f"User query (session: {session_nonce}): \n{query}")
