@@ -7,31 +7,38 @@
 }
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Spoqa Han Sans Neo', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Spoqa Han Sans Neo", sans-serif;
 }
 
 body {
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .container {
-    width: 100%;
-    min-height: 100vh;
-    position: relative;
-    background: linear-gradient(180deg, rgba(250, 250, 250, 0.4) 19%, rgba(194, 202, 225, 0.4) 95%); /* 배경색에 투명도 적용 */
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    overflow-y: hidden; /* Disable scrolling */
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 250, 250, 0.4) 19%,
+    rgba(194, 202, 225, 0.4) 95%
+  ); /* 배경색에 투명도 적용 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden; /* Disable scrolling */
 }
 
 .prompt-container {
   position: relative;
+  max-width: 1040px;
+  width: 100%;
+  height: calc(100vh - 250px);
   max-width: 1040px;
   width: 100%;
   height: calc(100vh - 250px);
@@ -41,16 +48,15 @@ body {
 }
 
 .prompt-answer-block {
-    /* background-color: black; */
-    width: 100%;
-    color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    padding-right: 10px;
-    padding-bottom: 20px;
-
-} 
+  /* background-color: black; */
+  width: 100%;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: 10px;
+  padding-bottom: 20px;
+}
 
 /* Chrome, Safari, Opera에 대한 스크롤바 숨김 처리 */
 .prompt-container::-webkit-scrollbar {
@@ -59,11 +65,11 @@ body {
 
 /* 새로운 wrapper div를 위한 스타일 추가 */
 .prompt-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    margin-bottom: 100px;
-    padding-right: 60px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin-bottom: 100px;
+  padding-right: 60px;
 }
 
 .prompt-links-container {
@@ -112,21 +118,21 @@ body {
 }
 
 .card-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: #617DAE;
-    margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #617dae;
+  margin-bottom: 8px;
 }
 
 .card-description {
-    font-size: 12px;
-    color: #617DAE;
-    line-height: 1.6;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 12px;
+  color: #617dae;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .free-use-count-container {
@@ -152,11 +158,16 @@ body {
   line-height: 40px;
   white-space: nowrap;
   margin: 0;
+  line-height: 40px;
+  white-space: nowrap;
+  margin: 0;
   color: #617dae;
 }
 
 /* 
+/* 
 .pay-use-btn {
+  display: inline-block; 
   display: inline-block; 
   height: 40px;
   border-radius: 10px;
@@ -168,7 +179,15 @@ body {
   line-height: 40px; 
   white-space: nowrap; 
   margin: 0;
+  padding: 0 4px; 
+} */
+
+/* .pay-use-btn p {
+  line-height: 40px; 
+  white-space: nowrap; 
+  margin: 0;
   color: #617dae;
+} */
 } */
 
 .prompt-p {
@@ -333,17 +352,17 @@ body {
 }
 
 .suggestion-box {
-    width: 325px;
-    height: 148px;
-    padding: 21px 29px;
-    background: #F8F8F8;
-    box-shadow: 2px 2px 20px rgba(128, 151, 192, 0.10);
-    border-radius: 30px;
-    color: #A4A4A4;
-    font-size: 18px;
-    font-weight: 400;
-    line-height: 28.6px;
-    flex-shrink: 0;
+  width: 325px;
+  height: 148px;
+  padding: 21px 29px;
+  background: #f8f8f8;
+  box-shadow: 2px 2px 20px rgba(128, 151, 192, 0.1);
+  border-radius: 30px;
+  color: #a4a4a4;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28.6px;
+  flex-shrink: 0;
 }
 
 .input-container-locked {
@@ -365,6 +384,9 @@ body {
 .input-container-prompt {
   width: 100%;
   max-width: 1040px;
+  /* height: 148px; */ /* 고정 높이 제거 */
+  min-height: 80px; /* 최소 높이 설정 (예시) */
+  height: auto; /* 내용에 따라 높이 자동 조절 */
   /* height: 148px; */ /* 고정 높이 제거 */
   min-height: 80px; /* 최소 높이 설정 (예시) */
   height: auto; /* 내용에 따라 높이 자동 조절 */
@@ -400,6 +422,10 @@ body {
   min-height: 80px; /* 최소 높이 */
   max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
   padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
+  height: 80px; /* 초기 높이 (한 줄 정도) */
+  min-height: 80px; /* 최소 높이 */
+  max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
+  padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -409,6 +435,12 @@ body {
   font-family: "SpoqaHanSansNeo-Regular", sans-serif;
   font-size: 20px;
   font-weight: 400;
+  resize: none; /* 크기 조절 핸들 숨김 */
+  overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
+  white-space: normal; /* 자동 줄바꿈 활성화 */
+  word-wrap: break-word; /* 단어 단위 줄바꿈 */
+  line-height: 1.4; /* 줄 간격 조정 */
+  box-sizing: border-box; /* 패딩과 테두리를 높이에 포함 */
   resize: none; /* 크기 조절 핸들 숨김 */
   overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
   white-space: normal; /* 자동 줄바꿈 활성화 */
@@ -426,6 +458,7 @@ body {
 .send-btn,
 .changple-btn {
   position: absolute;
+  top: 10%;
   top: 10%;
   right: 17px;
   width: 60px;
@@ -493,55 +526,54 @@ body {
 }
 
 .help-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-    background: #D8E0F8;
-    box-shadow: 2px 2px 10px rgba(97, 125, 174, 0.25);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #90A4C8;
-    font-size: 30px;
-    font-weight: 600;
-    cursor: pointer;
-    z-index: 2000;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: #d8e0f8;
+  box-shadow: 2px 2px 10px rgba(97, 125, 174, 0.25);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #90a4c8;
+  font-size: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 2000;
 }
 
-
 .help-box {
-    position: fixed;
-    width: 200px;
-    height: 200px;
-    background-color: white;
-    border: 1px solid #617DAE;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    z-index: 2000; /* Ensure it appears above other elements */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #2A4169;
-    border-radius: 10px;
-    bottom: 60px;
-    right: 44px;
+  position: fixed;
+  width: 200px;
+  height: 200px;
+  background-color: white;
+  border: 1px solid #617dae;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2000; /* Ensure it appears above other elements */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #2a4169;
+  border-radius: 10px;
+  bottom: 60px;
+  right: 44px;
 }
 
 footer {
-    width: 100%;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: #889DC4;
-    text-align: center;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    z-index: 0;
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #889dc4;
+  text-align: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
 }
 
 .company-info {
@@ -625,7 +657,7 @@ footer {
     }
 
 
-    /* footer {
+  /* footer {
         padding: 15px;
     } */
 
@@ -678,8 +710,14 @@ footer {
     height: 32px;
     min-height: 32px;
     max-height: 120px;
+    padding: 6px 60px 6px 15px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 120px;
   }
 
+  .locked-btn,
+  .send-btn,
   .locked-btn,
   .send-btn,
   .changple-btn {
@@ -783,19 +821,18 @@ input::placeholder {
 }
 
 .prompt-p ul {
-    text-align: left;
-    padding-left: 20px;
-    line-height: 1.6;
+  text-align: left;
+  padding-left: 20px;
+  line-height: 1.6;
 }
 
 .prompt-p ol {
-    text-align: left;
-    padding-left: 20px;
-    /* padding-right: 200px; */
-    line-height: 0.9;
-    /* padding-top: -10px; */
+  text-align: left;
+  padding-left: 20px;
+  /* padding-right: 200px; */
+  line-height: 0.9;
+  /* padding-top: -10px; */
 }
-
 
 .prompt-p hr {
   border: 0;
@@ -804,19 +841,17 @@ input::placeholder {
   margin: 10px 0;
 }
 
-
 ol {
-    line-height: 1.2;
-    margin-inline-start:0%;
+  line-height: 1.2;
+  margin-inline-start: 0%;
 }
 
 ul {
-    line-height: 1.2;
-
+  line-height: 1.2;
 }
 
 li {
-    line-height: 1.2;
+  line-height: 1.2;
 }
 
 
