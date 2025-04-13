@@ -6,6 +6,35 @@
   font-style: normal;
 }
 
+/* Mobile message styling */
+.mobile-message {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+  z-index: 9999;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #617dae;
+}
+
+/* Media query for mobile devices */
+@media screen and (max-width: 768px) {
+  .container {
+    display: none !important;
+  }
+  .mobile-message {
+    display: flex;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -17,12 +46,18 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 250, 250, 0.4) 19%,
+    rgba(194, 202, 225, 0.4) 95%
+  );
 }
 
 .container {
   width: 100%;
-  min-height: 100vh;
-  position: relative;
+  /* min-height: 100vh; */
+  height: auto;
+  /* position: relative; */
   background: linear-gradient(
     180deg,
     rgba(250, 250, 250, 0.4) 19%,
@@ -281,17 +316,31 @@ body {
 }
 
 .main-content {
-  margin-top: 100px;
+  /* margin-top: 100px;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-left: 20px;
   padding-right: 20px;
-  padding-bottom: 268px; /* input-container-unlocked(148px) + footer(~100px) + 여유 공간 */
-  min-height: 100vh; /* 최소 화면 높이만큼 확보 */
+  padding-bottom: 268px; 
+  min-height: 100vh; 
   width: 100%;
-  overflow-y: auto; /* 내용이 넘칠 경우 스크롤 가능하도록 */
+  overflow-y: auto; */
+  .main-content {
+    /* flex: 1; */
+    display: flex;
+    /* flex-direction: column; */
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px;
+    padding-bottom: 10px;
+    width: 100%;
+    height: fit-content;
+    overflow-y: auto;
+    padding-top: 10px;
+  }
 }
 
 .main-content-prompt {
@@ -308,6 +357,106 @@ body {
   position: relative;
   /* height: calc(100vh - 80px); */
 }
+
+/*-------- 좌측 패널 ---------*/
+.history-pannel-block.minimized {
+  width: fit-content;
+}
+.history-pannel-block {
+  /* background-color: red; */
+  width: 200px;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-left: 12px;
+  padding-top: 10px;
+}
+.icon-block {
+  /* background-color: black; */
+  width: fit-content;
+  height: auto;
+  border: none;
+  border: none; /* 테두리(아웃라인) 제거 */
+  padding: 0; /* 내부 여백 제거 */
+  outline: none; /* 포커스 아웃라인 제거 */
+  cursor: pointer; /* 마우스 오버 시 커서 변경 (선택 사항) */
+  background: none;
+}
+.history-list-area {
+  display: none;
+  /* display: flex; */
+  flex-direction: column;
+  gap: 20px;
+}
+/*--- 7일 ------*/
+.history-7day {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-7day a {
+  font-size: 16px;
+  font-weight: 400;
+  color: #617dae;
+  gap: 12px;
+}
+.history-7day p {
+  display: -webkit-box;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(97, 125, 174, 0.7);
+  -webkit-line-clamp: 2; /* 텍스트를 2줄로 제한 */
+  -webkit-box-orient: vertical; /* 텍스트 방향 설정 */
+  overflow: hidden; /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+}
+/*--- 30일 ------*/
+.history-30day {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-30day a {
+  font-size: 16px;
+  font-weight: 400;
+  color: #617dae;
+  gap: 12px;
+}
+.history-30day p {
+  display: -webkit-box;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(97, 125, 174, 0.7);
+  -webkit-line-clamp: 2; /* 텍스트를 2줄로 제한 */
+  -webkit-box-orient: vertical; /* 텍스트 방향 설정 */
+  overflow: hidden; /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+}
+/*--- 월 ------*/
+.history-month {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.history-month a {
+  font-size: 16px;
+  font-weight: 400;
+  color: #617dae;
+  gap: 12px;
+}
+.history-month p {
+  display: -webkit-box;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(97, 125, 174, 0.7);
+  -webkit-line-clamp: 2; /* 텍스트를 2줄로 제한 */
+  -webkit-box-orient: vertical; /* 텍스트 방향 설정 */
+  overflow: hidden; /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+}
+
+/*----------------------------*/
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
 .main-content-prompt::-webkit-scrollbar {
@@ -472,13 +621,12 @@ body {
   cursor: pointer;
   z-index: 2000;
 }
-
 .help-box {
   position: fixed;
   width: 240px;
   height: 200px;
   background-color: #dce5ff;
-  border: 1px solid #617dae;
+  border: 0.5px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   z-index: 2000; /* Ensure it appears above other elements */
@@ -491,7 +639,6 @@ body {
   padding-left: 20px;
   padding-right: 20px;
   padding-top: 30px;
-
   gap: 20px;
 }
 .styled-link {
@@ -500,6 +647,37 @@ body {
 }
 .styled-link:hover {
   text-decoration: underline; /* 마우스 오버 시 밑줄 추가 */
+}
+
+.help-box-naver {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+.help-box-insta {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+.help-box-youtube {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
 }
 
 footer {
@@ -525,6 +703,9 @@ footer {
 .copyright {
   font-size: 12px;
   font-weight: 600;
+}
+.copyright p {
+  display: inline;
 }
 
 .privacy-policy {
