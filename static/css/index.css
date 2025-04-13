@@ -400,6 +400,18 @@ body {
   text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
 }
 
+.history-item {
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.history-item:hover {
+  background-color: rgba(97, 125, 174, 0.1);
+  color: #617dae;
+}
+
 /*----------------------------*/
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */

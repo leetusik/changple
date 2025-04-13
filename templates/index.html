@@ -109,15 +109,19 @@
                         <a>
                             지난 대화 기록
                         </a>
-                        <P>
-                            카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?
-                        </p>
-                        <P>
-                            창플의 창업 철학에 대해 궁금해 자세하게 알려줄 수 있을까요? 특히 요식업에 관해서 알고싶어요                        
-                        </p>
-                        <P>
-                            문정동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?                        
-                        </p>
+                        {% if user.is_authenticated %}
+                            {% for session in user.chat_sessions.all|dictsortreversed:"created_at" %}
+                                <p class="history-item" data-url="{{ session.get_absolute_url }}">
+                                    {{ session.get_first_message }}
+                                </p>
+                            {% empty %}
+                                <p>아직 대화 기록이 없습니다.</p>
+                            {% endfor %}
+                        {% else %}
+                            <p>
+                                로그인하여 대화 기록을 확인하세요.
+                            </p>
+                        {% endif %}
                     </div>
                 </div>    
             </div>
@@ -254,7 +258,19 @@
                 location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
             });
 
-
+            // History items click event
+            const historyItems = document.querySelectorAll('.history-item');
+            historyItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const url = this.getAttribute('data-url');
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+                
+                // Add cursor pointer to make it obvious it's clickable
+                item.style.cursor = 'pointer';
+            });
         });
 
         // Help Box 이벤트 리스너 추가
