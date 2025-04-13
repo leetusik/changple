@@ -284,14 +284,19 @@
 
 
         });
+
         // Help Box 이벤트 리스너 추가
         const helpBtn = document.querySelector('.help-btn');
         const helpBox = document.getElementById('help-box');
 
-        // Show help box when help button is clicked
+        // Show or hide help box when help button is clicked
         helpBtn.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the click from bubbling up to the document
-            helpBox.style.display = 'flex'; // Show the help box
+            if (helpBox.style.display === 'flex') {
+                helpBox.style.display = 'none'; // Hide the help box if it's already shown
+            } else {
+                helpBox.style.display = 'flex'; // Show the help box
+            }
         });
 
         // Hide help box when clicking anywhere else
