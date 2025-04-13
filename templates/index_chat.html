@@ -245,6 +245,26 @@
         let abortController = null; // 스트리밍 중단 컨트롤러
 
         document.addEventListener('DOMContentLoaded', function() {
+            // marked 렌더러 커스터마이징 (취소선 비활성화)
+            const renderer = new marked.Renderer();
+            renderer.del = function(text) {
+              // text 인자의 타입과 내용 확인 (디버깅용)
+              console.log('renderer.del input:', text, typeof text);
+
+              // text가 객체이고 text.text 속성이 있다면 해당 값을 사용, 아니면 text 자체를 사용
+              const actualText = (typeof text === 'object' && text !== null && typeof text.text === 'string') ? text.text : String(text);
+
+              // <del> 태그 대신 원래 텍스트에 ~를 붙여 반환
+              return `~${actualText}~`;
+            };
+
+            // marked 옵션 설정 - 커스텀 렌더러 적용
+            marked.setOptions({
+              renderer: renderer,
+              gfm: true, // 다른 GFM 기능은 유지 (필요에 따라 조정)
+              breaks: true // 줄바꿈 처리 등 (필요에 따라 조정)
+            });
+
             // Load chat history from Django context if available
             {% if chat_history_json %}
                 let chatHistory = {{ chat_history_json|safe }};
