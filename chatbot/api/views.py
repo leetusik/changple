@@ -5,16 +5,16 @@ import uuid
 from datetime import datetime, timedelta
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessage, HumanMessage
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
 from chatbot.models import ChatMessage, ChatSession
 
@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 # Import necessary components from chain service
 # Make sure llm and get_retriever are accessible
 try:
-    from chatbot.services.chain import create_chain, get_retriever, llm
+    from chatbot.services.chain import (
+        create_chain,
+        get_retriever,
+        llm,
+        handle_post_generation,
+    )
 
     # Initialize retriever globally (assuming thread-safety)
     retriever = get_retriever()
@@ -187,236 +192,166 @@ def chat_view(request, session_nonce=None):
     return render(request, "index_chat.html", context)
 
 
-@api_view(["POST"])
+@csrf_exempt
+@require_POST
 def chat(request):
-    """챗봇 대화 API 엔드포인트"""
-    data = request.data
-    query = data.get("query", "")
-    session_nonce = data.get("session_nonce", "")
+    """챗봇 대화 API 엔드포인트 (스트리밍 방식)"""
+    try:
+        data = json.loads(request.body)
+        query = data.get("query", "")
+        session_nonce = data.get("session_nonce", "")
 
-    # user query
-    logger.info(f"User query (session: {session_nonce}): \n{query}")
+        # user query
+        logger.info(f"User query (session: {session_nonce}): \n{query}")
 
-    if not query:
-        return Response({"error": "질문을 입력해주세요."}, status=400)
-
-    # Check if user has available queries
-    remaining_queries = 0
-    query_limit = 10
-    is_premium = False
-
-    if request.user.is_authenticated:
-        user = request.user
+        if not query:
+            return JsonResponse({"error": "질문을 입력해주세요."}, status=400)
 
         # Check if user has available queries
-        if not user.has_available_queries():
-            return Response(
-                {
-                    "error": "일일 질문 한도에 도달했습니다. 내일 다시 시도하거나 프리미엄으로 업그레이드하세요.",
-                    "remaining_queries": 0,
-                    "query_limit": user.daily_query_limit,
-                    "is_premium": user.is_premium,
-                },
-                status=403,
-            )
+        remaining_queries = 0
+        query_limit = 10
+        is_premium = False
+        user = None
 
-        # Get remaining queries before incrementing
-        remaining_queries = user.daily_query_limit - user.daily_queries_used
-        query_limit = user.daily_query_limit
-        is_premium = (
-            user.is_premium
-            and user.premium_until
-            and user.premium_until > timezone.now()
-        )
-
-        # Only increment if not premium
-        if not is_premium:
-            # Increment query count
-            user.increment_query_count()
-            # Update remaining count
-            remaining_queries = user.daily_query_limit - user.daily_queries_used
-
-    # Get or create chat session
-    try:
-        chat_session = None
-        if session_nonce:
-            chat_session = ChatSession.objects.get(session_nonce=session_nonce)
-        else:
-            # If no nonce provided in API, it's likely an error or needs specific handling
-            # For now, let's assume a nonce is required for the chat API
-            return Response({"error": "Session nonce is required."}, status=400)
-
-        # --- Load User Info from Django Session ---
-        user_info = request.session.get(f"user_info_{session_nonce}", {})
-        logger.info(f"Loaded user_info from session: {user_info}")
-        # -----------------------------------------
-
-        # --- Memory and Chain Creation per Request ---
-        # 데이터베이스에서 대화 내역 가져오기
-        messages = chat_session.messages.all().order_by("created_at")
-
-        # Create a new memory buffer for this request
-        memory = ConversationBufferMemory(
-            return_messages=True,
-            output_key="answer",
-            input_key="question",
-            memory_key="chat_history",
-        )
-
-        # Populate memory from DB messages
-        for msg in messages:
-            if msg.role == "user":
-                memory.chat_memory.add_user_message(msg.content)
-            elif msg.role == "assistant":
-                memory.chat_memory.add_ai_message(msg.content)
-
-        # Create the chain for this specific request, passing the populated memory
-        request_chain = create_chain(llm=llm, retriever=retriever, memory=memory)
-        # ----------------------------------------------
-
-        # 세션 ID와 대화 기록을 포함한 체인 입력 구성
-        chain_input = {
-            "question": query,
-            # "session_id": str(chat_session.session_nonce), # session_id might not be needed by the chain anymore
-            # "db_history": db_history, # REMOVE: History is now in the memory object
-            "user_info": user_info,  # Pass the user info loaded from the session
-        }
-
-        # Add authenticated user object to input if available (chain might use it)
         if request.user.is_authenticated:
-            chain_input["user"] = request.user
+            user = request.user
 
-        # 체인 실행 (using the request-specific chain)
-        chain_response = request_chain.invoke(chain_input)
-        # print(f"체인 응답: {json.dumps(chain_response, indent=2, ensure_ascii=False, default=str)}")
-
-        # Extract response text and relevance scores
-        if isinstance(chain_response, dict):
-            # --- Extract answer and updated user info ---
-            response = chain_response.get("answer", "")
-            # Get potentially updated user info from the chain
-            updated_user_info = chain_response.get("updated_user_info")
-            if updated_user_info is not None:  # Check if it was actually returned
-                # --- Save Updated User Info back to Django Session ---
-                request.session[f"user_info_{session_nonce}"] = updated_user_info
-                logger.info(f"Saved updated user_info to session: {updated_user_info}")
-                # ----------------------------------------------------
-            # ---------------------------------------------
-
-            # 응답은 answer 필드에서 우선 가져오고, 없으면 text 필드에서 가져옴 (Fallback, should use 'answer')
-            if not response and "text" in chain_response:
-                response = chain_response.get("text", "")
-
-            source_docs = chain_response.get("source_documents", [])
-
-            # similarity scores가 있는 경우 추출
-            if hasattr(chain_response, "similarity_scores"):
-                search_results = []
-                for doc, score in zip(source_docs, chain_response.similarity_scores):
-                    search_results.append(
-                        {
-                            "metadata": {
-                                "title": doc.metadata.get("title", f"Source {i+1}"),
-                                "url": doc.metadata.get("url", ""),
-                                "similarity_score": f"{score:.2f}",  # 유사도 점수 추가
-                            },
-                            "content": doc.page_content[:200],
-                        }
-                    )
-            else:
-                # Extract search results if they exist in the response
-                search_results = chain_response.get("search_results", [])
-                # Extract source documents if they exist
-                source_docs = chain_response.get("source_documents", [])
-        else:
-            response = chain_response
-            search_results = []
-            source_docs = []
-
-        # If source_docs is available but search_results is not, convert source_docs to search_results format
-        if not search_results and source_docs:
-            search_results = []
-            for i, doc in enumerate(source_docs):
-                search_results.append(
+            # Check if user has available queries
+            if not user.has_available_queries():
+                return JsonResponse(
                     {
-                        "metadata": {
-                            "title": doc.metadata.get("title", f"Source {i+1}"),
-                            "url": doc.metadata.get("url", ""),
-                        },
-                        "content": doc.page_content[:200],  # Limit content length
-                    }
+                        "error": "일일 질문 한도에 도달했습니다. 내일 다시 시도하거나 프리미엄으로 업그레이드하세요.",
+                        "remaining_queries": 0,
+                        "query_limit": user.daily_query_limit,
+                        "is_premium": user.is_premium,
+                    },
+                    status=403,
                 )
 
-        # If chain.py's retriever_chain was used, try to extract the docs that were retrieved
-        if not search_results:
-            try:
-                # Get the docs from context
-                docs = chain_input.get("docs", [])
-                if docs:
-                    search_results = []
-                    for i, doc in enumerate(docs):
-                        search_results.append(
-                            {
-                                "metadata": {
-                                    "title": doc.metadata.get("title", f"Source {i+1}"),
-                                    "url": doc.metadata.get("url", ""),
-                                },
-                                "content": doc.page_content[
-                                    :200
-                                ],  # Limit content length
-                            }
-                        )
-            except Exception as e:
-                logger.warning(f"Error extracting search results: {str(e)}")
-
-        # Check if this is the initial message for a session that has request_sent=True
-        if chat_session.request_sent and chat_session.messages.count() == 1:
-            # Get the existing user message
-            user_msg = chat_session.messages.get(role="user")
-
-            # If the content is different, update it (unlikely but just to be safe)
-            if user_msg.content != query:
-                user_msg.content = query
-                user_msg.save()
-                logger.info(
-                    f"Updated existing user message content from '{user_msg.content}' to '{query}'"
-                )
-        else:
-            # This is not the initial message or the session doesn't have request_sent=True
-            # Save user message to database
-            user_msg = ChatMessage.objects.create(
-                session=chat_session, role="user", content=query
+            # Get remaining queries before incrementing
+            remaining_queries = user.daily_query_limit - user.daily_queries_used
+            query_limit = user.daily_query_limit
+            is_premium = (
+                user.is_premium
+                and user.premium_until
+                and user.premium_until > timezone.now()
             )
-            logger.info(f"Created new user message (ID: {user_msg.id})")
 
-        # Save AI response to database
-        ai_msg = ChatMessage.objects.create(
-            session=chat_session, role="assistant", content=response
-        )
+        # Get or create chat session
+        try:
+            chat_session = None
+            if session_nonce:
+                chat_session = ChatSession.objects.get(session_nonce=session_nonce)
+            else:
+                # If no nonce provided in API, it's likely an error or needs specific handling
+                # For now, let's assume a nonce is required for the chat API
+                return JsonResponse({"error": "Session nonce is required."}, status=400)
 
-        return Response(
-            {
-                "response": response,
-                "search_results": search_results,
-                "remaining_queries": remaining_queries,
-                "query_limit": query_limit,
-                "is_premium": is_premium,
+            # --- Load User Info from Django Session ---
+            user_info = request.session.get(f"user_info_{session_nonce}", {})
+            logger.info(f"Loaded user_info from session: {user_info}")
+            # -----------------------------------------
+
+            # --- Memory and Chain Creation per Request ---
+            # 데이터베이스에서 대화 내역 가져오기
+            messages = chat_session.messages.all().order_by("created_at")
+
+            # Create a new memory buffer for this request
+            memory = ConversationBufferMemory(
+                return_messages=True,
+                output_key="answer",
+                input_key="question",
+                memory_key="chat_history",
+            )
+
+            # Populate memory from DB messages
+            for msg in messages:
+                if msg.role == "user":
+                    memory.chat_memory.add_user_message(msg.content)
+                elif msg.role == "assistant":
+                    memory.chat_memory.add_ai_message(msg.content)
+
+            # Create the chain for this specific request, passing the populated memory
+            request_chain = create_chain(llm=llm, retriever=retriever, memory=memory)
+            # ----------------------------------------------
+
+            # 세션 ID와 대화 기록을 포함한 체인 입력 구성
+            chain_input = {
+                "question": query,
+                "user_info": user_info,
             }
-        )
 
-    except ChatSession.DoesNotExist:
-        return Response({"error": "Invalid session nonce provided."}, status=404)
+            # Add authenticated user object to input if available (chain might use it)
+            if user:
+                chain_input["user"] = user
+
+            # --- 스트리밍 응답 생성 ---
+            def event_stream():
+                full_answer = ""
+                post_process_executed = False
+                final_used_question = None
+
+                try:
+                    logger.info(f"Starting stream for session {session_nonce}")
+                    stream = request_chain.stream(chain_input)
+
+                    for chunk in stream:
+                        full_answer += chunk
+                        yield f"data: {json.dumps({'token': chunk})}\n\n"
+
+                    logger.info(f"Stream finished for session {session_nonce}. Full answer length: {len(full_answer)}")
+                    post_processing_input = {
+                        "question": chain_input.get("question"),
+                        "user_info": chain_input.get("user_info"),
+                    }
+                    final_used_question = post_processing_input.get("question")
+
+                    if final_used_question:
+                        logger.info(f"Executing post-generation for session {session_nonce}, Q: {final_used_question[:50]}...")
+                        post_gen_result = handle_post_generation(post_processing_input, full_answer, memory)
+                        updated_user_info = post_gen_result.get("updated_user_info")
+                        post_process_executed = True
+
+                        if updated_user_info is not None:
+                            request.session[f"user_info_{session_nonce}"] = updated_user_info
+                            logger.info(f"Saved updated user_info to session {session_nonce}: {updated_user_info}")
+
+                        if user and not is_premium:
+                            user.increment_query_count()
+                            logger.info(f"Incremented query count for user {user.username}")
+
+                        user_msg = ChatMessage.objects.create(
+                            session=chat_session, role="user", content=query
+                        )
+                        ai_msg = ChatMessage.objects.create(
+                            session=chat_session, role="assistant", content=full_answer
+                        )
+                        logger.info(f"Saved user message (ID: {user_msg.id}) and AI message (ID: {ai_msg.id}) to DB for session {session_nonce}")
+
+                    else:
+                        logger.warning(f"Skipping post-generation for session {session_nonce}: 'question' missing in prepared input.")
+
+                    yield f"data: {json.dumps({'end': True})}\n\n"
+
+                except Exception as e:
+                    logger.error(f"Error during streaming or post-processing for session {session_nonce}: {e}", exc_info=True)
+                    yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
+                finally:
+                    if not post_process_executed:
+                        logger.warning(f"Post-generation was not executed for session {session_nonce}.")
+
+            response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+            response['Cache-Control'] = 'no-cache'
+            return response
+
+        except ChatSession.DoesNotExist:
+            return JsonResponse({"error": "Invalid session nonce provided."}, status=404)
+        except Exception as e:
+            logger.error(f"Error in chat API (outer try-except): {e}", exc_info=True)
+            return JsonResponse({"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
     except Exception as e:
-        import traceback
-
-        logger.error(f"Error in chatbot API: {str(e)}")
-        logger.error(traceback.format_exc())
-        return Response(
-            {
-                "error": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-                "remaining_queries": remaining_queries,
-                "query_limit": query_limit,
-                "is_premium": is_premium,
-            },
-            status=500,
-        )
+        logger.error(f"Error in chat API (outer try-except): {e}", exc_info=True)
+        return JsonResponse({"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500)

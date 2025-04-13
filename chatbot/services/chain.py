@@ -2,13 +2,14 @@ import logging
 import os
 import sys
 from operator import itemgetter
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Any, AsyncIterator, Iterator
 
 from django.db import models
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.language_models import LanguageModelLike
+from langchain_core.messages import AIMessageChunk
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.retrievers import BaseRetriever
@@ -17,6 +18,7 @@ from langchain_core.runnables import (
     RunnableBranch,
     RunnableLambda,
     RunnablePassthrough,
+    RunnableConfig,
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pinecone import Pinecone
@@ -544,10 +546,40 @@ def format_docs(docs: Sequence[Document]) -> str:
     return "\n\n---\n\n".join(formatted_docs)
 
 
+def handle_post_generation(
+    input_data: Dict[str, Any],
+    full_answer: str,
+    memory: ConversationBufferMemory
+) -> Dict[str, Any]:
+    """스트리밍 완료 후 메모리 저장 및 사용자 정보 업데이트 처리"""
+    # 최종 질문 (rephrased or original)
+    final_question = input_data["question"]
+
+    # 대화 기록 저장
+    memory.save_context(
+        {"question": final_question},
+        {"answer": full_answer},
+    )
+    logger.info(f"Saved conversation to memory. Q: {final_question[:50]}..., A: {full_answer[:50]}...")
+
+    # 사용자 정보 업데이트 시도
+    current_user_info = input_data.get("user_info", {})
+    logger.info("Attempting to update user information post-streaming.")
+    updated_info = update_user_information(
+        current_user_info, final_question # 업데이트는 최종 질문 기준
+    )
+    logger.info(f"Updated user_info post-streaming: {updated_info}")
+
+    return {
+        "answer": full_answer, # 전체 답변도 반환 (필요시)
+        "updated_user_info": updated_info,
+    }
+
+
 def create_chain(
     llm: LanguageModelLike, retriever: BaseRetriever, memory: ConversationBufferMemory
 ) -> Runnable:
-    """Create the main chain for processing user questions"""
+    """Create the main chain for processing user questions (streaming enabled, without postprocessing)."""
     # Create specialized chains for each category
     specific_advice_chain = create_specific_advice_chain()
     question_advice_chain = create_question_advice_chain()
@@ -651,10 +683,10 @@ def create_chain(
         # We need original_question only for memory saving
         return {
             "question": final_question,  # The ONLY question we'll use for answering
+            "original_question": original_question,  # Prefix with _ to indicate internal use only
             "category": category,
             "user": user,
             "user_info": user_info,
-            # "_original_question": original_question,  # Prefix with _ to indicate internal use only
         }
 
     # Update the retrieve_docs function to use the single question field
@@ -755,59 +787,22 @@ def create_chain(
         default_chain,
     )
 
-    # Update postprocess to use the _original_question field
-    def postprocess(input_data):
-        # Use original question for memory and user info update
-        # original_question = input_data["_original_question"]
-        final_question = input_data["question"]
-
-        # Save the conversation to memory
-        memory.save_context(
-            {"question": final_question},  # Use original question for consistency
-            {"answer": input_data["answer"]},
-        )
-
-        # Update user information based on the conversation
-        current_user_info = input_data.get("user_info", {})
-        logger.info("Attempting to update user information.")
-        updated_info = update_user_information(
-            current_user_info, final_question  # Use original question
-        )
-        logger.info(f"Updated user_info: {updated_info}")
-
-        # Return only what's needed by the caller
-        return {
-            "answer": input_data["answer"],
-            "updated_user_info": updated_info,
-        }
-
     # Radically simplify the chain structure
     chain = (
-        RunnableLambda(
-            process_input
-        )  # Direct function call, no intermediate assignment
-        | RunnableLambda(retrieve_docs)  # Uses the single "question" field
+        RunnableLambda(process_input).with_config(run_name="ProcessInput")
+        | RunnableLambda(retrieve_docs).with_config(run_name="RetrieveDocs")
         | RunnablePassthrough.assign(
-            primary_context=lambda x: x["primary_context"],
-            philosophy_context=lambda x: x["philosophy_context"],
-            example=lambda x: EXAMPLE_QA_MAP.get(
-                x["category"], ""
-            ),  # Add example directly
+            # memory.chat_memory.messages 를 직접 사용하여 현재 스냅샷을 전달
             chat_history=lambda _: "\n".join(
                 [
-                    (
-                        f"사용자: {msg.content}"
-                        if type(msg).__name__ == "HumanMessage"
-                        else f"AI: {msg.content}"
-                    )
+                    (f"사용자: {msg.content}" if type(msg).__name__ == "HumanMessage" else f"AI: {msg.content}")
                     for msg in memory.chat_memory.messages
                 ]
             ),
-        )
-        | RunnablePassthrough.assign(answer=branch)  # Branch uses the cleaned inputs
-        | RunnableLambda(
-            postprocess
-        )  # Postprocess handles memory with _original_question
+            example=lambda x: EXAMPLE_QA_MAP.get(x["category"], ""),
+            # primary_context, philosophy_context 는 retrieve_docs 에서 이미 추가됨
+        ).with_config(run_name="PrepareContext")
+        | branch.with_config(run_name="ExecuteBranch") # 최종 LLM 호출 (스트리밍 시작점)
     )
 
     return chain

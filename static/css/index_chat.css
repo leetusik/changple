@@ -7,31 +7,38 @@
 }
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Spoqa Han Sans Neo', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Spoqa Han Sans Neo", sans-serif;
 }
 
 body {
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .container {
-    width: 100%;
-    min-height: 100vh;
-    position: relative;
-    background: linear-gradient(180deg, rgba(250, 250, 250, 0.4) 19%, rgba(194, 202, 225, 0.4) 95%); /* 배경색에 투명도 적용 */
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    overflow-y: hidden; /* Disable scrolling */
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 250, 250, 0.4) 19%,
+    rgba(194, 202, 225, 0.4) 95%
+  ); /* 배경색에 투명도 적용 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden; /* Disable scrolling */
 }
 
 .prompt-container {
   position: relative;
+  max-width: 1040px;
+  width: 100%;
+  height: calc(100vh - 250px);
   max-width: 1040px;
   width: 100%;
   height: calc(100vh - 250px);
@@ -41,16 +48,15 @@ body {
 }
 
 .prompt-answer-block {
-    /* background-color: black; */
-    width: 100%;
-    color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    padding-right: 10px;
-    padding-bottom: 20px;
-
-} 
+  /* background-color: black; */
+  width: 100%;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: 10px;
+  padding-bottom: 20px;
+}
 
 /* Chrome, Safari, Opera에 대한 스크롤바 숨김 처리 */
 .prompt-container::-webkit-scrollbar {
@@ -59,30 +65,30 @@ body {
 
 /* 새로운 wrapper div를 위한 스타일 추가 */
 .prompt-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    margin-bottom: 100px;
-    padding-right: 60px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin-bottom: 100px;
+  padding-right: 60px;
 }
 
 .prompt-links-container {
-    width: 1040px;
-    height:fit-content;
-    /* background-color: white; */
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    padding-left: 40px;
-    padding-bottom: 10px; 
+  width: 1040px;
+  height: fit-content;
+  /* background-color: white; */
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding-left: 40px;
+  padding-bottom: 10px;
 }
 
 .prompt-links-cards {
-    width: 200px;
-    height: 100px;
-    border-radius: 10px;
-    outline: 1px solid #617DAE;
-    margin-right: 10px; 
+  width: 200px;
+  height: 100px;
+  border-radius: 10px;
+  outline: 1px solid #617dae;
+  margin-right: 10px;
 }
 
 /* 마지막 카드의 여백 제거 */
@@ -112,43 +118,45 @@ body {
 }
 
 .card-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: #617DAE;
-    margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #617dae;
+  margin-bottom: 8px;
 }
 
 .card-description {
-    font-size: 12px;
-    color: #617DAE;
-    line-height: 1.6;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 12px;
+  color: #617dae;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .free-use-count-container {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    padding-left: 40px;
-    padding-bottom: 50px;
-    gap: 10px;
-    
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding-left: 40px;
+  padding-bottom: 50px;
+  gap: 10px;
 }
 
 .free-use-count {
-    display: inline-block; 
-    height: 40px;
-    /* background-color: white; */
-    border-radius: 10px;
-    outline: 1px solid #8097C0;
-    padding: 0 8px; 
+  display: inline-block;
+  height: 40px;
+  /* background-color: white; */
+  border-radius: 10px;
+  outline: 1px solid #8097c0;
+  padding: 0 8px;
 }
 
 .free-use-count p {
+  line-height: 40px;
+  white-space: nowrap;
+  margin: 0;
   line-height: 40px;
   white-space: nowrap;
   margin: 0;
@@ -156,7 +164,9 @@ body {
 }
 
 /* 
+/* 
 .pay-use-btn {
+  display: inline-block; 
   display: inline-block; 
   height: 40px;
   border-radius: 10px;
@@ -168,36 +178,59 @@ body {
   line-height: 40px; 
   white-space: nowrap; 
   margin: 0;
+  padding: 0 4px; 
+} */
+
+/* .pay-use-btn p {
+  line-height: 40px; 
+  white-space: nowrap; 
+  margin: 0;
   color: #617dae;
 } */
 
 .prompt-p {
-    width: 100%;
-    white-space: pre-line;
-    line-height: 1.2;
-    word-break: keep-all;
-    overflow-wrap: break-word;
-    padding-bottom: 10px;
-    padding-left: 40px;
-    padding-right: 200px;
-    color: #2A4169;
+  width: 100%;
+  white-space: pre-line;
+  line-height: 1.2;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  padding-bottom: 10px;
+  padding-left: 40px;
+  padding-right: 200px;
+  color: #2a4169;
+}
+
+.prompt-p span {
+  /* Streaming content span */
+  white-space: pre-wrap; /* Preserve whitespace and allow wrapping */
+  word-break: break-word; /* Break long words */
+}
+
+/* Blinking cursor effect */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.blinking-cursor {
+  animation: blink 1s step-end infinite;
 }
 
 .prompt-text-area {
-    width: fit-content;
-    max-width: 60%; /* 최대 너비를 부모 요소의 60%로 제한 */
-    background-color: #617DAE;
-    color: white;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.10);
-    border-radius: 20px;
-    text-align: left; 
-    word-wrap: break-word; 
-    white-space: normal;
+  width: fit-content;
+  max-width: 60%; /* 최대 너비를 부모 요소의 60%로 제한 */
+  background-color: #617dae;
+  color: white;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  text-align: left;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 .prompt-text-area p {
-  margin: 0; 
-  padding: 10px 15px; 
+  margin: 0;
+  padding: 10px 15px;
 }
 
 .header {
@@ -237,7 +270,7 @@ body {
   flex-direction: row;
   justify-content: center;
   /* align-items: center; */
-  gap: 10px; 
+  gap: 10px;
 }
 
 .login-btn,
@@ -279,15 +312,15 @@ body {
 }
 
 .main-content-prompt {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    padding-bottom: 180px;
-    width: 100%;
-    position: relative;
-    margin-top: 50px; /* 헤더 높이만큼 마진 추가 */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  padding-bottom: 180px;
+  width: 100%;
+  position: relative;
+  margin-top: 50px; /* 헤더 높이만큼 마진 추가 */
 }
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
@@ -319,17 +352,17 @@ body {
 }
 
 .suggestion-box {
-    width: 325px;
-    height: 148px;
-    padding: 21px 29px;
-    background: #F8F8F8;
-    box-shadow: 2px 2px 20px rgba(128, 151, 192, 0.10);
-    border-radius: 30px;
-    color: #A4A4A4;
-    font-size: 18px;
-    font-weight: 400;
-    line-height: 28.6px;
-    flex-shrink: 0;
+  width: 325px;
+  height: 148px;
+  padding: 21px 29px;
+  background: #f8f8f8;
+  box-shadow: 2px 2px 20px rgba(128, 151, 192, 0.1);
+  border-radius: 30px;
+  color: #a4a4a4;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28.6px;
+  flex-shrink: 0;
 }
 
 .input-container-locked {
@@ -351,6 +384,9 @@ body {
 .input-container-prompt {
   width: 100%;
   max-width: 1040px;
+  /* height: 148px; */ /* 고정 높이 제거 */
+  min-height: 80px; /* 최소 높이 설정 (예시) */
+  height: auto; /* 내용에 따라 높이 자동 조절 */
   /* height: 148px; */ /* 고정 높이 제거 */
   min-height: 80px; /* 최소 높이 설정 (예시) */
   height: auto; /* 내용에 따라 높이 자동 조절 */
@@ -385,7 +421,7 @@ body {
   height: 80px; /* 초기 높이 (한 줄 정도) */
   min-height: 80px; /* 최소 높이 */
   max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
-  padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
+  padding: 20px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -413,6 +449,7 @@ body {
 .changple-btn {
   position: absolute;
   top: 10%;
+  top: 10%;
   right: 17px;
   width: 60px;
   height: 60px;
@@ -424,6 +461,40 @@ body {
   align-items: center;
   cursor: pointer;
   z-index: 1001;
+}
+
+/* Stop streaming button style */
+.stop-streaming-button {
+  position: absolute;
+  top: 10%;
+  right: 17px; /* locked-btn, send-btn과 같은 위치 */
+  width: 60px;
+  height: 60px;
+  background: #8097c0;
+  color: white; /* Dark red text/icon */
+  box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
+  border-radius: 30px;
+  border: 1px solid #8097c0;
+  display: flex; /* Initially hidden via style="display: none;" */
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1002; /* Ensure it's above other buttons if they overlap */
+  font-size: 20px; /* Adjust icon size */
+  font-weight: bold;
+}
+
+.stop-streaming-button:hover {
+  background-color: #8097c0;
+  color: white;
+  border: 1px solid #8097c0;
+  box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
+  font-size: 20px; /* Adjust icon size */
+  font-weight: bold;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+  z-index: 1002; /* Ensure it's above other buttons if they overlap */
 }
 
 .lock-icon {
@@ -444,55 +515,94 @@ body {
 }
 
 .help-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-    background: #D8E0F8;
-    box-shadow: 2px 2px 10px rgba(97, 125, 174, 0.25);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #90A4C8;
-    font-size: 30px;
-    font-weight: 600;
-    cursor: pointer;
-    z-index: 2000;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: #d8e0f8;
+  box-shadow: 2px 2px 10px rgba(97, 125, 174, 0.25);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #90a4c8;
+  font-size: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 2000;
 }
-
-
 .help-box {
-    position: fixed;
-    width: 200px;
-    height: 200px;
-    background-color: white;
-    border: 1px solid #617DAE;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    z-index: 2000; /* Ensure it appears above other elements */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #2A4169;
-    border-radius: 10px;
-    bottom: 60px;
-    right: 44px;
+  position: fixed;
+  width: 240px;
+  height: 200px;
+  background-color: #dce5ff;
+  border: px solid white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2000; /* Ensure it appears above other elements */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  bottom: 60px;
+  right: 44px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 26px;
+  gap: 20px;
+}
+.help-box-naver {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+.help-box-insta {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+.help-box-youtube {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
 }
 
+.styled-link {
+  color: #617dae; /* 링크 색상 */
+  text-decoration: none; /* 밑줄 제거 */
+}
+.styled-link:hover {
+  text-decoration: underline; /* 마우스 오버 시 밑줄 추가 */
+}
 footer {
-    width: 100%;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: #889DC4;
-    text-align: center;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    z-index: 0;
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #889dc4;
+  text-align: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 999;
 }
 
 .company-info {
@@ -504,6 +614,9 @@ footer {
   font-size: 12px;
   font-weight: 600;
 }
+.copyright p {
+  display: inline;
+}
 
 .privacy-policy {
   font-size: 14px;
@@ -511,6 +624,11 @@ footer {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.personal-info-link {
+  color: #617dae;
+}
+
 
 @media screen and (max-width: 768px) {
   .title {
@@ -537,7 +655,7 @@ footer {
   }
 
   .input-container-unlocked {
-    min-height: 60px; 
+    min-height: 60px;
   }
 
   .input-box-locked {
@@ -546,9 +664,9 @@ footer {
   }
 
   .input-box-unlocked {
-    font-size: 18px; 
-    padding: 8px 70px 8px 20px; 
-    height: 36px; 
+    font-size: 18px;
+    padding: 8px 70px 8px 20px;
+    height: 36px;
     min-height: 36px;
     max-height: 150px;
   }
@@ -562,13 +680,20 @@ footer {
 
   .send-btn,
   .changple-btn {
-    width: 40px; 
+    width: 40px;
     height: 40px;
     right: 10px;
     bottom: 10px;
   }
+  .stop-streaming-button {
+    width: 40px;
+    height: 40px;
+    right: 10px;
+    bottom: 10px; /* Adjust if needed based on other buttons */
+    font-size: 20px;
+  }
 
-    /* footer {
+  /* footer {
         padding: 15px;
     } */
 
@@ -621,8 +746,14 @@ footer {
     height: 32px;
     min-height: 32px;
     max-height: 120px;
+    padding: 6px 60px 6px 15px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 120px;
   }
 
+  .locked-btn,
+  .send-btn,
   .locked-btn,
   .send-btn,
   .changple-btn {
@@ -630,6 +761,13 @@ footer {
     height: 35px;
     right: 8px;
     bottom: 8px;
+  }
+  .stop-streaming-button {
+    width: 35px;
+    height: 35px;
+    right: 8px;
+    bottom: 8px; /* Adjust if needed */
+    font-size: 18px;
   }
 
   .locked-icon {
@@ -675,8 +813,6 @@ input::placeholder {
     text-align: right;
   } */
 
-
-
 /* ------------마크다운 렌더링을 위한 스타일------------- */
 
 .prompt-p h1,
@@ -718,19 +854,18 @@ input::placeholder {
 }
 
 .prompt-p ul {
-    text-align: left;
-    padding-left: 20px;
-    line-height: 1.6;
+  text-align: left;
+  padding-left: 20px;
+  line-height: 1.6;
 }
 
 .prompt-p ol {
-    text-align: left;
-    padding-left: 20px;
-    /* padding-right: 200px; */
-    line-height: 0.9;
-    /* padding-top: -10px; */
+  text-align: left;
+  padding-left: 20px;
+  /* padding-right: 200px; */
+  line-height: 0.9;
+  /* padding-top: -10px; */
 }
-
 
 .prompt-p hr {
   border: 0;
@@ -739,59 +874,61 @@ input::placeholder {
   margin: 10px 0;
 }
 
-
 ol {
-    line-height: 1.2;
-    margin-inline-start:0%;
+  line-height: 1.2;
+  margin-inline-start: 0%;
 }
 
 ul {
-    line-height: 1.2;
-
+  line-height: 1.2;
 }
 
 li {
-    line-height: 1.2;
+  line-height: 1.2;
 }
-
 
 /* ------------아래로 스크롤 버튼 스타일------------- */
 .scroll-down-button {
-    position: absolute; /* 부모(.input-container-prompt) 기준으로 위치 설정 */
-    bottom: 100%; /* 버튼의 아래쪽 경계를 부모의 위쪽 경계에 맞춤 */
-    left: 50%; /* 가로 중앙 기준으로 설정 */
-    transform: translateX(-50%); /* 요소 자체 너비의 50%만큼 왼쪽으로 이동하여 정확히 중앙 정렬 */
-    margin-bottom: 10px; /* 입력 컨테이너와의 간격 */
-    width: 32px;
-    height: 32px;
-    background-color: rgba(170, 185, 215, 0.7); /* 배경과 비슷하지만 살짝 진한 톤 (투명도 유지) */
-    color: white;
-    border: none;
-    border-radius: 50%;
-    font-size: 24px; /* 화살표 크기 키움 (20px -> 24px) */
-    cursor: pointer;
-    display: flex; /* 기본값은 flex로 두고 JS에서 none으로 변경 */
-    justify-content: center;
-    align-items: center;
-    z-index: 1001; /* 다른 요소 위에 표시 (input container 내부이므로 z-index 중요도 낮아짐) */
-    box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.15); /* 그림자 약간 조정 */
-    transition: opacity 0.3s ease, background-color 0.3s ease;
-    opacity: 0; /* 기본적으로 숨김 (JS로 제어) */
-    visibility: hidden; /* 기본적으로 숨김 */
+  position: absolute; /* 부모(.input-container-prompt) 기준으로 위치 설정 */
+  bottom: 100%; /* 버튼의 아래쪽 경계를 부모의 위쪽 경계에 맞춤 */
+  left: 50%; /* 가로 중앙 기준으로 설정 */
+  transform: translateX(
+    -50%
+  ); /* 요소 자체 너비의 50%만큼 왼쪽으로 이동하여 정확히 중앙 정렬 */
+  margin-bottom: 10px; /* 입력 컨테이너와의 간격 */
+  width: 32px;
+  height: 32px;
+  background-color: rgba(
+    170,
+    185,
+    215,
+    0.7
+  ); /* 배경과 비슷하지만 살짝 진한 톤 (투명도 유지) */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 24px; /* 화살표 크기 키움 (20px -> 24px) */
+  cursor: pointer;
+  display: flex; /* 기본값은 flex로 두고 JS에서 none으로 변경 */
+  justify-content: center;
+  align-items: center;
+  z-index: 1001; /* 다른 요소 위에 표시 (input container 내부이므로 z-index 중요도 낮아짐) */
+  box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.15); /* 그림자 약간 조정 */
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+  opacity: 0; /* 기본적으로 숨김 (JS로 제어) */
+  visibility: hidden; /* 기본적으로 숨김 */
 }
 
 .scroll-down-button.visible {
-    opacity: 1;
-    visibility: visible;
+  opacity: 1;
+  visibility: visible;
 }
 
-
 .scroll-down-button:hover {
-    background-color: rgba(150, 170, 200, 0.8); /* 호버 시 조금 더 진하게 */
+  background-color: rgba(150, 170, 200, 0.8); /* 호버 시 조금 더 진하게 */
 }
 
 /* 미디어 쿼리 부분은 변경 없음 */
-@media screen and (max-width: 1100px) { 
-    /* 미디어 쿼리 내 left 조정 불필요 */
+@media screen and (max-width: 1100px) {
+  /* 미디어 쿼리 내 left 조정 불필요 */
 }
-
