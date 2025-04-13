@@ -421,11 +421,7 @@ body {
   height: 80px; /* 초기 높이 (한 줄 정도) */
   min-height: 80px; /* 최소 높이 */
   max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
-  padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
-  height: 80px; /* 초기 높이 (한 줄 정도) */
-  min-height: 80px; /* 최소 높이 */
-  max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
-  padding: 10px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
+  padding: 20px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -435,12 +431,6 @@ body {
   font-family: "SpoqaHanSansNeo-Regular", sans-serif;
   font-size: 20px;
   font-weight: 400;
-  resize: none; /* 크기 조절 핸들 숨김 */
-  overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
-  white-space: normal; /* 자동 줄바꿈 활성화 */
-  word-wrap: break-word; /* 단어 단위 줄바꿈 */
-  line-height: 1.4; /* 줄 간격 조정 */
-  box-sizing: border-box; /* 패딩과 테두리를 높이에 포함 */
   resize: none; /* 크기 조절 핸들 숨김 */
   overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
   white-space: normal; /* 자동 줄바꿈 활성화 */
@@ -612,7 +602,7 @@ footer {
   position: fixed;
   bottom: 0;
   left: 0;
-  z-index: 0;
+  z-index: 999;
 }
 
 .company-info {
@@ -624,6 +614,9 @@ footer {
   font-size: 12px;
   font-weight: 600;
 }
+.copyright p {
+  display: inline;
+}
 
 .privacy-policy {
   font-size: 14px;
@@ -631,6 +624,11 @@ footer {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.personal-info-link {
+  color: #617dae;
+}
+
 
 @media screen and (max-width: 768px) {
   .title {
