@@ -105,47 +105,23 @@
                 </button>
 
                 <div class="history-list-area">
-                    <div class="history-7day">
+                    <div class="history-list">
                         <a>
-                            지난 7일
+                            지난 대화 기록
                         </a>
-                        <P>
-                            카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?
-                        </p>
-                        <P>
-                            창플의 창업 철학에 대해 궁금해 자세하게 알려줄 수 있을까요? 특히 요식업에 관해서 알고싶어요                        
-                        </p>
-                        <P>
-                            문정동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?                        
-                        </p>
-                    </div>
-                    <div class="history-30day">
-                        <a>
-                            30일
-                        </a>
-                        <P>
-                            카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?
-                        </p>
-                        <P>
-                            창플의 창업 철학에 대해 궁금해 자세하게 알려줄 수 있을까요? 특히 요식업에 관해서 알고싶어요                        
-                        </p>
-                        <P>
-                            문정동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?                        
-                        </p>
-                    </div>
-                    <div class="history-month">
-                        <a>
-                            3월
-                        </a>
-                        <P>
-                            카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?
-                        </p>
-                        <P>
-                            창플의 창업 철학에 대해 궁금해 자세하게 알려줄 수 있을까요? 특히 요식업에 관해서 알고싶어요                        
-                        </p>
-                        <P>
-                            문정동에서 소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?                        
-                        </p>
+                        {% if user.is_authenticated %}
+                            {% for session in user.chat_sessions.all|dictsortreversed:"created_at" %}
+                                <p class="history-item" data-url="{{ session.get_absolute_url }}">
+                                    {{ session.get_first_message }}
+                                </p>
+                            {% empty %}
+                                <p>아직 대화 기록이 없습니다.</p>
+                            {% endfor %}
+                        {% else %}
+                            <p>
+                                로그인하여 대화 기록을 확인하세요.
+                            </p>
+                        {% endif %}
                     </div>
                 </div>    
             </div>
@@ -282,7 +258,19 @@
                 location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
             });
 
-
+            // History items click event
+            const historyItems = document.querySelectorAll('.history-item');
+            historyItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const url = this.getAttribute('data-url');
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+                
+                // Add cursor pointer to make it obvious it's clickable
+                item.style.cursor = 'pointer';
+            });
         });
 
         // Help Box 이벤트 리스너 추가
@@ -353,13 +341,23 @@
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                     console.log("CSRF token obtained:", csrfToken ? "Yes" : "No");
                     
-                    // Do not disable input - just clear it
+                    // Temporarily disable the input and buttons to prevent double submissions
+                    inputBox.disabled = true;
+                    if (sendBtn) sendBtn.style.pointerEvents = 'none';
+                    if (changpleBtn) changpleBtn.style.pointerEvents = 'none';
+                    
+                    // Show a simple loading indicator
+                    const originalPlaceholder = inputBox.placeholder;
+                    inputBox.placeholder = "메시지 전송 중...";
+                    
+                    // Clear the input
+                    const originalMessage = message;
                     inputBox.value = "";
                     inputBox.dispatchEvent(new Event('input'));
                     
                     // Simple approach - just use FormData
                     const formData = new FormData();
-                    formData.append('message', message);
+                    formData.append('message', originalMessage);
                     
                     fetch('/chat/', {
                         method: 'POST',
@@ -379,6 +377,11 @@
                         console.log("Response data:", data);
                         if (data.error) {
                             alert(`오류가 발생했습니다: ${data.error}`);
+                            // Re-enable input
+                            inputBox.disabled = false;
+                            inputBox.placeholder = originalPlaceholder;
+                            if (sendBtn) sendBtn.style.pointerEvents = 'auto';
+                            if (changpleBtn) changpleBtn.style.pointerEvents = 'auto';
                             return;
                         }
                         
@@ -391,6 +394,12 @@
                     .catch(error => {
                         console.error('Error:', error);
                         alert("요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+                        
+                        // Re-enable input
+                        inputBox.disabled = false;
+                        inputBox.placeholder = originalPlaceholder;
+                        if (sendBtn) sendBtn.style.pointerEvents = 'auto';
+                        if (changpleBtn) changpleBtn.style.pointerEvents = 'auto';
                     });
                 }
             }
@@ -416,6 +425,9 @@
                         // 보여주기
                         listArea.style.display = "flex";
                         panel.classList.remove("minimized"); // 전체 너비로
+                        
+                        // 스크롤 위치 초기화
+                        listArea.scrollTop = 0;
                     } else {
                         // 숨기기
                         listArea.style.display = "none";

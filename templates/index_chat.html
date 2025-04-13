@@ -255,9 +255,26 @@
             
             // Load existing chat history from Django context and render messages
             {% if chat_history %}
+                // Clear any existing messages first
+                const promptWrapper = document.querySelector('.prompt-wrapper');
+                if (promptWrapper) {
+                    promptWrapper.innerHTML = '';
+                }
+                
+                // Use a Set to track rendered messages and prevent duplicates
+                const renderedMessages = new Set();
+                
                 // Render existing chat messages from the server
                 {% for message in chat_history %}
-                    addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`); // addMessageToChat는 index_chat.js에 정의됨
+                    // Create a unique key for this message - using var instead of const to avoid redeclaration errors
+                    var messageKey = '{{ message.role }}' + '_' + '{{ forloop.counter }}';
+                    
+                    // Only render if not already rendered
+                    if (!renderedMessages.has(messageKey)) {
+                        renderedMessages.add(messageKey);
+                        addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`);
+                        console.log("Rendered message:", messageKey, "{{ message.role }}");
+                    }
                 {% endfor %}
             {% endif %}
             
@@ -619,12 +636,28 @@
              // --- 초기 메시지 처리 로직 ---
             {% if initial_message %}
                 // Check if we have an initial user message but no AI response yet
-                {% if chat_history|length == 1 and chat_history.0.role == 'user' %}
+                // Only make API call if this is a brand new chat or we have the new_chat parameter
+                {% if chat_history|length == 1 and chat_history.0.role == 'user' and not is_from_history or request.GET.new_chat == '1' %}
                     const initialMessage = "{{ initial_message|escapejs }}";
                     if (initialMessage) {
                         console.log("Initial message detected, calling API...");
-                        callChatAPI(initialMessage, true); // callChatAPI는 HTML 내에 정의됨
+                        // Log debug info about the request
+                        console.log("From history:", {{ is_from_history|yesno:"true,false" }});
+                        console.log("Chat history length:", {{ chat_history|length }});
+                        console.log("First message role:", "{{ chat_history.0.role }}");
+                        console.log("New chat parameter:", "{{ request.GET.new_chat|default:'not set' }}");
+                        
+                        // Add a small delay to make sure the UI is ready before making the API call
+                        setTimeout(() => {
+                            callChatAPI(initialMessage, true);
+                        }, 100);
                     }
+                {% else %}
+                    console.log("Skipping automatic API call - conditions not met:");
+                    console.log("From history:", {{ is_from_history|yesno:"true,false" }});
+                    console.log("Chat history length:", {{ chat_history|length }});
+                    {% if chat_history.0 %}console.log("First message role:", "{{ chat_history.0.role }}");{% endif %}
+                    console.log("New chat parameter:", "{{ request.GET.new_chat|default:'not set' }}");
                 {% endif %}
             {% endif %}
             

@@ -10,8 +10,8 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
-from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessage, HumanMessage
@@ -27,8 +27,8 @@ try:
     from chatbot.services.chain import (
         create_chain,
         get_retriever,
-        llm,
         handle_post_generation,
+        llm,
     )
 
     # Initialize retriever globally (assuming thread-safety)
@@ -75,6 +75,7 @@ def chat_view(request, session_nonce=None):
             chat_session = ChatSession.objects.create(
                 session_id=f"session_{uuid.uuid4().hex[:8]}",
                 session_nonce=uuid.uuid4(),
+                user=request.user if request.user.is_authenticated else None,
             )
             logger.info(f"Created chat session with ID: {chat_session.session_id}")
 
@@ -86,11 +87,11 @@ def chat_view(request, session_nonce=None):
             chat_session.request_sent = True
             chat_session.save()
 
-            # Return clean URL without query parameters
-            redirect_url = chat_session.get_absolute_url()
+            # Return clean URL without query parameters, but add a new_chat=1 parameter
+            # to indicate this is a newly created chat session and AI should respond right away
+            redirect_url = f"{chat_session.get_absolute_url()}?new_chat=1"
             logger.info(f"Returning redirect URL: {redirect_url}")
             return JsonResponse({"redirect_url": redirect_url})
-
         except Exception as e:
             import traceback
 
@@ -108,7 +109,9 @@ def chat_view(request, session_nonce=None):
     if session_nonce is None:
         # Create a new chat session
         chat_session = ChatSession.objects.create(
-            session_id=f"session_{uuid.uuid4().hex[:8]}", session_nonce=uuid.uuid4()
+            session_id=f"session_{uuid.uuid4().hex[:8]}",
+            session_nonce=uuid.uuid4(),
+            user=request.user if request.user.is_authenticated else None,
         )
         # Redirect to the new session URL with the nonce in the path
         return redirect(chat_session.get_absolute_url())
@@ -146,15 +149,43 @@ def chat_view(request, session_nonce=None):
                 )
             i += 2
 
-        # Check if there's an initial message already in the database
+        # We're only checking for the existence of user messages, not returning the content
+        # to avoid displaying it twice
+        has_initial_message = chat_messages.filter(role="user").exists()
         initial_message = None
-        if chat_messages.filter(role="user").exists():
+
+        # Check if this is likely a navigation from history
+        is_from_history = False
+        # First check if new_chat parameter exists - if so, this is a new chat, not from history
+        if request.GET.get("new_chat") == "1":
+            is_from_history = False
+            logger.info("Detected new chat from URL parameter")
+        # Otherwise check the referer
+        elif request.META.get("HTTP_REFERER", ""):
+            referer = request.META.get("HTTP_REFERER", "")
+            logger.info(f"Request referer: {referer}")
+            # If referer exists and contains index.html or the root path, it's likely coming from history
+            if "index.html" in referer or referer.endswith("/"):
+                is_from_history = True
+                logger.info(f"Detected navigation from history: {referer}")
+
+        # Only set initial_message if there's exactly one user message and not coming from history
+        if chat_messages.count() == 1 and has_initial_message and not is_from_history:
             initial_message = chat_messages.filter(role="user").first().content
+            logger.info(
+                f"Setting initial message for auto-API call: {initial_message[:50]}..."
+            )
+        else:
+            logger.info(
+                f"Not setting initial message. Chat count: {chat_messages.count()}, Has initial: {has_initial_message}, From history: {is_from_history}"
+            )
 
     except ChatSession.DoesNotExist:
         # Invalid nonce, create a new session
         chat_session = ChatSession.objects.create(
-            session_id=f"session_{uuid.uuid4().hex[:8]}", session_nonce=uuid.uuid4()
+            session_id=f"session_{uuid.uuid4().hex[:8]}",
+            session_nonce=uuid.uuid4(),
+            user=request.user if request.user.is_authenticated else None,
         )
         # Redirect to the new session URL
         return redirect(chat_session.get_absolute_url())
@@ -187,6 +218,7 @@ def chat_view(request, session_nonce=None):
         "remaining_queries": remaining_queries,
         "query_limit": query_limit,
         "is_premium": is_premium,
+        "is_from_history": is_from_history,  # Pass this flag to template
     }
 
     return render(request, "index_chat.html", context)
@@ -200,6 +232,10 @@ def chat(request):
         data = json.loads(request.body)
         query = data.get("query", "")
         session_nonce = data.get("session_nonce", "")
+
+        # Clean up session_nonce if it contains query parameters
+        if session_nonce and "?" in session_nonce:
+            session_nonce = session_nonce.split("?")[0]
 
         # user query
         logger.info(f"User query (session: {session_nonce}): \n{query}")
@@ -299,7 +335,9 @@ def chat(request):
                         full_answer += chunk
                         yield f"data: {json.dumps({'token': chunk})}\n\n"
 
-                    logger.info(f"Stream finished for session {session_nonce}. Full answer length: {len(full_answer)}")
+                    logger.info(
+                        f"Stream finished for session {session_nonce}. Full answer length: {len(full_answer)}"
+                    )
                     post_processing_input = {
                         "question": chain_input.get("question"),
                         "user_info": chain_input.get("user_info"),
@@ -307,18 +345,28 @@ def chat(request):
                     final_used_question = post_processing_input.get("question")
 
                     if final_used_question:
-                        logger.info(f"Executing post-generation for session {session_nonce}, Q: {final_used_question[:50]}...")
-                        post_gen_result = handle_post_generation(post_processing_input, full_answer, memory)
+                        logger.info(
+                            f"Executing post-generation for session {session_nonce}, Q: {final_used_question[:50]}..."
+                        )
+                        post_gen_result = handle_post_generation(
+                            post_processing_input, full_answer, memory
+                        )
                         updated_user_info = post_gen_result.get("updated_user_info")
                         post_process_executed = True
 
                         if updated_user_info is not None:
-                            request.session[f"user_info_{session_nonce}"] = updated_user_info
-                            logger.info(f"Saved updated user_info to session {session_nonce}: {updated_user_info}")
+                            request.session[f"user_info_{session_nonce}"] = (
+                                updated_user_info
+                            )
+                            logger.info(
+                                f"Saved updated user_info to session {session_nonce}: {updated_user_info}"
+                            )
 
                         if user and not is_premium:
                             user.increment_query_count()
-                            logger.info(f"Incremented query count for user {user.username}")
+                            logger.info(
+                                f"Incremented query count for user {user.username}"
+                            )
 
                         user_msg = ChatMessage.objects.create(
                             session=chat_session, role="user", content=query
@@ -326,32 +374,50 @@ def chat(request):
                         ai_msg = ChatMessage.objects.create(
                             session=chat_session, role="assistant", content=full_answer
                         )
-                        logger.info(f"Saved user message (ID: {user_msg.id}) and AI message (ID: {ai_msg.id}) to DB for session {session_nonce}")
+                        logger.info(
+                            f"Saved user message (ID: {user_msg.id}) and AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
+                        )
 
                     else:
-                        logger.warning(f"Skipping post-generation for session {session_nonce}: 'question' missing in prepared input.")
+                        logger.warning(
+                            f"Skipping post-generation for session {session_nonce}: 'question' missing in prepared input."
+                        )
 
                     yield f"data: {json.dumps({'end': True})}\n\n"
 
                 except Exception as e:
-                    logger.error(f"Error during streaming or post-processing for session {session_nonce}: {e}", exc_info=True)
+                    logger.error(
+                        f"Error during streaming or post-processing for session {session_nonce}: {e}",
+                        exc_info=True,
+                    )
                     yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
                 finally:
                     if not post_process_executed:
-                        logger.warning(f"Post-generation was not executed for session {session_nonce}.")
+                        logger.warning(
+                            f"Post-generation was not executed for session {session_nonce}."
+                        )
 
-            response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
-            response['Cache-Control'] = 'no-cache'
+            response = StreamingHttpResponse(
+                event_stream(), content_type="text/event-stream"
+            )
+            response["Cache-Control"] = "no-cache"
             return response
 
         except ChatSession.DoesNotExist:
-            return JsonResponse({"error": "Invalid session nonce provided."}, status=404)
+            return JsonResponse(
+                {"error": "Invalid session nonce provided."}, status=404
+            )
         except Exception as e:
             logger.error(f"Error in chat API (outer try-except): {e}", exc_info=True)
-            return JsonResponse({"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500)
+            return JsonResponse(
+                {"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."},
+                status=500,
+            )
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     except Exception as e:
         logger.error(f"Error in chat API (outer try-except): {e}", exc_info=True)
-        return JsonResponse({"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500)
+        return JsonResponse(
+            {"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500
+        )
