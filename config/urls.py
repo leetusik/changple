@@ -20,7 +20,12 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 # 새로 만든 HomeView 임포트
-from chatbot.api.views import HomeView, chat, chat_view  # Import chat views directly
+from chatbot.api.views import (  # Import privacy_policy view
+    HomeView,
+    chat,
+    chat_view,
+    privacy_policy,
+)
 
 # Import NaverCallbackView directly
 from users.views import NaverCallbackView, NaverLoginView
@@ -47,4 +52,6 @@ urlpatterns = [
     path("chat/", chat_view, name="root_chat_view_with_no_nonce"),
     path("chat/<str:session_nonce>/", chat_view, name="root_chat_view_with_nonce"),
     path("api/chat/", chat, name="root_chat_api"),
+    # Privacy policy URL
+    path("privacy/", privacy_policy, name="privacy_policy"),
 ]

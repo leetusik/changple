@@ -466,3 +466,8 @@ def chat(request):
         return JsonResponse(
             {"error": "챗봇 API 처리 중 예기치 않은 오류가 발생했습니다."}, status=500
         )
+
+
+def privacy_policy(request):
+    """개인정보처리방침 페이지"""
+    return render(request, "privacy_policy.html")
