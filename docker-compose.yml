@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      # Let .env file control these primarily for production
+      - DEBUG=${DEBUG:-0} # Default to 0 if not set in .env
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai} # Default if not set
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+    volumes:
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  rq_worker:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+      - web
+    command: python manage.py rqworker default high low
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+
+  rq_scheduler:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+      - web
+    command: python manage.py rqscheduler --interval 60
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./logs:/var/log/nginx
+    networks:
+      - app_network
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:
+
+networks:
+  app_network: 
