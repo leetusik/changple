@@ -46,7 +46,7 @@ RUN mkdir -p /app/logs
 # Run collectstatic when building the image
 RUN mkdir -p /app/static_root
 ENV STATIC_ROOT=/app/static_root
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput --clear
 
 # Run the command
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"] 

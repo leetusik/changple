@@ -19,6 +19,7 @@ services:
       - ./db.sqlite3:/app/db.sqlite3
       - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
       - ./logs:/app/logs
+      - ./static:/app/static
     networks:
       - app_network
 
@@ -85,6 +86,7 @@ services:
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
       - ./logs:/var/log/nginx
+      - ./static:/app/static
     networks:
       - app_network
 

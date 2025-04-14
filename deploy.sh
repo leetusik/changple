@@ -93,6 +93,11 @@ sudo chown -R $(id -u):$(id -g) ./nginx/certbot/conf
 echo -e "${YELLOW}Rebuilding Docker containers...${NC}"
 docker-compose build --no-cache
 
+# Create static_root directory if it doesn't exist
+echo -e "${YELLOW}Creating static_root directory...${NC}"
+mkdir -p static_root
+chmod 755 static_root
+
 # Start all services
 echo -e "${GREEN}Starting all services...${NC}"
 docker-compose up -d
@@ -103,7 +108,11 @@ docker-compose exec web python manage.py migrate
 
 # Run collectstatic to ensure all static files are properly collected
 echo -e "${YELLOW}Collecting static files...${NC}"
-docker-compose exec web python manage.py collectstatic --noinput
+docker-compose exec web python manage.py collectstatic --noinput --clear
+
+# Verify static files were collected properly
+echo -e "${YELLOW}Verifying static files...${NC}"
+docker-compose exec web ls -la /app/static_root
 
 # Install Playwright browsers if they're needed for the scraper
 echo -e "${YELLOW}Installing Playwright browsers...${NC}"
