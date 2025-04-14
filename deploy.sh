@@ -19,11 +19,11 @@ echo -e "${YELLOW}Performing deep cleanup of Docker resources...${NC}"
 docker system prune -af --volumes
 docker builder prune -af
 
-# --- Add Whoosh index cleanup and recreation ---
-echo -e "${YELLOW}Cleaning and recreating Whoosh index directory...${NC}"
-rm -rf chatbot/data/whoosh_index
-mkdir -p chatbot/data/whoosh_index
-# --- End Whoosh changes ---
+# # --- Add Whoosh index cleanup and recreation ---
+# echo -e "${YELLOW}Cleaning and recreating Whoosh index directory...${NC}"
+# rm -rf chatbot/data/whoosh_index
+# mkdir -p chatbot/data/whoosh_index
+# # --- End Whoosh changes ---
 
 # Create necessary directories
 echo -e "${YELLOW}Creating necessary directories...${NC}"
