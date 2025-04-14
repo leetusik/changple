@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir gunicorn
+RUN pip install --no-cache-dir gunicorn gevent
 
 # Copy project
 COPY . .
@@ -49,4 +49,4 @@ ENV STATIC_ROOT=/app/static_root
 RUN python manage.py collectstatic --noinput
 
 # Run the command
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class=gevent", "--timeout=300", "--keep-alive=120", "config.wsgi:application"] 
