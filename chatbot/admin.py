@@ -126,7 +126,7 @@ class ChatSessionAdmin(admin.ModelAdmin):
     export_selected_sessions.short_description = "Export selected sessions to CSV"
 
 
-@admin.register(ChatMessage)
+# @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
     list_display = (
         "session",
