@@ -119,6 +119,19 @@ def chat_view(request, session_nonce=None):
     # Get chat session from database using the nonce from URL path
     try:
         chat_session = ChatSession.objects.get(session_nonce=session_nonce)
+
+        # Security check: Verify if the current user is the creator of the session or an admin
+        if (
+            chat_session.user
+            and request.user != chat_session.user
+            and not request.user.is_staff
+        ):
+            logger.warning(
+                f"Unauthorized access attempt to session {session_nonce} by user {request.user.username if request.user.is_authenticated else 'anonymous'}"
+            )
+            # Return a 403 Forbidden response with our custom template
+            return render(request, "403.html", status=403)
+
         # Get chat messages for this session
         chat_messages = chat_session.messages.all()
 
@@ -278,9 +291,24 @@ def chat(request):
             chat_session = None
             if session_nonce:
                 chat_session = ChatSession.objects.get(session_nonce=session_nonce)
+
+                # Security check: Verify if the current user is the creator of the session or an admin
+                if (
+                    chat_session.user
+                    and request.user != chat_session.user
+                    and not request.user.is_staff
+                ):
+                    logger.warning(
+                        f"Unauthorized API access attempt to session {session_nonce} by user {request.user.username if request.user.is_authenticated else 'anonymous'}"
+                    )
+                    return JsonResponse(
+                        {
+                            "error": "You do not have permission to access this chat session."
+                        },
+                        status=403,
+                    )
             else:
                 # If no nonce provided in API, it's likely an error or needs specific handling
-                # For now, let's assume a nonce is required for the chat API
                 return JsonResponse({"error": "Session nonce is required."}, status=400)
 
             # --- Load User Info from Django Session ---
