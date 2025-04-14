@@ -368,14 +368,31 @@ def chat(request):
                                 f"Incremented query count for user {user.username}"
                             )
 
-                        user_msg = ChatMessage.objects.create(
-                            session=chat_session, role="user", content=query
+                        # Check if this is the initial message and if it was already saved during session creation
+                        is_initial_message = (
+                            chat_session.messages.count() == 1
+                            and chat_session.request_sent
                         )
+
+                        # Only save the user message if it's not the initial message that was already saved
+                        if not is_initial_message:
+                            user_msg = ChatMessage.objects.create(
+                                session=chat_session, role="user", content=query
+                            )
+                            logger.info(
+                                f"Saved user message (ID: {user_msg.id}) to DB for session {session_nonce}"
+                            )
+                        else:
+                            logger.info(
+                                f"Skipping saving duplicate user message for session {session_nonce} as it was already saved during session creation"
+                            )
+
+                        # Always save the AI response
                         ai_msg = ChatMessage.objects.create(
                             session=chat_session, role="assistant", content=full_answer
                         )
                         logger.info(
-                            f"Saved user message (ID: {user_msg.id}) and AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
+                            f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
                         )
 
                     else:
