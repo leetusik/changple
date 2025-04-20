@@ -130,7 +130,7 @@
 
             <div class="main-block">
 
-                <div class="title">무엇을 도와드릴까요?</div>
+                <div class="title">무엇이 궁금하세요?</div>
                 
                 <div class="suggestions">
                     <div class="suggestion-box">카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?</div>
@@ -141,7 +141,7 @@
                 {% if user.is_authenticated %}
                 <!-- Input unlocked for logged in users -->
                 <div class="input-container-unlocked">
-                    <input type="text" class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요" autofocus/>
+                    <textarea class="input-box-unlocked" placeholder="최대한 질문을 구체적으로 작성해 주실수록 좋습니다." autofocus rows="1"></textarea>
                     
                     <!-- Changple icon (when input is empty) -->
                     <div class="changple-btn">
@@ -302,7 +302,7 @@
             
             // Reset input field state on page load
             inputBox.disabled = false;
-            inputBox.placeholder = "창업의 모든 것을 물어보세요";
+            inputBox.placeholder = "최대한 질문을 구체적으로 작성해 주실수록 좋습니다.";
             inputBox.value = "";
             
             // Show/hide the appropriate button based on input content
@@ -326,7 +326,10 @@
             
             // Enter key press event
             inputBox.addEventListener('keyup', function(event) {
-                if (event.key === 'Enter') {
+                // Enter 키만 눌렸을 때 메시지 전송
+                if (event.key === 'Enter' && !event.shiftKey) { 
+                    // 기본 Enter 동작(줄바꿈) 방지
+                    event.preventDefault(); 
                     sendChatMessage();
                 }
             });

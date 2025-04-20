@@ -532,6 +532,10 @@ body {
   font-size: 18px;
   font-weight: 400;
   padding-bottom: 90px;
+  overflow-y: auto; /* 내용이 높이를 초과하면 세로 스크롤바 표시 */
+  resize: none; /* 사용자가 크기 조절하는 것 방지 */
+  white-space: pre-wrap; /* 공백 및 줄바꿈 유지하며 자동 줄바꿈 */
+  word-wrap: break-word; /* 단어 단위 줄바꿈 */
 }
 
 .input-box-unlocked::placeholder {
