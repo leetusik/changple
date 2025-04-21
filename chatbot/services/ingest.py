@@ -3,7 +3,7 @@
 import logging
 import os
 import time  # Added for retry sleep
-from typing import List
+from typing import List, Dict, Any
 
 import django
 from django.db.models import Q
@@ -26,7 +26,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone, ServerlessSpec
 
-from chatbot.services.content_evaluator import evaluate_content, summary_and_keywords
+from chatbot.services.content_evaluator import summary_and_keywords, QuestionItem
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,16 +41,17 @@ class SkipDocumentError(Exception):
 
 def gpt_summarize(doc: Document) -> Document:
     """
-    Process document: evaluate content category (notation) and generate summary/keywords.
+    Process document: generate summary, keywords, and possible questions.
+    Updates the document's metadata and the corresponding database entry.
 
     Args:
-        doc: Document object with metadata including post_id, title, notation, and keywords
+        doc: Document object with metadata including post_id, title, keywords, summary, and possible_questions
 
     Returns:
-        Processed document with updated page_content and metadata
+        Processed document with updated metadata
 
     Raises:
-        SkipDocumentError: If the document should be skipped (e.g., notation is ["none"])
+        SkipDocumentError: If the document should be skipped (e.g., DB lookup fails, generation fails)
     """
     post_id = doc.metadata["post_id"]
     db_object = None
@@ -62,43 +63,51 @@ def gpt_summarize(doc: Document) -> Document:
         logger.error(f"Post with ID {post_id} not found in database")
         raise SkipDocumentError(f"Post with ID {post_id} not found in database")
 
-    # Step 1: Process notation if needed
-    if doc.metadata["notation"] is None:
+    # Step 2: Process summary, keywords, and questions if needed
+    # 이제 possible_questions가 있는지 확인 (이 함수는 load_posts_from_database에서 걸러진 것만 받으므로 항상 None일 것임)
+    if doc.metadata["possible_questions"] is None:
         try:
-            doc.metadata["notation"] = evaluate_content(doc.page_content)
-            logger.info(
-                f"Evaluated notation for post_id {post_id}: {doc.metadata['notation']}"
-            )
+            # Generate summary, keywords, and questions from the original content
+            # summary_and_keywords는 이제 (summary, keywords, questions_list)를 반환
+            summary, keywords, possible_questions_list = summary_and_keywords(doc.page_content)
 
-            # Update notation in database
-            db_object.notation = doc.metadata["notation"]
-            db_object.save(update_fields=["notation"])
-        except Exception as e:
-            logger.error(f"Failed to evaluate notation for post_id {post_id}: {e}")
-            raise SkipDocumentError(f"Failed to process notation: {e}")
+            # questions_list는 QuestionItem 객체의 리스트일 수 있으므로 문자열 리스트로 변환
+            # content_evaluator.py의 반환 타입 변경에 맞춰 수정 필요 (이미 문자열 리스트로 반환한다면 이 변환은 불필요)
+            # 만약 QuestionItem 객체 리스트로 반환된다면:
+            if possible_questions_list and isinstance(possible_questions_list[0], QuestionItem):
+                 questions_str_list = [item.question for item in possible_questions_list]
+            else:
+                 # 이미 문자열 리스트이거나 다른 형식인 경우
+                 questions_str_list = possible_questions_list if isinstance(possible_questions_list, list) else []
 
-    # Skip documents with notation ["none"]
-    if doc.metadata["notation"] == ["none"]:
-        logger.info(f"Skipping post_id {post_id} with notation ['none']")
-        raise SkipDocumentError("Document has notation ['none'], skipping")
 
-    # Step 2: Process keywords if needed
-    if doc.metadata["keywords"] is None:
-        try:
-            # Generate summary and keywords
-            summary, keywords = summary_and_keywords(doc.page_content)
-            doc.page_content = summary
+            # Update metadata (DO NOT replace page_content)
+            doc.metadata["summary"] = summary
             doc.metadata["keywords"] = keywords
-            logger.info(f"Generated summary and keywords for post_id {post_id}")
+            # questions_str_list를 metadata에 저장
+            doc.metadata["possible_questions"] = questions_str_list
+            logger.info(f"Generated summary, keywords, and questions for post_id {post_id}")
 
-            # Update keywords in database
+            # Update summary, keywords, and possible_questions in database
+            db_object.summary = summary
             db_object.keywords = keywords
-            db_object.save(update_fields=["keywords"])
-        except Exception as e:
-            logger.error(
-                f"Failed to generate summary/keywords for post_id {post_id}: {e}"
+            # questions_str_list를 DB에 저장 (JSONField는 리스트를 저장할 수 있음)
+            db_object.possible_questions = questions_str_list
+            db_object.save(update_fields=["summary", "keywords", "possible_questions"]) # possible_questions 추가
+        except ValueError as e: # Catch specific error from summary_and_keywords
+             logger.error(
+                f"Failed to generate summary/keywords/questions for post_id {post_id}: {e}"
             )
-            raise SkipDocumentError(f"Failed to generate summary/keywords: {e}")
+             raise SkipDocumentError(f"Failed to generate summary/keywords/questions: {e}")
+        except Exception as e: # Catch other potential errors
+            logger.error(
+                f"Unexpected error during generation/DB update for post_id {post_id}: {e}"
+            )
+            raise SkipDocumentError(f"Unexpected error processing post: {e}")
+    else:
+        # 이미 possible_questions가 있는 경우 (이론상 load_posts_from_database 필터링 때문에 여기 오지 않음)
+        logger.info(f"Post {post_id} already has possible_questions. Skipping generation.")
+
 
     return doc
 
@@ -116,15 +125,14 @@ def load_posts_from_database(
 ) -> List[Document]:
     """
     Load posts from database and convert to documents.
-    Only retrieve posts from allowed authors and categories.
+    Only retrieve posts from allowed authors and categories where possible_questions is null.
 
     Returns:
         List of Documents
     """
     try:
-        # Get allowed authors
-
         # Use proper Length annotation instead of unsupported len lookup
+        # Updated filter to check for null possible_questions
         posts = (
             NaverCafeData.objects.annotate(content_length=Length("content"))
             .filter(
@@ -132,12 +140,13 @@ def load_posts_from_database(
                     "창플",
                 ],
                 content_length__gt=min_content_length,
+                possible_questions__isnull=True # 필터 조건 변경
             )
-            .filter(Q(notation__isnull=True) | Q(keywords__isnull=True))
         )
 
         logger.info(
-            f"Loaded {posts.count()} posts matching allowed authors and content length > {min_content_length} from database"
+            # 로그 메시지 업데이트
+            f"Loaded {posts.count()} posts matching criteria (author, length > {min_content_length}, missing possible_questions) from database"
         )
 
         documents = []
@@ -149,10 +158,11 @@ def load_posts_from_database(
             doc = Document(
                 page_content=text,
                 metadata={
-                    "post_id": post.post_id,  # Keep original post_id
+                    "post_id": post.post_id,
                     "title": post.title,
-                    "keywords": post.keywords,
-                    "notation": post.notation,
+                    "keywords": post.keywords, # 로드 시점의 값 (None일 수 있음)
+                    "summary": post.summary,   # 로드 시점의 값 (None일 수 있음)
+                    "possible_questions": post.possible_questions, # 로드 시점의 값 (항상 None)
                 },
             )
             documents.append(doc)
@@ -165,8 +175,8 @@ def load_posts_from_database(
 
 def ingest_docs():
     """
-    Load posts from database, split into chunks, check existence in Pinecone,
-    and ingest only new chunks using chunk_id as the vector ID.
+    Load posts missing possible_questions from database, generate summary/keywords/questions,
+    update DB, and ingest/update documents in Pinecone using post_id as the vector ID.
     Uses retries for Pinecone fetch operations.
     Raises RuntimeError if ingestion fails critically (e.g., fetch after retries).
     """
@@ -213,131 +223,71 @@ def ingest_docs():
         f"Loaded {len(raw_docs)} documents from database to check for ingestion."
     )
 
-    existing_ids = set()
-    try:
-        batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
-        for i in range(0, len(raw_docs), batch_size):
-            batch_docs = raw_docs[i : i + batch_size]
-            batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
-            logger.info(
-                f"Checking existence of {len(batch_docs)} documents in Pinecone (batch {i//batch_size + 1})..."
-            )
-
-            # Retry logic for fetch
-            for attempt in range(MAX_FETCH_RETRIES):
-                try:
-                    fetch_response = index.fetch(ids=batch_ids)
-                    existing_ids.update(fetch_response.vectors.keys())
-                    logger.debug(
-                        f"Batch {i//batch_size + 1} fetch successful on attempt {attempt + 1}"
-                    )
-                    break  # Success, exit retry loop for this batch
-                except Exception as fetch_e:
-                    # Check if it's a server error (e.g., 5xx) potentially worth retrying
-                    is_server_error = (
-                        hasattr(fetch_e, "status") and fetch_e.status >= 500
-                    )
-
-                    logger.warning(
-                        f"Pinecone fetch attempt {attempt + 1}/{MAX_FETCH_RETRIES} failed for batch {i//batch_size + 1}: {fetch_e}"
-                    )
-
-                    if not is_server_error or attempt == MAX_FETCH_RETRIES - 1:
-                        # Final attempt failed or it's not a server error, raise the exception to abort
-                        logger.error(
-                            f"Pinecone fetch failed permanently after {attempt + 1} attempt(s)."
-                        )
-                        raise RuntimeError(
-                            f"Failed to fetch existing IDs from Pinecone after {attempt + 1} retries."
-                        ) from fetch_e
-                    else:
-                        # Wait before retrying server error
-                        sleep_time = INITIAL_BACKOFF * (2**attempt)
-                        logger.info(
-                            f"Retrying fetch in {sleep_time} seconds due to server error..."
-                        )
-                        time.sleep(sleep_time)
-
-        logger.info(f"Found {len(existing_ids)} existing chunk IDs in Pinecone.")
-    except Exception as e:
-        # Catch errors during the overall fetch process or the re-raised RuntimeError
-        logger.error(f"Error during Pinecone ID fetch process: {e}", exc_info=True)
-        # Re-raise as a runtime error to signal failure to the caller
-        raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
-
-    # Filter out chunks that already exist
-    new_docs = [
-        doc for doc in raw_docs if str(doc.metadata["post_id"]) not in existing_ids
-    ]
-
-    if not new_docs:
-        logger.info("No new documents to ingest.")
-    else:
-        logger.info(f"Preparing to ingest {len(new_docs)} new documents.")
-
-        # Process documents and track which ones to keep
-        processed_docs = []
-
-        for new_doc in new_docs:
-            try:
-                # Process the document (evaluate notation, generate summary/keywords)
-                processed_doc = gpt_summarize(new_doc)
-                processed_docs.append(processed_doc)
-                logger.info(
-                    f"Successfully processed document with post_id {new_doc.metadata['post_id']}"
-                )
-            except SkipDocumentError as skip_e:
-                # Expected skips (e.g., notation is ["none"])
-                logger.info(
-                    f"Skipping document with post_id {new_doc.metadata['post_id']}: {skip_e}"
-                )
-            except Exception as e:
-                # Unexpected errors
-                logger.error(
-                    f"Error processing document with post_id {new_doc.metadata['post_id']}: {e}"
-                )
-
-        if not processed_docs:
-            logger.info("No documents to ingest after processing.")
-            return
-
-        # Ingest processed documents in batches
+    # Process documents to generate summary/keywords and update DB
+    processed_docs = []
+    total_docs = len(raw_docs)
+    for idx, raw_doc in enumerate(raw_docs, 1):  # 1부터 시작
         try:
-            vectorstore = LangchainPinecone(
-                index=index, embedding=embedding, text_key="text"
+            # Process the document (generate summary/keywords)
+            processed_doc = gpt_summarize(raw_doc) # Updates DB and doc.metadata
+            processed_docs.append(processed_doc)
+            logger.info(f"{idx}/{total_docs} 문서 처리 완료")  # 진행률 출력
+        except SkipDocumentError as skip_e:
+            logger.info(
+                f"Skipping document with post_id {raw_doc.metadata['post_id']} during processing: {skip_e}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error processing document with post_id {raw_doc.metadata['post_id']}: {e}"
             )
 
-            # Batch documents for embedding and ingestion to avoid token limits
-            embedding_batch_size = 20
-            total_batches = (len(processed_docs) - 1) // embedding_batch_size + 1
+    if not processed_docs:
+        logger.info("No documents successfully processed. Nothing to ingest.")
+        return
 
-            for i in range(0, len(processed_docs), embedding_batch_size):
-                batch_docs = processed_docs[i : i + embedding_batch_size]
-                batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
+    # Now handle ingestion/update to Pinecone
+    # We will upsert the processed documents, replacing existing ones if necessary.
+    logger.info(f"Preparing to upsert {len(processed_docs)} documents to Pinecone.")
 
-                logger.info(
-                    f"Adding batch {i//embedding_batch_size + 1}/{total_batches} with {len(batch_docs)} documents to Pinecone..."
-                )
+    try:
+        vectorstore = LangchainPinecone(
+            index=index, embedding=embedding, text_key="text" # 'text' refers to page_content
+        )
 
-                vectorstore.add_documents(
-                    documents=batch_docs,
-                    ids=batch_ids,
-                )
+        # Batch documents for embedding and upsertion
+        embedding_batch_size = 20 # Consider Pinecone limits if issues arise
+        total_batches = (len(processed_docs) - 1) // embedding_batch_size + 1
 
-                logger.info(
-                    f"Successfully added batch {i//embedding_batch_size + 1} to Pinecone."
-                )
+        for i in range(0, len(processed_docs), embedding_batch_size):
+            batch_docs = processed_docs[i : i + embedding_batch_size]
+            batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
 
             logger.info(
-                f"Successfully added {len(processed_docs)} new documents to Pinecone."
+                f"Upserting batch {i//embedding_batch_size + 1}/{total_batches} with {len(batch_docs)} documents to Pinecone..."
             )
 
-        except Exception as e:
-            logger.error(f"Error adding documents to Pinecone: {e}", exc_info=True)
-            # Raise an exception to signal failure to the caller
-            raise RuntimeError(
-                "Pinecone ingestion failed during document addition."
-            ) from e
+            # Use add_documents which internally handles upsert based on IDs
+            # The document's page_content (original content) is embedded.
+            # The metadata (including the generated summary and keywords) is stored.
+            vectorstore.add_documents(
+                documents=batch_docs,
+                ids=batch_ids,
+            )
+
+            logger.info(
+                f"Successfully upserted batch {i//embedding_batch_size + 1} to Pinecone."
+            )
+
+        logger.info(
+            f"Successfully upserted {len(processed_docs)} processed documents to Pinecone."
+        )
+
+    except Exception as e:
+        logger.error(f"Error upserting documents to Pinecone: {e}", exc_info=True)
+        raise RuntimeError(
+            "Pinecone ingestion failed during document upsert."
+        ) from e
+
 
     # Get final stats from Pinecone
     try:

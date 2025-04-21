@@ -13,8 +13,12 @@ class NaverCafeData(models.Model):
     )  # Store as original string from Naver
     url = models.URLField(unique=True, null=False, blank=False)
     post_id = models.IntegerField(null=False, blank=False)
-    notation = models.JSONField(null=True, blank=True, default=None)
+    # notation = models.JSONField(null=True, blank=True, default=None) # 주석 처리
     keywords = models.JSONField(null=True, blank=True, default=None)
+    summary = models.TextField(null=True, blank=True, default=None)
+    possible_questions = models.JSONField(
+        null=True, blank=True, default=None, help_text="List of generated questions (strings) based on the content"
+    )
 
     def __str__(self):
         return self.title
