@@ -22,6 +22,7 @@
             <!-- 창플 메인 로고(좌측)) -->
             <div class="cp-logo-container" id="cp-logo" style="cursor: pointer;">
                 <div class="cp-logo">
+                    {% comment %} <img src="{% static '../static/img/cp-logo-main.svg' %}" alt="CHAI Logo" /> {% endcomment %}
                     <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 513.51 109.45">
                         <defs>
                           <style>
@@ -83,12 +84,12 @@
 
                 {% endif %}
                 <!-- Payment button (always shown) -->
-                <div class="payment-btn">
+                <button class="payment-btn">
                     <svg class="payment-icon" width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.7339 0.200195L13.2023 7.40581L18.9589 2.82986L15.452 9.29355L22.8032 9.48839L15.962 12.1857L21.4681 17.0602L14.4936 14.7291L15.5782 22.0023L11.7339 15.7335L7.88962 22.0023L8.97425 14.7291L1.9998 17.0602L7.50585 12.1857L0.664688 9.48839L8.01582 9.29355L4.50899 2.82986L10.2655 7.40581L11.7339 0.200195Z" fill="#889DC4"/>
                     </svg>
                     <div class="payment-btn-text">유료플랜 결제</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -132,9 +133,9 @@
                 <div class="title">무엇이 궁금하세요?</div>
                 
                 <div class="suggestions">
-                    <div class="suggestion-box">카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?</div>
-                    <div class="suggestion-box">창플의 창업 철학에 대해 얘기해줘</div>
-                    <div class="suggestion-box">소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?</div>
+                    <div class="suggestion-box" id="suggestion-box-1">카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?</div>
+                    <div class="suggestion-box" id="suggestion-box-2">창플의 창업 철학에 대해 얘기해줘</div>
+                    <div class="suggestion-box" id="suggestion-box-3">소규모 창업을 하려는데, 구체적인 창업 비용과 항목 별 금액도 알 수 있나요?</div>
                 </div>
 
                 {% if user.is_authenticated %}
@@ -181,12 +182,12 @@
             <p>?</p>
         </div>
 
-        <div id="help-box" class="help-box" style="display: none;">
+        <div id="help-box" class="help-box" style="background-color: rgba(255, 255, 255, 0.9);">
             <div class="help-box-naver">
                 <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M23.9999 47.5111C36.7606 47.5111 47.1051 37.1666 47.1051 24.4059C47.1051 11.6453 36.7606 1.30078 23.9999 1.30078C11.2393 1.30078 0.894775 11.6453 0.894775 24.4059C0.894775 37.1666 11.2393 47.5111 23.9999 47.5111Z" fill="#617DAE"/>
                     <path d="M11.6393 13.4766H20.2404C20.2404 13.4766 28.0528 25.277 28.2835 25.5934C28.5198 25.9131 28.5472 25.5934 28.5472 25.5934C28.1868 23.7674 27.7957 22.9478 27.7957 20.0266V13.4766H36.3606V35.3372H27.7957C27.7957 35.3372 20.1437 24.1663 19.913 23.8576C19.6811 23.5467 19.6504 23.8576 19.6504 23.8576C19.9448 25.3649 20.2052 25.6165 20.2052 28.2346V35.3373H11.6392L11.6393 13.4766Z" fill="white"/>
-                    </svg>
+                </svg>
                 <a href="https://cafe.naver.com/cjdckddus" target="_blank" class="styled-link">
                     창플 네이버카페
                 </a>
@@ -249,7 +250,14 @@
     
     <script src="{% static 'js/index.js' %}"></script>
     <script>
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Ensure help box is hidden initially
+            const helpBox = document.getElementById('help-box');
+            if (helpBox) {
+                helpBox.classList.remove('visible');
+            }
+            
             // cp-logo-container 클릭 이벤트 리스너 추가
             const cpLogoContainer = document.getElementById('cp-logo');
             cpLogoContainer.addEventListener('click', function() {
@@ -272,23 +280,23 @@
             });
         });
 
-        // Help Box 이벤트 리스너 추가
+        // Help Box 이벤트 리스너 추가 -------------------------------------
         const helpBtn = document.querySelector('.help-btn');
         const helpBox = document.getElementById('help-box');
 
         // Show or hide help box when help button is clicked
         helpBtn.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the click from bubbling up to the document
-            if (helpBox.style.display === 'flex') {
-                helpBox.style.display = 'none'; // Hide the help box if it's already shown
+            if (helpBox.classList.contains('visible')) {
+                helpBox.classList.remove('visible'); // Hide the help box if it's already shown
             } else {
-                helpBox.style.display = 'flex'; // Show the help box
+                helpBox.classList.add('visible'); // Show the help box
             }
         });
 
         // Hide help box when clicking anywhere else
         document.addEventListener('click', function() {
-            helpBox.style.display = 'none'; // Hide the help box
+            helpBox.classList.remove('visible'); // Hide the help box
         });
 
 
@@ -422,6 +430,7 @@
                 button.addEventListener("click", function () {
                     const panel = button.closest(".history-pannel-block");
                     const listArea = panel.querySelector(".history-list-area");
+                    const historyList = panel.querySelector(".history-list");
         
                     if (listArea.style.display === "none" || listArea.style.display === "") {
                         // 보여주기
@@ -430,6 +439,18 @@
                         
                         // 스크롤 위치 초기화
                         listArea.scrollTop = 0;
+                        panel.classList.remove("minimized");
+
+                        
+                        // 패널이 열린 후 스크롤이 작동하도록 약간의 지연 후 스크롤 이벤트 발생
+                        setTimeout(() => {
+                            listArea.dispatchEvent(new Event('scroll'));
+                            
+                            // 내용이 많을 경우 스크롤이 생기는지 확인
+                            if (historyList.scrollHeight > listArea.clientHeight) {
+                                console.log("스크롤이 필요합니다. 내용 높이:", historyList.scrollHeight, "컨테이너 높이:", listArea.clientHeight);
+                            }
+                        }, 100);
                     } else {
                         // 숨기기
                         listArea.style.display = "none";
@@ -443,9 +464,109 @@
                 listArea.style.display = "none";
                 panel.classList.add("minimized");
             });
-
         });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              // JavaScript로 호버 효과 구현
+            const suggestionBoxes = document.querySelectorAll('.suggestion-box');
+            
+            // 모든 suggestion box에 호버 효과 적용
+            suggestionBoxes.forEach(box => {
+                // 마우스가 div 위에 올라갔을 때
+                box.addEventListener('mouseover', function() {
+                    this.style.backgroundColor = '#f5f5f5';
+                    this.style.transition = 'background-color 0.3s ease';
+                });
+                
+                // 마우스가 div에서 벗어났을 때
+                box.addEventListener('mouseout', function() {
+                    this.style.backgroundColor = '#FFFFFF';
+                    this.style.transition = 'background-color 0.3s ease';
+                });
+            });
+
+                
+
         {% endif %}
+
+        
+        //---------- changple btn 호버 -------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            // changple-btn 요소 선택
+            const changpleBtn = document.querySelector('.changple-btn');
+            
+            // 마우스가 버튼 위에 올라갔을 때 (mouseover)
+            changpleBtn.addEventListener('mouseover', function() {
+                // 배경색 변경 (예: 연한 파란색)
+                this.style.backgroundColor = '#EFF2FA';
+                // 부드러운 전환 효과 추가
+                this.style.transition = 'background-color 0.3s ease';
+            });
+            
+            // 마우스가 버튼에서 벗어났을 때 (mouseout)
+            changpleBtn.addEventListener('mouseout', function() {
+                // 원래 배경색으로 복원 (투명 또는 흰색)
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+
+        //---------- send btn 호버 -------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            //-- send-btn 요소 선택
+            const sendBtn = document.querySelector('.send-btn');
+            
+            //-- 마우스가 버튼 위에 올라갔을 때(mouseover)
+            sendBtn.addEventListener('mouseover', function() {
+                //-- 배경색 변경
+                this.style.backgroundColor = '#EFF2FA';
+                //-- 전환효과 추가
+                this.style.transition = 'background-color 0.3 ease'; 
+            });
+
+            sendBtn.addEventListener('mouseout', function() {
+                //-- 원래 배경색으로 보원
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // icon-block 요소 선택
+            const iconBlock = document.querySelector('.icon-block');
+            
+            // 마우스가 버튼 위에 올라갔을 때 (mouseover)
+            iconBlock.addEventListener('mouseover', function() {
+                // 배경색 변경 (예: 연한 파란색)
+                this.style.backgroundColor = '#EFF2FA';
+                // 부드러운 전환 효과 추가
+                this.style.transition = 'background-color 0.3s ease';
+            });
+            
+            // 마우스가 버튼에서 벗어났을 때 (mouseout)
+            iconBlock.addEventListener('mouseout', function() {
+                // 원래 배경색으로 복원 (투명 또는 흰색)
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+
+
+
     </script>
 </body>
 </html>

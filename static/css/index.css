@@ -288,6 +288,19 @@ body {
   z-index: 1001;
 }
 
+.mypage-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+.login-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+.payment-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+
 .payment-btn {
   width: auto;
   background: white;
@@ -304,6 +317,8 @@ body {
   color: #a3a3a3;
   font-weight: 400;
   cursor: pointer;
+  border: none;
+  font-size: 16px;
 }
 
 .main-content {
@@ -363,34 +378,50 @@ body {
   padding-top: 10px;
   position: sticky;
   top: 100px; /* Stick below header */
+  /* transition: width 0.3s ease-in-out; */
+  transition: opacity 0.4s ease, transform 0.3s ease, visibility 0.3s;
 }
 .icon-block {
   /* background-color: black; */
-  width: fit-content;
-  height: auto;
+  /* width: fit-content; */
+  /* height: auto; */
+  width: 40px;
+  height: 40px;
+  border-radius: 99px;
   border: none;
-  border: none; /* 테두리(아웃라인) 제거 */
   padding: 0; /* 내부 여백 제거 */
   outline: none; /* 포커스 아웃라인 제거 */
   cursor: pointer; /* 마우스 오버 시 커서 변경 (선택 사항) */
   background: none;
 }
 .history-list-area {
-  display: none;
-  /* display: flex; */
+  display: flex;
   flex-direction: column;
   gap: 20px;
-  height: calc(
-    100% - 40px
-  ); /* Take up remaining height minus icon and some padding */
-  overflow-y: auto; /* Make only this area scrollable */
+  height: calc(100% - 40px);
+  overflow-y: auto;
+  max-height: calc(100vh - 160px); /* 최대 높이 설정 */
+  padding-bottom: 40px; /* 하단 여백 추가 */
+}
+.history-list-area {
+  overflow-y: auto; /* 내용이 넘칠 경우 스크롤 허용 */
+  scrollbar-width: none; /* Firefox용 스크롤바 숨김 */
+  -ms-overflow-style: none; /* IE/Edge용 스크롤바 숨김 */
+}
+
+/* Chrome, Safari, Opera 등 웹킷 기반 브라우저용 스크롤바 숨김 */
+.history-list-area::-webkit-scrollbar {
+  display: none;
 }
 /*--- list ------*/
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-right: 8px; /* Space for scrollbar */
+  gap: 10px;
+  padding: 10px;
+  height: auto; /* 자동 높이로 변경 */
+  overflow-y: visible; /* visible로 변경하여 부모 요소의 스크롤이 작동하도록 함 */
+  width: 100%; /* 너비 100%로 설정 */
 }
 .history-list a {
   font-size: 16px;
@@ -402,6 +433,7 @@ body {
   background-color: rgba(250, 250, 250, 0.9); /* Match page background */
   padding: 5px 0;
   z-index: 1;
+  width: 100%; /* 너비 100%로 설정 */
 }
 .history-list p {
   display: -webkit-box;
@@ -412,13 +444,18 @@ body {
   -webkit-box-orient: vertical; /* 텍스트 방향 설정 */
   overflow: hidden; /* 넘치는 텍스트 숨김 */
   text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+  width: 100%; /* 너비 100%로 설정 */
+  padding: 8px 0; /* 상하 패딩 추가 */
 }
 
 .history-item {
-  padding: 8px 12px;
+  height: fit-content;
+  padding: 4px; /* 패딩 값 수정 */
   border-radius: 8px;
   transition: all 0.2s ease;
   margin-bottom: 4px;
+  width: 100%; /* 너비 100%로 설정 */
+  cursor: pointer; /* 커서 포인터 추가 */
 }
 
 .history-item:hover {
@@ -454,6 +491,7 @@ body {
   margin-bottom: 18px;
   width: 100%;
   max-width: 1040px;
+  cursor: pointer;
 }
 
 .suggestion-box {
@@ -596,11 +634,15 @@ body {
   cursor: pointer;
   z-index: 2000;
 }
+.help-btn:hover {
+  background-color: #c7d2f3;
+  transition: background-color 0.3s ease;
+}
+
 .help-box {
   position: fixed;
   width: 240px;
   height: 200px;
-  background-color: #dce5ff;
   border: px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -615,7 +657,18 @@ body {
   padding-right: 20px;
   padding-top: 26px;
   gap: 20px;
+  opacity: 0;
+  transform: translateY(20px);
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
 }
+
+.help-box.visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
 .help-box-naver {
   /* background-color: red; */
   width: max-content;
@@ -708,7 +761,13 @@ footer {
     min-height: 100px;
     font-size: 18px;
     line-height: 24px;
+    cursor: pointer;
   }
+
+  /* .suggestion-box:hover {
+    background-color: #c7d2f3;
+    transition: background-color 0.3s ease;
+  } */
 
   .input-container-locked {
     height: auto;
@@ -738,13 +797,6 @@ footer {
   }
 
   .send-btn {
-    width: 50px;
-    height: 50px;
-    right: 10px;
-    bottom: 10px;
-  }
-
-  .changple-btn {
     width: 50px;
     height: 50px;
     right: 10px;
@@ -868,23 +920,4 @@ input::placeholder {
 }
 .test p {
   font-size: 100px;
-}
-
-/* Custom scrollbar for history list */
-.history-list-area::-webkit-scrollbar {
-  width: 6px;
-}
-
-.history-list-area::-webkit-scrollbar-track {
-  background: rgba(97, 125, 174, 0.1);
-  border-radius: 10px;
-}
-
-.history-list-area::-webkit-scrollbar-thumb {
-  background: rgba(97, 125, 174, 0.3);
-  border-radius: 10px;
-}
-
-.history-list-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(97, 125, 174, 0.5);
 }
