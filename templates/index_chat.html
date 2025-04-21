@@ -176,7 +176,7 @@
             <p>?</p>
         </div>
 
-        <div id="help-box" class="help-box" style="display: none;">
+        <div id="help-box" class="help-box" style="background-color: rgba(255, 255, 255, 0.9);">
             <div class="help-box-naver">
                 <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M23.9999 47.5111C36.7606 47.5111 47.1051 37.1666 47.1051 24.4059C47.1051 11.6453 36.7606 1.30078 23.9999 1.30078C11.2393 1.30078 0.894775 11.6453 0.894775 24.4059C0.894775 37.1666 11.2393 47.5111 23.9999 47.5111Z" fill="#617DAE"/>
@@ -689,8 +689,8 @@
             const promptContainer = document.querySelector('.prompt-container');
             const scrollDownBtn = document.getElementById('scroll-down-btn');
             const cpLogoContainer = document.getElementById('cp-logo');
-            const helpBtn = document.querySelector('.help-btn');
-            const helpBox = document.getElementById('help-box');
+            //const helpBtn = document.querySelector('.help-btn');
+            //const helpBox = document.getElementById('help-box');
             const stopStreamingBtn = document.getElementById('stop-streaming-btn'); // 중단 버튼 참조
 
             // 입력 필드 이벤트 리스너 (adjustTextareaHeight는 index_chat.js에 정의됨)
@@ -776,36 +776,36 @@
             }
 
             // cp-logo-container 클릭 이벤트 리스너 추가
-             if (cpLogoContainer) {
-                 cpLogoContainer.addEventListener('click', function() {
-                    // 현재 호스트와 포트를 동적으로 가져오기
-                     const currentHost = window.location.hostname;
-                     const currentPort = window.location.port;
-                     const protocol = window.location.protocol;
-                     let baseUrl = `${protocol}//${currentHost}`;
-                     if (currentPort) {
-                         baseUrl += `:${currentPort}`;
-                     }
-                     location.href = `${baseUrl}/`; // 루트 URL로 이동
-                 });
-             }
+                if (cpLogoContainer) {
+                    cpLogoContainer.addEventListener('click', function() {
+                        // 현재 호스트와 포트를 동적으로 가져오기
+                        const currentHost = window.location.hostname;
+                        const currentPort = window.location.port;
+                        const protocol = window.location.protocol;
+                        let baseUrl = `${protocol}//${currentHost}`;
+                        if (currentPort) {
+                            baseUrl += `:${currentPort}`;
+                        }
+                        location.href = `${baseUrl}/`; // 루트 URL로 이동
+                    });
+                }
          
             // Help Box 이벤트 리스너 추가
+            const helpBtn = document.querySelector('.help-btn');
+            const helpBox = document.getElementById('help-box');
+
             // Show or hide help box when help button is clicked
             helpBtn.addEventListener('click', function(event) {
                 event.stopPropagation(); // Prevent the click from bubbling up to the document
-                if (helpBox.style.display === 'flex') {
-                    helpBox.style.display = 'none'; // Hide the help box if it's already shown
-                } else {
-                    helpBox.style.display = 'flex'; // Show the help box
-                }
+                helpBox.classList.toggle('visible');
             });
 
             // Hide help box when clicking anywhere else
-            document.addEventListener('click', function() {
-                helpBox.style.display = 'none'; // Hide the help box
+            document.addEventListener('click', function(event) {
+                if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
+                    helpBox.classList.remove('visible');
+                }
             });
-
 
             // --- 스트리밍 중단 버튼 이벤트 리스너 추가 ---
             if (stopStreamingBtn) {
@@ -821,6 +821,112 @@
 
 
         }); // End of DOMContentLoaded listener
+                    
+        //---------- changple btn 호버 -------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            // changple-btn 요소 선택
+            const changpleBtn = document.querySelector('.changple-btn');
+            
+            // 마우스가 버튼 위에 올라갔을 때 (mouseover)
+            changpleBtn.addEventListener('mouseover', function() {
+                // 배경색 변경 (예: 연한 파란색)
+                this.style.backgroundColor = '#EFF2FA';
+                // 부드러운 전환 효과 추가
+                this.style.transition = 'background-color 0.3s ease';
+            });
+            
+            // 마우스가 버튼에서 벗어났을 때 (mouseout)
+            changpleBtn.addEventListener('mouseout', function() {
+                // 원래 배경색으로 복원 (투명 또는 흰색)
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+        //---------- send btn 호버 -------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            //-- send-btn 요소 선택
+            const sendBtn = document.querySelector('.send-btn');
+            
+            //-- 마우스가 버튼 위에 올라갔을 때(mouseover)
+            sendBtn.addEventListener('mouseover', function() {
+                //-- 배경색 변경
+                this.style.backgroundColor = '#EFF2FA';
+                //-- 전환효과 추가
+                this.style.transition = 'background-color 0.3 ease'; 
+            });
+
+            sendBtn.addEventListener('mouseout', function() {
+                //-- 원래 배경색으로 보원
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+        //--- mypage-btn hover -------------------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            //-- send-btn 요소 선택
+            const mypageBtn = document.querySelector('.mypage-btn');
+            
+            //-- 마우스가 버튼 위에 올라갔을 때(mouseover)
+            mypageBtn.addEventListener('mouseover', function() {
+                //-- 배경색 변경
+                this.style.backgroundColor = '#f5f5f5';
+                //-- 전환효과 추가
+                this.style.transition = 'background-color 0.3 ease'; 
+            });
+
+            mypageBtn.addEventListener('mouseout', function() {
+                //-- 원래 배경색으로 보원
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+        //--- payment-btn hover -------------------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            //-- send-btn 요소 선택
+            const paymentBtn = document.querySelector('.payment-btn');
+            
+            //-- 마우스가 버튼 위에 올라갔을 때(mouseover)
+            paymentBtn.addEventListener('mouseover', function() {
+                //-- 배경색 변경
+                this.style.backgroundColor = '#f5f5f5';
+                //-- 전환효과 추가
+                this.style.transition = 'background-color 0.3 ease'; 
+            });
+
+            paymentBtn.addEventListener('mouseout', function() {
+                //-- 원래 배경색으로 보원
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        //-- send-btn 요소 선택
+        const sendBtn = document.querySelector('.send-btn');
+
+
+
+
+
+
+
+
+
+
     </script>
 </body>
 </html>

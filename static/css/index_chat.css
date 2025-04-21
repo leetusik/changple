@@ -291,6 +291,21 @@ body {
   color: #a3a3a3;
   font-weight: 400;
   cursor: pointer;
+  position: relative;
+  z-index: 1001;
+}
+
+.mypage-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+.login-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+.payment-btn:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
 }
 
 .payment-btn {
@@ -533,10 +548,10 @@ body {
   z-index: 2000;
 }
 .help-box {
+  background-color: white;
   position: fixed;
   width: 240px;
   height: 200px;
-  background-color: #dce5ff;
   border: px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -551,6 +566,19 @@ body {
   padding-right: 20px;
   padding-top: 26px;
   gap: 20px;
+  opacity: 0;
+  transform: translateY(20px);
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+}
+.help-box.visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+.help-btn:hover {
+  background-color: #c7d2f3;
+  transition: background-color 0.3s ease;
 }
 .help-box-naver {
   /* background-color: red; */
@@ -628,7 +656,6 @@ footer {
 .personal-info-link {
   color: #617dae;
 }
-
 
 @media screen and (max-width: 768px) {
   .title {
@@ -813,36 +840,39 @@ input::placeholder {
     text-align: right;
   } */
 
-
 /* Loading Spinner Styles */
 .loading-spinner-overlay {
-    position: fixed; /* 화면 전체에 고정 */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1003; /* 다른 요소 위에 표시 */
-    pointer-events: none; /* 추가: 클릭 이벤트 통과 */
-    opacity: 0.7;
+  position: fixed; /* 화면 전체에 고정 */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1003; /* 다른 요소 위에 표시 */
+  pointer-events: none; /* 추가: 클릭 이벤트 통과 */
+  opacity: 0.7;
 }
 
 .spinner {
-    border: 6px solid #dddddd; /* 밝은 회색 테두리 */
-    border-top: 6px solid #617DAE; /* 파란색 테두리 (로딩 표시) */
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite; /* 회전 애니메이션 */
-    pointer-events: auto; /* 추가: 스피너 자체는 이벤트 수신 가능 (필요 시) */
-    opacity: 0.7;
+  border: 6px solid #dddddd; /* 밝은 회색 테두리 */
+  border-top: 6px solid #617dae; /* 파란색 테두리 (로딩 표시) */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite; /* 회전 애니메이션 */
+  pointer-events: auto; /* 추가: 스피너 자체는 이벤트 수신 가능 (필요 시) */
+  opacity: 0.7;
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ------------마크다운 렌더링을 위한 스타일------------- */
