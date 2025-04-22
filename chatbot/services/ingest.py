@@ -64,11 +64,10 @@ def gpt_summarize(doc: Document) -> Document:
         raise SkipDocumentError(f"Post with ID {post_id} not found in database")
 
     # Step 2: Process summary, keywords, and questions if needed
-    # 이제 possible_questions가 있는지 확인 (이 함수는 load_posts_from_database에서 걸러진 것만 받으므로 항상 None일 것임)
+    # possible_questions가 있는지 확인 (이 함수는 load_posts_from_database에서 걸러진 것만 받으므로 항상 None일 것임)
     if doc.metadata["possible_questions"] is None:
         try:
             # Generate summary, keywords, and questions from the original content
-            # summary_and_keywords는 이제 (summary, keywords, questions_list)를 반환
             summary, keywords, possible_questions_list = summary_and_keywords(doc.page_content)
 
             # questions_list는 QuestionItem 객체의 리스트일 수 있으므로 문자열 리스트로 변환
@@ -77,7 +76,6 @@ def gpt_summarize(doc: Document) -> Document:
             if possible_questions_list and isinstance(possible_questions_list[0], QuestionItem):
                  questions_str_list = [item.question for item in possible_questions_list]
             else:
-                 # 이미 문자열 리스트이거나 다른 형식인 경우
                  questions_str_list = possible_questions_list if isinstance(possible_questions_list, list) else []
 
 
@@ -91,7 +89,7 @@ def gpt_summarize(doc: Document) -> Document:
             # Update summary, keywords, and possible_questions in database
             db_object.summary = summary
             db_object.keywords = keywords
-            # questions_str_list를 DB에 저장 (JSONField는 리스트를 저장할 수 있음)
+            # questions_str_list를 DB에 저장 (JSONField)
             db_object.possible_questions = questions_str_list
             db_object.save(update_fields=["summary", "keywords", "possible_questions"]) # possible_questions 추가
         except ValueError as e: # Catch specific error from summary_and_keywords
@@ -140,29 +138,31 @@ def load_posts_from_database(
                     "창플",
                 ],
                 content_length__gt=min_content_length,
-                possible_questions__isnull=True # 필터 조건 변경
+                possible_questions__isnull=True
             )
         )
 
         logger.info(
-            # 로그 메시지 업데이트
             f"Loaded {posts.count()} posts matching criteria (author, length > {min_content_length}, missing possible_questions) from database"
         )
 
         documents = []
         for post in posts:
-            # Only use the content for the document text, title is in metadata
-            text = post.content
+            temp_search_field = post.content
+            # Handle None value for notation
+            notation_value = post.notation if post.notation is not None else "none"
 
             # Create document with metadata
             doc = Document(
-                page_content=text,
+                page_content=temp_search_field,
                 metadata={
                     "post_id": post.post_id,
                     "title": post.title,
-                    "keywords": post.keywords, # 로드 시점의 값 (None일 수 있음)
-                    "summary": post.summary,   # 로드 시점의 값 (None일 수 있음)
-                    "possible_questions": post.possible_questions, # 로드 시점의 값 (항상 None)
+                    "keywords": post.keywords,
+                    "summary": post.summary,
+                    "possible_questions": post.possible_questions,
+                    "notation": notation_value, 
+                    "full_content": post.content,
                 },
             )
             documents.append(doc)
@@ -183,29 +183,14 @@ def ingest_docs():
     PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
     PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
     PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
-    MAX_FETCH_RETRIES = 3
-    INITIAL_BACKOFF = 2  # seconds
+    # MAX_FETCH_RETRIES = 3
+    # INITIAL_BACKOFF = 2  # seconds
 
     # Get embedding model
     embedding = get_embeddings_model()
 
     # Initialize Pinecone
     pc = Pinecone(api_key=PINECONE_API_KEY)
-    index = None  # Initialize index variable
-
-    # Check if index exists, create if it doesn't
-    index_list = pc.list_indexes()
-    if PINECONE_INDEX_NAME not in [index.name for index in index_list.indexes]:
-        logger.info(f"Creating new Pinecone index: {PINECONE_INDEX_NAME}")
-        pc.create_index(
-            name=PINECONE_INDEX_NAME,
-            dimension=3072,  # Dimension for text-embedding-3-large
-            metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
-        )
-        logger.info(f"Created new Pinecone index: {PINECONE_INDEX_NAME}")
-        # Wait for index readiness if needed, depends on Pinecone client behavior
-        # time.sleep(10) # Example: Simple wait, adjust as needed
 
     # Assign the index object
     index = pc.Index(PINECONE_INDEX_NAME)
@@ -226,12 +211,12 @@ def ingest_docs():
     # Process documents to generate summary/keywords and update DB
     processed_docs = []
     total_docs = len(raw_docs)
-    for idx, raw_doc in enumerate(raw_docs, 1):  # 1부터 시작
+    for idx, raw_doc in enumerate(raw_docs, 1):
         try:
             # Process the document (generate summary/keywords)
             processed_doc = gpt_summarize(raw_doc) # Updates DB and doc.metadata
             processed_docs.append(processed_doc)
-            logger.info(f"{idx}/{total_docs} 문서 처리 완료")  # 진행률 출력
+            logger.info(f"{idx}/{total_docs} documents processed")
         except SkipDocumentError as skip_e:
             logger.info(
                 f"Skipping document with post_id {raw_doc.metadata['post_id']} during processing: {skip_e}"
@@ -251,7 +236,7 @@ def ingest_docs():
 
     try:
         vectorstore = LangchainPinecone(
-            index=index, embedding=embedding, text_key="text" # 'text' refers to page_content
+            index=index, embedding=embedding, text_key="search_field"
         )
 
         # Batch documents for embedding and upsertion
@@ -262,15 +247,41 @@ def ingest_docs():
             batch_docs = processed_docs[i : i + embedding_batch_size]
             batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
 
+            # --- 임베딩할 텍스트 생성 로직 추가 ---
+            docs_to_embed = []
+            for doc in batch_docs:
+                title = doc.metadata.get("title", "")
+                summary = doc.metadata.get("summary", "")
+                keywords_list = doc.metadata.get("keywords", [])
+                questions_list = doc.metadata.get("possible_questions", []) # gpt_summarize에서 문자열 리스트로 저장됨
+
+                # 키워드와 질문 포맷팅
+                keywords_str = " ".join(keywords_list)
+                questions_str = "\n".join(questions_list) # 각 질문을 줄바꿈으로 구분
+
+                # 임베딩을 위한 텍스트 생성 (요약 + 키워드 + 질문 형식)
+                text_for_embedding = f"""
+제목: {title}
+요약: {summary}
+키워드: {keywords_str}
+질문: 
+{questions_str}"""
+
+                # 원본 Document 객체를 복사하여 page_content만 교체 (metadata 유지)
+                doc.page_content = text_for_embedding
+                docs_to_embed.append(doc)
+            # --- 임베딩할 텍스트 생성 로직 끝 ---
+
+
             logger.info(
-                f"Upserting batch {i//embedding_batch_size + 1}/{total_batches} with {len(batch_docs)} documents to Pinecone..."
+                f"Upserting batch {i//embedding_batch_size + 1}/{total_batches} with {len(docs_to_embed)} documents to Pinecone..."
             )
 
             # Use add_documents which internally handles upsert based on IDs
-            # The document's page_content (original content) is embedded.
-            # The metadata (including the generated summary and keywords) is stored.
+            # The document's page_content (NOW the combined text) is embedded.
+            # The metadata (including the original summary, keywords, etc.) is stored.
             vectorstore.add_documents(
-                documents=batch_docs,
+                documents=docs_to_embed,
                 ids=batch_ids,
             )
 
