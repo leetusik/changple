@@ -13,9 +13,9 @@ class Command(BaseCommand):
     # help = "Whoosh 인덱스를 생성하고 Pinecone에 문서를 인제스트하는 통합 프로세스 실행"
 
     def handle(self, *args, **options):
-        self.stdout.write(
-            self.style.SUCCESS("Whoosh 인덱스 생성 및 문서 인제스트 프로세스 시작...")
-        )
+        # self.stdout.write(
+        #     self.style.SUCCESS("Whoosh 인덱스 생성 및 문서 인제스트 프로세스 시작...")
+        # )
 
         try:
             # # 1단계: Whoosh 인덱스 생성

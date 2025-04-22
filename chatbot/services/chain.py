@@ -137,7 +137,7 @@ def get_retriever() -> BaseRetriever:
 
     embeddings = get_embeddings_model()
 
-    vectorstore = LangchainPinecone(index, embeddings, "text")
+    vectorstore = LangchainPinecone(index, embeddings, "search_field")
 
     return vectorstore.as_retriever(
         search_kwargs={
@@ -733,14 +733,14 @@ def create_chain(
         fixed_category = "창플과 관련된 질문 대답"
         generic_query = f"질문 '{query_to_use}'에 도움이 되는 창플 회사 소개 및 철학"  # Generic query for philosophy docs
         logger.info(
-            f"Retrieving fixed 5 philosophy documents for category '{fixed_category}'..."
+            f"Retrieving philosophy documents for category '{fixed_category}'..."
         )
         try:
             # Temporarily override filter and k for fixed retrieval
             retriever.search_kwargs["filter"] = {"notation": {"$in": [fixed_category]}}
             retriever.search_kwargs["k"] = 3
             philosophy_docs = retriever.invoke(generic_query)
-            logger.info(f"Retrieved {len(philosophy_docs)} fixed philosophy documents.")
+            logger.info(f"Retrieved {len(philosophy_docs)} fixed number of philosophy documents.")
         except Exception as e:
             logger.error(
                 f"Error retrieving fixed philosophy documents: {e}", exc_info=True
