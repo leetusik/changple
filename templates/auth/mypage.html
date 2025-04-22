@@ -7,50 +7,8 @@
     <title>ChangpleAI - Mypage</title>
     <link rel="stylesheet" href="{% static 'css/mypage.css' %}">
     <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/x-icon">
-    <style>
-        a {
-            text-decoration: none;
-        }
-        .profile-buttons-block a, .pay_plan-block-content-btn-area {
-            text-decoration: none;
-            /* color: inherit; */
-        }
-        .not-authenticated a {
-            text-decoration: none;
-            color: inherit;
-        }
-        
-        /* Mobile message styling */
-        .mobile-message {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #fff;
-            z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            font-size: 18px;
-            line-height: 1.6;
-            color: #617DAE;
-        }
-        
-        /* Media query for mobile devices */
-        @media screen and (max-width: 768px) {
-            body > header,
-            body > main,
-            body > footer {
-                display: none !important;
-            }
-            .mobile-message {
-                display: flex;
-            }
-        }
-    </style>
+    <script src="{% static 'js/mypage.js' %}"></script>
+    
 </head>
 
 <body>
@@ -178,23 +136,28 @@
                         플랜
                     </p>
                 </div>
-                <div class="pay_plan-block-content-area">
-                    <p>
-                        {% if user.is_premium %}
-                            프리미엄 (무제한)
-                        {% else %}
-                            무료사용({{ user.daily_queries_remain|default:"10" }}/{{ user.daily_query_limit|default:"10" }})
-                        {% endif %}
-                    </p>
+
+                <div class ="pay_plan-block-container">
+                    <div class="pay_plan-block-content-area">
+                        <p>
+                            {% if user.is_premium %}
+                                프리미엄 (무제한)
+                            {% else %}
+                                무료사용({{ user.daily_queries_remain|default:"10" }}/{{ user.daily_query_limit|default:"10" }})
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <a href="{% url 'home' %}" class="pay_plan-block-content-btn-area">
+                        <svg width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M11.7339 0.200195L13.2023 7.40581L18.9589 2.82986L15.452 9.29355L22.8032 9.48839L15.962 12.1857L21.4681 17.0602L14.4936 14.7291L15.5782 22.0023L11.7339 15.7335L7.88962 22.0023L8.97425 14.7291L1.9998 17.0602L7.50585 12.1857L0.664688 9.48839L8.01582 9.29355L4.50899 2.82986L10.2655 7.40581L11.7339 0.200195Z" fill="#FFFFFF"/>
+                        </svg>                        
+                        <p>
+                            유료 플랜 결제
+                        </p>
+                    </a>
                 </div>
-                <a href="{% url 'home' %}" class="pay_plan-block-content-btn-area">
-                    <svg width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M11.7339 0.200195L13.2023 7.40581L18.9589 2.82986L15.452 9.29355L22.8032 9.48839L15.962 12.1857L21.4681 17.0602L14.4936 14.7291L15.5782 22.0023L11.7339 15.7335L7.88962 22.0023L8.97425 14.7291L1.9998 17.0602L7.50585 12.1857L0.664688 9.48839L8.01582 9.29355L4.50899 2.82986L10.2655 7.40581L11.7339 0.200195Z" fill="#FFFFFF"/>
-                    </svg>                        
-                    <p>
-                        유료 플랜 결제
-                    </p>
-                </a>
+
             </div>
 
 

@@ -1,3 +1,47 @@
+a {
+  text-decoration: none;
+}
+.profile-buttons-block a,
+.pay_plan-block-content-btn-area {
+  text-decoration: none;
+  /* color: inherit; */
+}
+.not-authenticated a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Mobile message styling */
+.mobile-message {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+  z-index: 9999;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #617dae;
+}
+
+/* Media query for mobile devices */
+@media screen and (max-width: 768px) {
+  body > header,
+  body > main,
+  body > footer {
+    display: none !important;
+  }
+  .mobile-message {
+    display: flex;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -29,6 +73,7 @@ header {
   height: 100px;
   display: flex;
   flex-direction: row;
+  align-items: center;
   gap: 10px;
   padding-top: 30px;
   padding-left: 30px;
@@ -37,8 +82,9 @@ header {
 }
 .arrow-block {
   /* background-color: aqua; */
-  width: 40px;
-  height: auto;
+  width: 50px;
+  height: 50px;
+  border-radius: 99px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -297,10 +343,21 @@ main {
   padding-right: 30px;
   color: #617dae;
   border-bottom: 1px solid #dddddd;
+  gap: 2px;
+}
+/*-- 사용횟수와 유료결제 버튼을 묶은 영역 --*/
+.pay_plan-block-container {
+  /* background-color: black; */
+  width: fit-content;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 .pay_plan-block-title-area {
   /* background-color: black; */
-  width: 120px;
+  /* width: 120px; */
+  width: fit-content;
   height: auto;
   font-size: 16px;
 }
