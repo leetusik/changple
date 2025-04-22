@@ -642,7 +642,7 @@ body {
 .help-box {
   position: fixed;
   width: 240px;
-  height: 200px;
+  height: 300px;
   border: px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -679,6 +679,16 @@ body {
   align-items: center;
   gap: 8px;
 }
+.help-box-naver-blog {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
 .help-box-insta {
   /* background-color: red; */
   width: max-content;
@@ -699,7 +709,16 @@ body {
   align-items: center;
   gap: 8px;
 }
-
+.help-box-youtube2 {
+  /* background-color: red; */
+  width: max-content;
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
 .styled-link {
   color: #617dae; /* 링크 색상 */
   text-decoration: none; /* 밑줄 제거 */
