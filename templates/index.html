@@ -276,12 +276,8 @@
     <script src="{% static 'js/index.js' %}"></script>
     <script>
 
+        //---------좌측 창플로고 클릭시 index.html로 이동하는 기능 ----------------------------------------------------
         document.addEventListener('DOMContentLoaded', function() {
-            // Ensure help box is hidden initially
-            const helpBox = document.getElementById('help-box');
-            if (helpBox) {
-                helpBox.classList.remove('visible');
-            }
             
             // cp-logo-container 클릭 이벤트 리스너 추가
             const cpLogoContainer = document.getElementById('cp-logo');
@@ -289,43 +285,14 @@
                 // 클릭 시 이동할 URL
                 location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
             });
-
-            // History items click event
-            const historyItems = document.querySelectorAll('.history-item');
-            historyItems.forEach(item => {
-                item.addEventListener('click', function() {
-                    const url = this.getAttribute('data-url');
-                    if (url) {
-                        window.location.href = url;
-                    }
-                });
-                
-                // Add cursor pointer to make it obvious it's clickable
-                item.style.cursor = 'pointer';
-            });
-        });
-
-        // Help Box 이벤트 리스너 추가 -------------------------------------
-        const helpBtn = document.querySelector('.help-btn');
-        const helpBox = document.getElementById('help-box');
-
-        // Show or hide help box when help button is clicked
-        helpBtn.addEventListener('click', function(event) {
-            event.stopPropagation(); // Prevent the click from bubbling up to the document
-            if (helpBox.classList.contains('visible')) {
-                helpBox.classList.remove('visible'); // Hide the help box if it's already shown
-            } else {
-                helpBox.classList.add('visible'); // Show the help box
-            }
-        });
-
-        // Hide help box when clicking anywhere else
-        document.addEventListener('click', function() {
-            helpBox.classList.remove('visible'); // Hide the help box
-        });
+        //------------------------------------------------------------------------------
 
 
 
+
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //--------- inputbox와 관련된 기능들 모음 ----------------------------------------------------
         {% if user.is_authenticated %}
         document.addEventListener('DOMContentLoaded', function() {
             const inputBox = document.querySelector('.input-box-unlocked');
@@ -365,7 +332,7 @@
                     sendChatMessage();
                 }
             });
-            
+
             // Message sending function
             function sendChatMessage() {
                 const message = inputBox.value.trim();
@@ -438,8 +405,8 @@
                     });
                 }
             }
-            
-            // Make suggestion boxes clickable
+
+            //------- suggestion box 클릭시, text가 inputbox에 입력되도록 
             const suggestionBoxes = document.querySelectorAll('.suggestion-box');
             suggestionBoxes.forEach(box => {
                 box.addEventListener('click', function() {
@@ -448,7 +415,26 @@
                 });
             });
 
-            //--------history pannel 열고 닫기 -------------
+            //---------- History items click event 
+            const historyItems = document.querySelectorAll('.history-item');
+            historyItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const url = this.getAttribute('data-url');
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+                // Add cursor pointer to make it obvious it's clickable
+                item.style.cursor = 'pointer';
+                });
+            });
+            //------------------------------------------------------------------------------------------
+            //-----------------------------------------------------------------------------------------
+
+
+
+
+            //-------- 좌측 히스토리 패널 : 열고 닫는 기능 ------------------------------------------------
             const buttons = document.querySelectorAll(".icon-block");
         
             buttons.forEach(button => {
@@ -458,6 +444,7 @@
                     const historyList = panel.querySelector(".history-list");
         
                     if (listArea.style.display === "none" || listArea.style.display === "") {
+
                         // 보여주기
                         listArea.style.display = "flex";
                         panel.classList.remove("minimized"); // 전체 너비로
@@ -490,20 +477,34 @@
                 panel.classList.add("minimized");
             });
         });
+        //-------------------------------------------------------------------------------
 
 
 
+         //----- 좌측 히스토리 패널 햄버거 아이콘 : mouseover 컬러 변경  --------------------------
+         document.addEventListener('DOMContentLoaded', function() {
+            // icon-block 요소 선택
+            const iconBlock = document.querySelector('.icon-block');
+            
+            // 마우스가 버튼 위에 올라갔을 때 (mouseover)
+            iconBlock.addEventListener('mouseover', function() {
+                // 배경색 변경 (예: 연한 파란색)
+                this.style.backgroundColor = '#EFF2FA';
+                // 부드러운 전환 효과 추가
+                this.style.transition = 'background-color 0.3s ease';
+            });
+            
+            // 마우스가 버튼에서 벗어났을 때 (mouseout)
+            iconBlock.addEventListener('mouseout', function() {
+                // 원래 배경색으로 복원 (투명 또는 흰색)
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+        //-------------------------------------------------------------------------------
 
 
 
-
-
-
-
-
-
-
-
+        //------------- 질문 예시 박스 3개 : mouseover 컬러 변경 -------------------------------
               // JavaScript로 호버 효과 구현
             const suggestionBoxes = document.querySelectorAll('.suggestion-box');
             
@@ -511,23 +512,25 @@
             suggestionBoxes.forEach(box => {
                 // 마우스가 div 위에 올라갔을 때
                 box.addEventListener('mouseover', function() {
-                    this.style.backgroundColor = '#f5f5f5';
+                    this.style.backgroundColor = '#F3F3F3';
                     this.style.transition = 'background-color 0.3s ease';
                 });
                 
                 // 마우스가 div에서 벗어났을 때
                 box.addEventListener('mouseout', function() {
-                    this.style.backgroundColor = '#FFFFFF';
+                    this.style.backgroundColor = '#f8f8f8';
                     this.style.transition = 'background-color 0.3s ease';
                 });
             });
+        //-------------------------------------------------------------------------------
 
                 
 
         {% endif %}
 
-        
-        //---------- changple btn 호버 -------------------------
+
+
+        //------input-box 안에 있는 '창플 앰블럼 버튼' : mouseover 컬러 변경 ------------------
         document.addEventListener('DOMContentLoaded', function() {
             // changple-btn 요소 선택
             const changpleBtn = document.querySelector('.changple-btn');
@@ -546,10 +549,11 @@
                 this.style.backgroundColor = 'transparent';
             });
         });
+        //-------------------------------------------------------------------------------
 
 
 
-        //---------- send btn 호버 -------------------------
+        //------input-box 안에 있는 'send 버튼' : mouseover 컬러 변경 ------------------
         document.addEventListener('DOMContentLoaded', function() {
             //-- send-btn 요소 선택
             const sendBtn = document.querySelector('.send-btn');
@@ -567,29 +571,29 @@
                 this.style.backgroundColor = 'transparent';
             });
         });
+        //-------------------------------------------------------------------------------
 
 
-        //----- history-icon-block ----------------------------------------------
-        document.addEventListener('DOMContentLoaded', function() {
-            // icon-block 요소 선택
-            const iconBlock = document.querySelector('.icon-block');
-            
-            // 마우스가 버튼 위에 올라갔을 때 (mouseover)
-            iconBlock.addEventListener('mouseover', function() {
-                // 배경색 변경 (예: 연한 파란색)
-                this.style.backgroundColor = '#EFF2FA';
-                // 부드러운 전환 효과 추가
-                this.style.transition = 'background-color 0.3s ease';
-            });
-            
-            // 마우스가 버튼에서 벗어났을 때 (mouseout)
-            iconBlock.addEventListener('mouseout', function() {
-                // 원래 배경색으로 복원 (투명 또는 흰색)
-                this.style.backgroundColor = 'transparent';
-            });
+        //------------- Help Box 이벤트 리스너 추가 -------------------------------------
+        const helpBtn = document.querySelector('.help-btn');
+        const helpBox = document.getElementById('help-box');
+
+        // Show or hide help box when help button is clicked
+        helpBtn.addEventListener('click', function(event) {
+            event.stopPropagation(); // Prevent the click from bubbling up to the document
+            if (helpBox.classList.contains('visible')) {
+                helpBox.classList.remove('visible'); // Hide the help box if it's already shown
+            } else {
+                helpBox.classList.add('visible'); // Show the help box
+            }
         });
 
+        // Hide help box when clicking anywhere else
+        document.addEventListener('click', function() {
+            helpBox.classList.remove('visible'); // Hide the help box
+        });
 
+       
 
 
 
