@@ -276,6 +276,7 @@
     <script src="{% static 'js/index.js' %}"></script>
     <script>
 
+        //---------좌측 창플로고 클릭시 index.html로 이동하는 기능 ----------------------------------------------------
         document.addEventListener('DOMContentLoaded', function() {
             // Ensure help box is hidden initially
             const helpBox = document.getElementById('help-box');
@@ -290,7 +291,7 @@
                 location.href = 'http{% if request.is_secure %}s{% endif %}://{{ ALLOWED_HOSTS }}{{ PORT }}/';
             });
 
-            // History items click event
+            //---------- History items click event ------------------------------------------
             const historyItems = document.querySelectorAll('.history-item');
             historyItems.forEach(item => {
                 item.addEventListener('click', function() {
@@ -304,8 +305,9 @@
                 item.style.cursor = 'pointer';
             });
         });
+        //-------------------------------------------------------------------------------
 
-        // Help Box 이벤트 리스너 추가 -------------------------------------
+        //------------- Help Box 이벤트 리스너 추가 -------------------------------------
         const helpBtn = document.querySelector('.help-btn');
         const helpBox = document.getElementById('help-box');
 
@@ -323,9 +325,12 @@
         document.addEventListener('click', function() {
             helpBox.classList.remove('visible'); // Hide the help box
         });
+        //-------------------------------------------------------------------------------
 
 
-
+        //-----------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------
+        //--------- inputbox와 관련된 기능들 모음 ----------------------------------------------------
         {% if user.is_authenticated %}
         document.addEventListener('DOMContentLoaded', function() {
             const inputBox = document.querySelector('.input-box-unlocked');
@@ -438,8 +443,10 @@
                     });
                 }
             }
+            //-------------------------------------------------------------------------------
+
             
-            // Make suggestion boxes clickable
+            //------- suggestion box 클릭시, text가 inputbox에 입력되도록 
             const suggestionBoxes = document.querySelectorAll('.suggestion-box');
             suggestionBoxes.forEach(box => {
                 box.addEventListener('click', function() {
@@ -447,8 +454,10 @@
                     inputBox.dispatchEvent(new Event('input'));
                 });
             });
+            //-------------------------------------------------------------------------------
 
-            //--------history pannel 열고 닫기 -------------
+
+            //-------- 좌측 히스토리 패널 : 열고 닫는 기능 ------------------------------------------------
             const buttons = document.querySelectorAll(".icon-block");
         
             buttons.forEach(button => {
@@ -489,22 +498,13 @@
                 listArea.style.display = "none";
                 panel.classList.add("minimized");
             });
+            //-------------------------------------------------------------------------------
         });
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-              // JavaScript로 호버 효과 구현
+            //------------- 질문 예시 박스 3개 : mouseover 컬러 변경 -------------------------------
+            // JavaScript로 호버 효과 구현
             const suggestionBoxes = document.querySelectorAll('.suggestion-box');
             
             // 모든 suggestion box에 호버 효과 적용
@@ -527,7 +527,7 @@
         {% endif %}
 
         
-        //---------- changple btn 호버 -------------------------
+        //------input-box 안에 있는 '창플 앰블럼 버튼' : mouseover 컬러 변경 ------------------
         document.addEventListener('DOMContentLoaded', function() {
             // changple-btn 요소 선택
             const changpleBtn = document.querySelector('.changple-btn');
@@ -546,10 +546,11 @@
                 this.style.backgroundColor = 'transparent';
             });
         });
+        //-------------------------------------------------------------------------------
 
 
 
-        //---------- send btn 호버 -------------------------
+        //------input-box 안에 있는 'send 버튼' : mouseover 컬러 변경 ------------------
         document.addEventListener('DOMContentLoaded', function() {
             //-- send-btn 요소 선택
             const sendBtn = document.querySelector('.send-btn');
@@ -567,9 +568,10 @@
                 this.style.backgroundColor = 'transparent';
             });
         });
+        //-------------------------------------------------------------------------------
 
 
-        //----- history-icon-block ----------------------------------------------
+        //----- 좌측 히스토리 패널 햄버거 아이콘 : mouseover 컬러 변경  --------------------------
         document.addEventListener('DOMContentLoaded', function() {
             // icon-block 요소 선택
             const iconBlock = document.querySelector('.icon-block');
@@ -588,9 +590,7 @@
                 this.style.backgroundColor = 'transparent';
             });
         });
-
-
-
+        //-------------------------------------------------------------------------------
 
 
     </script>
