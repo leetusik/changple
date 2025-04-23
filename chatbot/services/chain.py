@@ -120,8 +120,7 @@ def get_post_content(post_id: int) -> str:
     """Retrieve original post content from NaverCafeData using post_id"""
     try:
         post = NaverCafeData.objects.get(post_id=post_id)
-        # return f"Title: {post.title}\n\nContent: {post.content}"
-        return f"{post.content}"
+        return f"Title: {post.title}\nURL: {post.url}\nContent: {post.content}"
     except NaverCafeData.DoesNotExist:
         return "Post content not found."
 
@@ -322,7 +321,7 @@ def create_specific_advice_chain() -> Runnable:
     사용자 정보:
     {user_info}
      
-    관련 에세이 (주요 답변 근거):
+    관련 에세이 (주요 답변 근거. [Title](URL)형식으로 출처 표시 필수):
     {primary_context}
     
     창플 철학 참고 자료:
@@ -371,7 +370,7 @@ def create_question_advice_chain() -> Runnable:
     사용자 정보:
     {user_info}
      
-    관련 에세이 (주요 답변 근거):
+    관련 에세이 (주요 답변 근거. [Title](URL)형식으로 출처 표시 필수):
     {primary_context}
     
     창플 철학 참고 자료:
@@ -420,7 +419,7 @@ def create_industry_general_chain() -> Runnable:
     사용자 정보:
     {user_info}
 
-    관련 에세이 (주요 답변 근거):
+    관련 에세이 (주요 답변 근거. [Title](URL)형식으로 출처 표시 필수):
     {primary_context}
     
     창플 철학 참고 자료:
@@ -468,7 +467,7 @@ def create_changple_info_chain() -> Runnable:
     사용자 정보:
     {user_info}
 
-    관련 에세이 (창플 정보):
+    관련 에세이 (창플 정보. [Title](URL)형식으로 출처 표시 필수):
     {primary_context} 
 
     예시 질문과 대답:
@@ -534,14 +533,9 @@ def format_docs(docs: Sequence[Document]) -> str:
         metadata = doc.metadata
         post_id = metadata.get("post_id")
 
-        # Get original content if post_id exists
-        if post_id:
-            original_content = get_post_content(post_id)
-            formatted_docs.append(original_content)
-        else:
-            # Fallback to document content
-            title = metadata.get("title", "No Title")
-            formatted_docs.append(f"Title: {title}\n\nContent: {doc.page_content}")
+        # Get content using post_id
+        original_content = get_post_content(post_id)
+        formatted_docs.append(original_content)
 
     return "\n\n---\n\n".join(formatted_docs)
 
