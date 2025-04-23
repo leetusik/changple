@@ -15,9 +15,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+
 # load .env file
 load_dotenv()
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "chatbot",
     "notifications",
     "django_rq",
+    "searcher",
 ]
 
 # Custom User Model
@@ -267,6 +268,11 @@ RQ_SHOW_ADMIN_LINK = True
 # Pinecone settings
 PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME")
+
+# Algolia settings
+ALGOLIA_APPLICATION_ID = os.getenv('APPLICATION_ID')
+ALGOLIA_SEARCH_API_KEY = os.getenv('SEARCH_API_KEY')
+
 
 # embedding model settings
 EMBEDDING_MODEL = "text-embedding-3-large"
