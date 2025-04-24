@@ -7,30 +7,42 @@ from django.utils.html import format_html
 
 from .models import ChatMessage, ChatSession
 
+admin.site.site_header = format_html('<img src="/static/img/cp-logo-main.svg" height="40px" style="margin-right: 10px; filter: brightness(0) invert(1);"><br>Changple AI - Admin Page')
+admin.site.site_title = "창플 AI 관리자 페이지"
+admin.site.index_title = "관리자 home"
 
 class ChatMessageInline(admin.StackedInline):
     model = ChatMessage
     extra = 0
-    readonly_fields = ("created_at",)
-    fields = ("role", "content", "created_at")
+    readonly_fields = ("role", "created_at", "user_liked", "user_disliked")
+    fields = ("role", "content", "user_disliked", "created_at")
     can_delete = False
+    verbose_name = "채팅 내용"
+    verbose_name_plural = "채팅 내용"
 
 
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
     list_display = (
-        "session_id",
+        "get_first_message",
         "user",
-        "created_at",
         "updated_at",
+        "is_updated",
+        "updated_by",
         "download_session_link",
     )
-    search_fields = ("session_id", "user__username", "user__email")
-    readonly_fields = ("session_nonce",)
-    list_filter = ("created_at", "updated_at", "user")
+    search_fields = ("session_id", "user__name", "user__nickname", "user__username", "user__email")
+    readonly_fields = ("session_nonce", "session_id", "request_sent", "is_updated", "updated_by")
+    list_filter = ("created_at", "updated_at", "user", "updated_by", "is_updated")
     date_hierarchy = "created_at"
     inlines = [ChatMessageInline]
     actions = ["export_selected_sessions"]
+    save_on_top = True
+    list_per_page = 20
+    fieldsets = (
+        ("체크 박스", {"fields": ("request_sent", "is_updated", "updated_by")}),
+        ("세션 정보", {"fields": ("session_id", "session_nonce")}),
+    )
 
     def download_session_link(self, obj):
         return format_html(
@@ -125,6 +137,16 @@ class ChatSessionAdmin(admin.ModelAdmin):
 
     export_selected_sessions.short_description = "Export selected sessions to CSV"
 
+    def save_model(self, request, obj, form, change):
+        if change:
+            print(f"chat {obj.session_id} modified (Admin) by {request.user.username}")
+            obj.is_updated = True
+            obj.updated_by = request.user.username
+        super().save_model(request, obj, form, change)
+    
+    def has_add_permission(self, request):
+        # disable adding new ChatSession
+        return False
 
 # @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
