@@ -8,15 +8,18 @@ from django.conf import settings
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.text import slugify
+
+# from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
-from langchain.memory import ConversationBufferMemory
-from langchain_core.messages import AIMessage, HumanMessage
 
 from chatbot.models import ChatMessage, ChatSession
+
+# from langchain.memory import ConversationBufferMemory
+# from langchain_core.messages import AIMessage, HumanMessage
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -24,16 +27,7 @@ logger = logging.getLogger(__name__)
 # Import necessary components from chain service
 # Make sure llm and get_retriever are accessible
 try:
-    from chatbot.services.chain import (
-        create_chain,
-        get_retriever,
-        handle_post_generation,
-        llm,
-    )
-
-    # Initialize retriever globally (assuming thread-safety)
-    retriever = get_retriever()
-    logger.info("Successfully imported chain components and initialized retriever.")
+    from chatbot.services.chain import get_graph
 except ImportError as e:
     logger.critical(f"Failed to import chain components: {str(e)}")
     raise RuntimeError("챗봇 서비스 초기화 실패. 서버를 시작할 수 없습니다.")
@@ -246,9 +240,9 @@ def chat(request):
         query = data.get("query", "")
         session_nonce = data.get("session_nonce", "")
 
-        # Clean up session_nonce if it contains query parameters
-        if session_nonce and "?" in session_nonce:
-            session_nonce = session_nonce.split("?")[0]
+        # # Clean up session_nonce if it contains query parameters
+        # if session_nonce and "?" in session_nonce:
+        #     session_nonce = session_nonce.split("?")[0]
 
         # user query
         logger.info(f"User query (session: {session_nonce}): \n{query}")
@@ -320,44 +314,48 @@ def chat(request):
             # 데이터베이스에서 대화 내역 가져오기
             messages = chat_session.messages.all().order_by("created_at")
 
-            # Create a new memory buffer for this request
-            memory = ConversationBufferMemory(
-                return_messages=True,
-                output_key="answer",
-                input_key="question",
-                memory_key="chat_history",
-            )
-
+            # # Create a new memory buffer for this request
+            # memory = ConversationBufferMemory(
+            #     return_messages=True,
+            #     output_key="answer",
+            #     input_key="question",
+            #     memory_key="chat_history",
+            # )
+            messages_to_add = []
             # Populate memory from DB messages
             for msg in messages:
                 if msg.role == "user":
-                    memory.chat_memory.add_user_message(msg.content)
+                    # memory.chat_memory.add_user_message(msg.content)
+                    messages_to_add.append({"role": "user", "content": msg.content})
                 elif msg.role == "assistant":
-                    memory.chat_memory.add_ai_message(msg.content)
+                    # memory.chat_memory.add_ai_message(msg.content)
+                    messages_to_add.append(
+                        {"role": "assistant", "content": msg.content}
+                    )
 
-            # Create the chain for this specific request, passing the populated memory
-            request_chain = create_chain(llm=llm, retriever=retriever, memory=memory)
+            graph = get_graph()
             # ----------------------------------------------
 
             # 세션 ID와 대화 기록을 포함한 체인 입력 구성
             chain_input = {
                 "question": query,
-                "user_info": user_info,
             }
-
-            # Add authenticated user object to input if available (chain might use it)
-            if user:
-                chain_input["user"] = user
 
             # --- 스트리밍 응답 생성 ---
             def event_stream():
                 full_answer = ""
-                post_process_executed = False
-                final_used_question = None
 
                 try:
+                    print(messages_to_add)
                     logger.info(f"Starting stream for session {session_nonce}")
-                    stream = request_chain.stream(chain_input)
+                    stream = graph.invoke(
+                        {
+                            "messages": messages_to_add
+                            + [{"role": "user", "content": query}]
+                        },
+                        # stream_mode="values",
+                        config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
+                    )
 
                     for chunk in stream:
                         full_answer += chunk
@@ -368,33 +366,10 @@ def chat(request):
                     )
                     post_processing_input = {
                         "question": chain_input.get("question"),
-                        "user_info": chain_input.get("user_info"),
                     }
                     final_used_question = post_processing_input.get("question")
 
                     if final_used_question:
-                        logger.info(
-                            f"Executing post-generation for session {session_nonce}, Q: {final_used_question[:50]}..."
-                        )
-                        post_gen_result = handle_post_generation(
-                            post_processing_input, full_answer, memory
-                        )
-                        updated_user_info = post_gen_result.get("updated_user_info")
-                        post_process_executed = True
-
-                        if updated_user_info is not None:
-                            request.session[f"user_info_{session_nonce}"] = (
-                                updated_user_info
-                            )
-                            logger.info(
-                                f"Saved updated user_info to session {session_nonce}: {updated_user_info}"
-                            )
-
-                        if user and not is_premium:
-                            user.increment_query_count()
-                            logger.info(
-                                f"Incremented query count for user {user.username}"
-                            )
 
                         # Check if this is the initial message and if it was already saved during session creation
                         is_initial_message = (
@@ -436,11 +411,6 @@ def chat(request):
                         exc_info=True,
                     )
                     yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
-                finally:
-                    if not post_process_executed:
-                        logger.warning(
-                            f"Post-generation was not executed for session {session_nonce}."
-                        )
 
             response = StreamingHttpResponse(
                 event_stream(), content_type="text/event-stream"
