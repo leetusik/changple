@@ -15,11 +15,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
 
-from chatbot.models import ChatMessage, ChatSession
-
 # from langchain.memory import ConversationBufferMemory
-# from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessageChunk
 
+from chatbot.models import ChatMessage, ChatSession
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -343,31 +342,52 @@ def chat(request):
 
             # --- 스트리밍 응답 생성 ---
             def event_stream():
-                full_answer = ""
+                final_answer_streamed = ""  # Store the final answer as it's streamed
+                last_yielded_token_data = None  # Keep track of the last thing we sent
 
                 try:
                     logger.info(f"Starting stream for session {session_nonce}")
-                    stream = graph.invoke(
+                    # Use stream_mode="values"
+                    stream = graph.stream(
                         {"messages": [{"role": "user", "content": query}]},
-                        # stream_mode="values",
+                        stream_mode="values",  # Use values mode
                         config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
                     )
 
                     for chunk in stream:
-                        full_answer += chunk
-                        yield f"data: {json.dumps({'token': chunk})}\n\n"
+                        logger.debug(f"Stream chunk: {chunk}")
+                        # Check if the chunk is a dictionary and contains the 'answer' key
+                        if isinstance(chunk, dict) and "answer" in chunk:
+                            answer_content = chunk.get("answer")
+                            # Only yield if the answer content is new/different from the last one
+                            if (
+                                answer_content
+                                and answer_content != final_answer_streamed
+                            ):
+                                final_answer_streamed = (
+                                    answer_content  # Update the streamed answer
+                                )
+                                token_data = {"token": final_answer_streamed}
+                                if token_data != last_yielded_token_data:
+                                    yield f"data: {json.dumps(token_data)}\n\n"
+                                    last_yielded_token_data = token_data
+                                    logger.debug(
+                                        f"Sent answer chunk: {final_answer_streamed}"
+                                    )
 
                     logger.info(
-                        f"Stream finished for session {session_nonce}. Full answer length: {len(full_answer)}"
+                        f"Stream finished for session {session_nonce}. Final answer length: {len(final_answer_streamed)}"
                     )
+
+                    # --- Post-stream processing ---
                     post_processing_input = {
-                        "question": chain_input.get("question"),
+                        "question": query,  # Use original query
                     }
                     final_used_question = post_processing_input.get("question")
 
-                    if final_used_question:
-
-                        # Check if this is the initial message and if it was already saved during session creation
+                    # Use the final_answer_streamed which contains the complete answer
+                    if final_used_question and final_answer_streamed:
+                        # Check if this is the initial message and if it was already saved
                         is_initial_message = (
                             chat_session.messages.count() == 1
                             and chat_session.request_sent
@@ -383,22 +403,30 @@ def chat(request):
                             )
                         else:
                             logger.info(
-                                f"Skipping saving duplicate user message for session {session_nonce} as it was already saved during session creation"
+                                f"Skipping saving duplicate user message for session {session_nonce}"
                             )
 
                         # Always save the AI response
                         ai_msg = ChatMessage.objects.create(
-                            session=chat_session, role="assistant", content=full_answer
+                            session=chat_session,
+                            role="assistant",
+                            content=final_answer_streamed,
                         )
                         logger.info(
                             f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
                         )
-
+                    elif not final_answer_streamed:
+                        logger.warning(
+                            f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
+                        )
                     else:
                         logger.warning(
-                            f"Skipping post-generation for session {session_nonce}: 'question' missing in prepared input."
+                            f"Skipping post-generation DB saving for session {session_nonce}: 'question' missing."
                         )
+                    # --- End Post-stream processing ---
 
+                    # Send the end signal *after* saving is attempted
+                    # Ensure we send it even if no answer was streamed
                     yield f"data: {json.dumps({'end': True})}\n\n"
 
                 except Exception as e:
@@ -406,7 +434,11 @@ def chat(request):
                         f"Error during streaming or post-processing for session {session_nonce}: {e}",
                         exc_info=True,
                     )
-                    yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
+                    # Avoid sending 'end' signal again if an error occurred before it was sent
+                    try:
+                        yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
+                    except Exception as yield_err:
+                        logger.error(f"Error yielding error message: {yield_err}")
 
             response = StreamingHttpResponse(
                 event_stream(), content_type="text/event-stream"
