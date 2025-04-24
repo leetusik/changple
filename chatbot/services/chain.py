@@ -338,8 +338,9 @@ def build_graph():
     builder.add_edge("respond_with_docs", END)
     # builder.add_edge("document_recommendation", END)
 
-    memory = MemorySaver()
-    return builder.compile(checkpointer=memory)
+    # memory = MemorySaver()
+    # return builder.compile(checkpointer=memory)
+    return builder.compile()
 
 
 # Create and run the graph

@@ -321,17 +321,17 @@ def chat(request):
             #     input_key="question",
             #     memory_key="chat_history",
             # )
-            messages_to_add = []
-            # Populate memory from DB messages
-            for msg in messages:
-                if msg.role == "user":
-                    # memory.chat_memory.add_user_message(msg.content)
-                    messages_to_add.append({"role": "user", "content": msg.content})
-                elif msg.role == "assistant":
-                    # memory.chat_memory.add_ai_message(msg.content)
-                    messages_to_add.append(
-                        {"role": "assistant", "content": msg.content}
-                    )
+            # messages_to_add = []
+            # # Populate memory from DB messages
+            # for i, msg in enumerate(messages):
+            #     if msg.role == "user" and i != 0:
+            #         # memory.chat_memory.add_user_message(msg.content)
+            #         messages_to_add.append({"role": "user", "content": msg.content})
+            #     elif msg.role == "assistant":
+            #         # memory.chat_memory.add_ai_message(msg.content)
+            #         messages_to_add.append(
+            #             {"role": "assistant", "content": msg.content}
+            #         )
 
             graph = get_graph()
             # ----------------------------------------------
@@ -346,13 +346,9 @@ def chat(request):
                 full_answer = ""
 
                 try:
-                    print(messages_to_add)
                     logger.info(f"Starting stream for session {session_nonce}")
                     stream = graph.invoke(
-                        {
-                            "messages": messages_to_add
-                            + [{"role": "user", "content": query}]
-                        },
+                        {"messages": [{"role": "user", "content": query}]},
                         # stream_mode="values",
                         config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
                     )
