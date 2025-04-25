@@ -344,9 +344,16 @@ def chat(request):
 
                 try:
                     logger.info(f"Starting stream for session {session_nonce}")
+                    # Set a timeout for stream operations
+                    timeout = 120  # 2 minutes timeout
                     for chunk in graph.stream(
                         {"messages": [{"role": "user", "content": query}]},
-                        config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
+                        config={
+                            "configurable": {
+                                "thread_id": f"chat_{session_nonce}",
+                                "timeout": timeout,
+                            }
+                        },
                         stream_mode="messages",
                     ):
 
@@ -368,9 +375,11 @@ def chat(request):
                                     yield f"data: {json.dumps(token_data)}\n\n"
                                     last_yielded_token_data = token_data
                                     full_answer += answer_content
-                                    logger.debug(
-                                        f"Sent answer chunk: {final_answer_streamed}"
-                                    )
+                                    # Reduce logging frequency to save memory
+                                    if len(full_answer) % 500 == 0:
+                                        logger.debug(
+                                            f"Sent answer chunk (current length: {len(full_answer)})"
+                                        )
                     logger.info(
                         f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
                     )

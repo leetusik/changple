@@ -10,7 +10,7 @@ services:
       # Let .env file control these primarily for production
       - DEBUG=${DEBUG:-0} # Default to 0 if not set in .env
       - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai} # Default if not set
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai,134.185.116.242} # Default if not set
       - REDIS_URL=redis://redis:6379/0
       - DJANGO_SETTINGS_MODULE=config.settings_production
     volumes:
@@ -21,6 +21,18 @@ services:
       - ./logs:/app/logs
     networks:
       - app_network
+    # Add resource limits and timeouts
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    command: >
+      sh -c "gunicorn config.wsgi:application --bind 0.0.0.0:8000 
+      --workers 3 
+      --timeout 120 
+      --keep-alive 65"
 
   redis:
     image: redis:7-alpine
