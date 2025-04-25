@@ -376,7 +376,81 @@
                                         }
                                     } else if (data.end) {
                                         console.log('End signal received.');
-                                        // 최종 쿼리 카운트 업데이트
+                                        // Final updates, ensure spinner/status hidden
+                                        if (!spinnerHidden && aiMessageDiv) {
+                                            const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                                            if (spinnerContainer) spinnerContainer.style.display = 'none';
+                                            if (contentSpan) contentSpan.style.display = 'inline';
+                                        }
+                                        
+                                        // Log document information if available
+                                        if (data.documents && Array.isArray(data.documents) && data.documents.length > 0) {
+                                            console.log('Retrieved documents:');
+                                            data.documents.forEach((doc, index) => {
+                                                console.log(`${index + 1}. ${doc.title} (${doc.source})`);
+                                            });
+                                            
+                                            // Add toggle button and document list after the AI's response
+                                            if (aiMessageDiv) {
+                                                // Create documents container
+                                                const docsContainer = document.createElement('div');
+                                                docsContainer.className = 'related-docs-container';
+                                                docsContainer.style.marginTop = '10px';
+                                                docsContainer.style.display = 'none'; // Initially hidden
+                                                
+                                                // Create toggle button
+                                                const toggleBtn = document.createElement('button');
+                                                toggleBtn.className = 'related-docs-toggle';
+                                                toggleBtn.textContent = '관련 문서 보기 ▼';
+                                                toggleBtn.style.marginTop = '10px';
+                                                toggleBtn.style.padding = '5px 10px';
+                                                toggleBtn.style.backgroundColor = '#f5f5f5';
+                                                toggleBtn.style.border = '1px solid #ddd';
+                                                toggleBtn.style.borderRadius = '4px';
+                                                toggleBtn.style.cursor = 'pointer';
+                                                
+                                                // Add documents to container
+                                                const docsList = document.createElement('ul');
+                                                docsList.style.listStyleType = 'none';
+                                                docsList.style.padding = '10px';
+                                                docsList.style.margin = '5px 0';
+                                                docsList.style.backgroundColor = '#f9f9f9';
+                                                docsList.style.border = '1px solid #eee';
+                                                docsList.style.borderRadius = '4px';
+                                                
+                                                data.documents.forEach((doc, index) => {
+                                                    const docItem = document.createElement('li');
+                                                    docItem.style.margin = '8px 0';
+                                                    
+                                                    const docLink = document.createElement('a');
+                                                    docLink.href = doc.source;
+                                                    docLink.target = '_blank';
+                                                    docLink.textContent = `${index + 1}. ${doc.title}`;
+                                                    docLink.style.color = '#617DAE';
+                                                    docLink.style.textDecoration = 'none';
+                                                    
+                                                    docItem.appendChild(docLink);
+                                                    docsList.appendChild(docItem);
+                                                });
+                                                
+                                                docsContainer.appendChild(docsList);
+                                                
+                                                // Add toggle functionality
+                                                toggleBtn.addEventListener('click', function() {
+                                                    const isHidden = docsContainer.style.display === 'none';
+                                                    docsContainer.style.display = isHidden ? 'block' : 'none';
+                                                    toggleBtn.textContent = isHidden ? '관련 문서 숨기기 ▲' : '관련 문서 보기 ▼';
+                                                });
+                                                
+                                                // Append toggle and container to message
+                                                aiMessageDiv.appendChild(toggleBtn);
+                                                aiMessageDiv.appendChild(docsContainer);
+                                            }
+                                        } else {
+                                            console.log('No documents retrieved or available');
+                                        }
+                                        
+                                        // Update query counts etc.
                                         if (data.remaining_queries !== undefined) {
                                             remainingQueries = data.remaining_queries;
                                             queryLimit = data.query_limit || queryLimit;
@@ -785,18 +859,23 @@
             const helpBtn = document.querySelector('.help-btn');
             const helpBox = document.getElementById('help-box');
 
-            // Show or hide help box when help button is clicked
-            helpBtn.addEventListener('click', function(event) {
-                event.stopPropagation(); // Prevent the click from bubbling up to the document
-                helpBox.classList.toggle('visible');
-            });
+            // Only set up event listeners if both elements exist
+            if (helpBtn && helpBox) {
+                // Show or hide help box when help button is clicked
+                helpBtn.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up to the document
+                    helpBox.classList.toggle('visible');
+                });
 
-            // Hide help box when clicking anywhere else
-            document.addEventListener('click', function(event) {
-                if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
-                    helpBox.classList.remove('visible');
-                }
-            });
+                // Hide help box when clicking anywhere else
+                document.addEventListener('click', function(event) {
+                    if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
+                        helpBox.classList.remove('visible');
+                    }
+                });
+            } else {
+                console.log("Help button or help box elements not found");
+            }
 
             // --- 스트리밍 중단 버튼 이벤트 리스너 추가 ---
             if (stopStreamingBtn) {

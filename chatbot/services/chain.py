@@ -99,7 +99,8 @@ def reduce_docs(
 # -----------------------------------------------------------------------------
 
 
-def load_llm(model_name="gemini-2.5-flash-preview-04-17"):
+# def load_llm(model_name="gemini-2.5-flash-preview-04-17"):
+def load_llm(model_name="gemini-2.0-flash"):
     llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
     return llm
 

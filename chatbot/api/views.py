@@ -14,6 +14,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
+from langchain_core.documents import Document
 
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
@@ -335,11 +336,6 @@ def chat(request):
             graph = get_graph()
             # ----------------------------------------------
 
-            # 세션 ID와 대화 기록을 포함한 체인 입력 구성
-            chain_input = {
-                "question": query,
-            }
-
             # --- 스트리밍 응답 생성 ---
             def event_stream():
                 final_answer_streamed = ""  # Store the final answer as it's streamed
@@ -375,7 +371,6 @@ def chat(request):
                                     logger.debug(
                                         f"Sent answer chunk: {final_answer_streamed}"
                                     )
-
                     logger.info(
                         f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
                     )
@@ -428,7 +423,61 @@ def chat(request):
 
                     # Send the end signal *after* saving is attempted
                     # Ensure we send it even if no answer was streamed
-                    yield f"data: {json.dumps({'end': True})}\n\n"
+
+                    # Get document information to pass to frontend
+                    doc_info = []
+                    try:
+                        # Get state from the graph
+                        state = graph.get_state(
+                            config={
+                                "configurable": {"thread_id": f"chat_{session_nonce}"}
+                            }
+                        )
+
+                        # StateSnapshot object structure handling
+                        # Try different approaches to access documents based on the state structure
+                        docs = []
+                        if hasattr(state, "documents"):
+                            # Direct attribute access
+                            docs = state.documents
+                        elif hasattr(state, "values") and hasattr(state.values, "get"):
+                            # Dictionary-like access through values
+                            docs = state.values.get("documents", [])
+                        elif isinstance(state, dict):
+                            # Dictionary access
+                            docs = state.get("documents", [])
+
+                        # Log the state structure for debugging
+                        logger.info(f"State type: {type(state)}")
+
+                        # Only process if docs is a list or similar iterable
+                        if docs and hasattr(docs, "__iter__"):
+                            doc_info = []
+                            for doc in docs:
+                                if hasattr(doc, "metadata"):
+                                    doc_info.append(
+                                        {
+                                            "title": doc.metadata.get(
+                                                "title", "No title"
+                                            ),
+                                            "source": doc.metadata.get(
+                                                "source", "No source"
+                                            ),
+                                        }
+                                    )
+                            logger.info(f"Extracted {len(doc_info)} document(s)")
+                    except Exception as e:
+                        logger.error(
+                            f"Error extracting document info: {e}", exc_info=True
+                        )
+
+                    # Always send the end signal, even if document extraction failed
+                    try:
+                        yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
+                    except Exception as e:
+                        logger.error(f"Error sending end signal: {e}", exc_info=True)
+                        # Fallback to a simple end signal without documents
+                        yield f"data: {json.dumps({'end': True})}\n\n"
 
                 except Exception as e:
                     logger.error(
