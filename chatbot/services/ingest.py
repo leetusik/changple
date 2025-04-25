@@ -3,7 +3,7 @@
 import logging
 import os
 import time  # Added for retry sleep
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import django
 from django.db.models import Q
@@ -24,9 +24,10 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 
-from chatbot.services.content_evaluator import summary_and_keywords, QuestionItem
+from chatbot.services.content_evaluator import QuestionItem, summary_and_keywords
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,44 +69,58 @@ def gpt_summarize(doc: Document) -> Document:
     if doc.metadata["possible_questions"] is None:
         try:
             # Generate summary, keywords, and questions from the original content
-            summary, keywords, possible_questions_list = summary_and_keywords(doc.page_content)
+            summary, keywords, possible_questions_list = summary_and_keywords(
+                doc.page_content
+            )
 
             # questions_list는 QuestionItem 객체의 리스트일 수 있으므로 문자열 리스트로 변환
             # content_evaluator.py의 반환 타입 변경에 맞춰 수정 필요 (이미 문자열 리스트로 반환한다면 이 변환은 불필요)
             # 만약 QuestionItem 객체 리스트로 반환된다면:
-            if possible_questions_list and isinstance(possible_questions_list[0], QuestionItem):
-                 questions_str_list = [item.question for item in possible_questions_list]
+            if possible_questions_list and isinstance(
+                possible_questions_list[0], QuestionItem
+            ):
+                questions_str_list = [item.question for item in possible_questions_list]
             else:
-                 questions_str_list = possible_questions_list if isinstance(possible_questions_list, list) else []
-
+                questions_str_list = (
+                    possible_questions_list
+                    if isinstance(possible_questions_list, list)
+                    else []
+                )
 
             # Update metadata (DO NOT replace page_content)
             doc.metadata["summary"] = summary
             doc.metadata["keywords"] = keywords
             # questions_str_list를 metadata에 저장
             doc.metadata["possible_questions"] = questions_str_list
-            logger.info(f"Generated summary, keywords, and questions for post_id {post_id}")
+            logger.info(
+                f"Generated summary, keywords, and questions for post_id {post_id}"
+            )
 
             # Update summary, keywords, and possible_questions in database
             db_object.summary = summary
             db_object.keywords = keywords
             # questions_str_list를 DB에 저장 (JSONField)
             db_object.possible_questions = questions_str_list
-            db_object.save(update_fields=["summary", "keywords", "possible_questions"]) # possible_questions 추가
-        except ValueError as e: # Catch specific error from summary_and_keywords
-             logger.error(
+            db_object.save(
+                update_fields=["summary", "keywords", "possible_questions"]
+            )  # possible_questions 추가
+        except ValueError as e:  # Catch specific error from summary_and_keywords
+            logger.error(
                 f"Failed to generate summary/keywords/questions for post_id {post_id}: {e}"
             )
-             raise SkipDocumentError(f"Failed to generate summary/keywords/questions: {e}")
-        except Exception as e: # Catch other potential errors
+            raise SkipDocumentError(
+                f"Failed to generate summary/keywords/questions: {e}"
+            )
+        except Exception as e:  # Catch other potential errors
             logger.error(
                 f"Unexpected error during generation/DB update for post_id {post_id}: {e}"
             )
             raise SkipDocumentError(f"Unexpected error processing post: {e}")
     else:
         # 이미 possible_questions가 있는 경우 (이론상 load_posts_from_database 필터링 때문에 여기 오지 않음)
-        logger.info(f"Post {post_id} already has possible_questions. Skipping generation.")
-
+        logger.info(
+            f"Post {post_id} already has possible_questions. Skipping generation."
+        )
 
     return doc
 
@@ -131,15 +146,12 @@ def load_posts_from_database(
     try:
         # Use proper Length annotation instead of unsupported len lookup
         # Updated filter to check for null possible_questions
-        posts = (
-            NaverCafeData.objects.annotate(content_length=Length("content"))
-            .filter(
-                author__in=[
-                    "창플",
-                ],
-                content_length__gt=min_content_length,
-                possible_questions__isnull=True
-            )
+        posts = NaverCafeData.objects.annotate(content_length=Length("content")).filter(
+            author__in=[
+                "창플",
+            ],
+            content_length__gt=min_content_length,
+            # possible_questions__isnull=True,
         )
 
         logger.info(
@@ -161,7 +173,7 @@ def load_posts_from_database(
                     "keywords": post.keywords,
                     "summary": post.summary,
                     "possible_questions": post.possible_questions,
-                    "notation": notation_value, 
+                    "notation": notation_value,
                     "full_content": post.content,
                 },
             )
@@ -183,18 +195,19 @@ def ingest_docs():
     PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
     PINECONE_ENVIRONMENT = os.environ["PINECONE_ENVIRONMENT"]
     PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
-    # MAX_FETCH_RETRIES = 3
-    # INITIAL_BACKOFF = 2  # seconds
+    MAX_FETCH_RETRIES = 3
+    INITIAL_BACKOFF = 2
 
     # Get embedding model
     embedding = get_embeddings_model()
 
-    # Initialize Pinecone
+    # Initialize Pinecone for filtering ids
     pc = Pinecone(api_key=PINECONE_API_KEY)
-
-    # Assign the index object
     index = pc.Index(PINECONE_INDEX_NAME)
 
+    vector_store = PineconeVectorStore(
+        index_name=PINECONE_INDEX_NAME, embedding=embedding, text_key="text"
+    )
     # Load posts
     raw_docs = load_posts_from_database()
 
@@ -212,19 +225,21 @@ def ingest_docs():
     processed_docs = []
     total_docs = len(raw_docs)
     for idx, raw_doc in enumerate(raw_docs, 1):
-        try:
-            # Process the document (generate summary/keywords)
-            processed_doc = gpt_summarize(raw_doc) # Updates DB and doc.metadata
-            processed_docs.append(processed_doc)
-            logger.info(f"{idx}/{total_docs} documents processed")
-        except SkipDocumentError as skip_e:
-            logger.info(
-                f"Skipping document with post_id {raw_doc.metadata['post_id']} during processing: {skip_e}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Error processing document with post_id {raw_doc.metadata['post_id']}: {e}"
-            )
+        # skip gpt_summarize if possible_questions
+        if raw_doc.metadata["possible_questions"] is None:
+            try:
+                # Process the document (generate summary/keywords)
+                processed_doc = gpt_summarize(raw_doc)  # Updates DB and doc.metadata
+                processed_docs.append(processed_doc)
+                logger.info(f"{idx}/{total_docs} documents processed")
+            except SkipDocumentError as skip_e:
+                logger.info(
+                    f"Skipping document with post_id {raw_doc.metadata['post_id']} during processing: {skip_e}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error processing document with post_id {raw_doc.metadata['post_id']}: {e}"
+                )
 
     if not processed_docs:
         logger.info("No documents successfully processed. Nothing to ingest.")
@@ -234,17 +249,78 @@ def ingest_docs():
     # We will upsert the processed documents, replacing existing ones if necessary.
     logger.info(f"Preparing to upsert {len(processed_docs)} documents to Pinecone.")
 
+    ### Check current ids ###
+    existing_ids = set()
     try:
-        vectorstore = LangchainPinecone(
-            index=index, embedding=embedding, text_key="search_field"
-        )
+        batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
+        for i in range(0, len(raw_docs), batch_size):
+            batch_docs = raw_docs[i : i + batch_size]
+            batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
+            logger.info(
+                f"Checking existence of {len(batch_docs)} documents in Pinecone (batch {i//batch_size + 1})..."
+            )
 
+            # Retry logic for fetch
+            for attempt in range(MAX_FETCH_RETRIES):
+                try:
+                    fetch_response = index.fetch(ids=batch_ids)
+                    existing_ids.update(fetch_response.vectors.keys())
+                    logger.debug(
+                        f"Batch {i//batch_size + 1} fetch successful on attempt {attempt + 1}"
+                    )
+                    break  # Success, exit retry loop for this batch
+                except Exception as fetch_e:
+                    # Check if it's a server error (e.g., 5xx) potentially worth retrying
+                    is_server_error = (
+                        hasattr(fetch_e, "status") and fetch_e.status >= 1000
+                    )
+
+                    logger.warning(
+                        f"Pinecone fetch attempt {attempt + 1}/{MAX_FETCH_RETRIES} failed for batch {i//batch_size + 1}: {fetch_e}"
+                    )
+
+                    if not is_server_error or attempt == MAX_FETCH_RETRIES - 1:
+                        # Final attempt failed or it's not a server error, raise the exception to abort
+                        logger.error(
+                            f"Pinecone fetch failed permanently after {attempt + 1} attempt(s)."
+                        )
+                        raise RuntimeError(
+                            f"Failed to fetch existing IDs from Pinecone after {attempt + 1} retries."
+                        ) from fetch_e
+                    else:
+                        # Wait before retrying server error
+                        sleep_time = INITIAL_BACKOFF * (2**attempt)
+                        logger.info(
+                            f"Retrying fetch in {sleep_time} seconds due to server error..."
+                        )
+                        time.sleep(sleep_time)
+
+        logger.info(f"Found {len(existing_ids)} existing chunk IDs in Pinecone.")
+    except Exception as e:
+        # Catch errors during the overall fetch process or the re-raised RuntimeError
+        logger.error(f"Error during Pinecone ID fetch process: {e}", exc_info=True)
+        # Re-raise as a runtime error to signal failure to the caller
+        raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
+    ### Check current ids end ###
+
+    ### filter to ingest docs ###
+    new_docs = [
+        doc
+        for doc in processed_docs
+        if str(doc.metadata["post_id"]) not in existing_ids
+    ]
+    if not new_docs:
+        logger.info("No new documents to ingest.")
+        return
+    ### filter to ingest docs end ###
+
+    try:
         # Batch documents for embedding and upsertion
-        embedding_batch_size = 20 # Consider Pinecone limits if issues arise
-        total_batches = (len(processed_docs) - 1) // embedding_batch_size + 1
+        embedding_batch_size = 20  # Consider Pinecone limits if issues arise
+        total_batches = (len(new_docs) - 1) // embedding_batch_size + 1
 
-        for i in range(0, len(processed_docs), embedding_batch_size):
-            batch_docs = processed_docs[i : i + embedding_batch_size]
+        for i in range(0, len(new_docs), embedding_batch_size):
+            batch_docs = new_docs[i : i + embedding_batch_size]
             batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
 
             # --- 임베딩할 텍스트 생성 로직 추가 ---
@@ -253,11 +329,13 @@ def ingest_docs():
                 title = doc.metadata.get("title", "")
                 summary = doc.metadata.get("summary", "")
                 keywords_list = doc.metadata.get("keywords", [])
-                questions_list = doc.metadata.get("possible_questions", []) # gpt_summarize에서 문자열 리스트로 저장됨
+                questions_list = doc.metadata.get(
+                    "possible_questions", []
+                )  # gpt_summarize에서 문자열 리스트로 저장됨
 
                 # 키워드와 질문 포맷팅
                 keywords_str = " ".join(keywords_list)
-                questions_str = "\n".join(questions_list) # 각 질문을 줄바꿈으로 구분
+                questions_str = "\n".join(questions_list)  # 각 질문을 줄바꿈으로 구분
 
                 # 임베딩을 위한 텍스트 생성 (요약 + 키워드 + 질문 형식)
                 text_for_embedding = f"""
@@ -272,7 +350,6 @@ def ingest_docs():
                 docs_to_embed.append(doc)
             # --- 임베딩할 텍스트 생성 로직 끝 ---
 
-
             logger.info(
                 f"Upserting batch {i//embedding_batch_size + 1}/{total_batches} with {len(docs_to_embed)} documents to Pinecone..."
             )
@@ -280,7 +357,7 @@ def ingest_docs():
             # Use add_documents which internally handles upsert based on IDs
             # The document's page_content (NOW the combined text) is embedded.
             # The metadata (including the original summary, keywords, etc.) is stored.
-            vectorstore.add_documents(
+            vector_store.add_documents(
                 documents=docs_to_embed,
                 ids=batch_ids,
             )
@@ -290,24 +367,21 @@ def ingest_docs():
             )
 
         logger.info(
-            f"Successfully upserted {len(processed_docs)} processed documents to Pinecone."
+            f"Successfully upserted {len(new_docs)} processed documents to Pinecone."
         )
 
     except Exception as e:
         logger.error(f"Error upserting documents to Pinecone: {e}", exc_info=True)
-        raise RuntimeError(
-            "Pinecone ingestion failed during document upsert."
-        ) from e
+        raise RuntimeError("Pinecone ingestion failed during document upsert.") from e
 
-
-    # Get final stats from Pinecone
-    try:
-        stats = index.describe_index_stats()
-        logger.info(
-            f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
-        )
-    except Exception as e:
-        logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
+    # # Get final stats from Pinecone
+    # try:
+    #     stats = index.describe_index_stats()
+    #     logger.info(
+    #         f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
+    #     )
+    # except Exception as e:
+    #     logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
 
 
 if __name__ == "__main__":
