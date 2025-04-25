@@ -616,6 +616,9 @@
 
             // 무료 사용 카운트 추가 함수 (openConsultationModal 호출 필요, HTML에 남김)
              function addFreeUseCount(remainingCount, totalLimit) {
+                // *** HIDE free use count display ***
+                // Commenting out the entire function body to prevent display
+                /*
                 // 이전 카운트 메시지 제거
                 const existingCounters = document.querySelectorAll('.free-use-count-container');
                 existingCounters.forEach(counter => counter.remove());
@@ -687,6 +690,7 @@
                   if (element) {
                      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                  }
+                 */
             }
 
              // 상담 신청 요청 보내기 (session_nonce 때문에 HTML에 남김)
