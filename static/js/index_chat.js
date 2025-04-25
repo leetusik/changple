@@ -62,7 +62,7 @@ function addMessageToChat(role, content, showSpinner = false) {
 
     // Spinner HTML (adjust styling as needed, maybe move to CSS)
     const spinnerHTML = showSpinner
-      ? `<div class="spinner-container" style="display: flex; justify-content: center; align-items: center; padding: 10px;"><div class="spinner"></div></div>`
+      ? `<div class="spinner-container" style="display: flex; justify-content: flex-start; align-items: center; padding: 10px;"><div class="spinner"></div><span class="node-status" style="margin-left: 10px; font-style: italic; color: grey; font-size: 0.9em;"></span></div>`
       : "";
 
     // 초기에는 spinner 또는 비어있는 span을 포함하여 추가
