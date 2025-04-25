@@ -173,8 +173,8 @@ def load_posts_from_database(
                     "keywords": post.keywords,
                     "summary": post.summary,
                     "possible_questions": post.possible_questions,
-                    "notation": notation_value,
-                    "full_content": post.content,
+                    # "notation": notation_value,
+                    # "full_content": post.content,
                 },
             )
             documents.append(doc)
@@ -240,6 +240,8 @@ def ingest_docs():
                 logger.error(
                     f"Error processing document with post_id {raw_doc.metadata['post_id']}: {e}"
                 )
+        else:
+            processed_docs.append(raw_doc)
 
     if not processed_docs:
         logger.info("No documents successfully processed. Nothing to ingest.")
