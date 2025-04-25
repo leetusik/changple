@@ -344,21 +344,21 @@ def chat(request):
             def event_stream():
                 final_answer_streamed = ""  # Store the final answer as it's streamed
                 last_yielded_token_data = None  # Keep track of the last thing we sent
+                full_answer = ""
 
                 try:
                     logger.info(f"Starting stream for session {session_nonce}")
-                    # Use stream_mode="values"
-                    stream = graph.stream(
+                    for chunk in graph.stream(
                         {"messages": [{"role": "user", "content": query}]},
-                        stream_mode="values",  # Use values mode
                         config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
-                    )
+                        stream_mode="messages",
+                    ):
 
-                    for chunk in stream:
-                        logger.debug(f"Stream chunk: {chunk}")
-                        # Check if the chunk is a dictionary and contains the 'answer' key
-                        if isinstance(chunk, dict) and "answer" in chunk:
-                            answer_content = chunk.get("answer")
+                        if (
+                            isinstance(chunk, tuple)
+                            and type(chunk[0]) == AIMessageChunk
+                        ):
+                            answer_content = chunk[0].content
                             # Only yield if the answer content is new/different from the last one
                             if (
                                 answer_content
@@ -371,12 +371,13 @@ def chat(request):
                                 if token_data != last_yielded_token_data:
                                     yield f"data: {json.dumps(token_data)}\n\n"
                                     last_yielded_token_data = token_data
+                                    full_answer += answer_content
                                     logger.debug(
                                         f"Sent answer chunk: {final_answer_streamed}"
                                     )
 
                     logger.info(
-                        f"Stream finished for session {session_nonce}. Final answer length: {len(final_answer_streamed)}"
+                        f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
                     )
 
                     # --- Post-stream processing ---
@@ -410,12 +411,12 @@ def chat(request):
                         ai_msg = ChatMessage.objects.create(
                             session=chat_session,
                             role="assistant",
-                            content=final_answer_streamed,
+                            content=full_answer,
                         )
                         logger.info(
                             f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
                         )
-                    elif not final_answer_streamed:
+                    elif not full_answer:
                         logger.warning(
                             f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
                         )
