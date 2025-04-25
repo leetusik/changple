@@ -275,10 +275,13 @@ def documents_handler(state: AgentState):
 
     messages = [{"role": "system", "content": system_prompt}] + state["messages"][-5:]
     response = cast(DocRelevance, llm.invoke(messages))
-    for idx in response["helpful_docs"]:
-        filtered_docs.append(formatted_docs_dict["documents"][int(idx - 1)])
+    if len(response["helpful_docs"]) > 0:
+        for idx in response["helpful_docs"]:
+            filtered_docs.append(formatted_docs_dict["documents"][int(idx - 1)])
 
-    filtered_docs_dict = {"documents": filtered_docs}
+        filtered_docs_dict = {"documents": filtered_docs}
+    else:
+        filtered_docs_dict = {"documents": []}
 
     return {"documents": filtered_docs_dict}
 
