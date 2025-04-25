@@ -17,6 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.constants import Send
 from langgraph.graph import END, START, MessagesState, StateGraph
 from pydantic import BaseModel
@@ -349,9 +350,14 @@ def build_graph():
     builder.add_edge("respond_with_docs", END)
     # builder.add_edge("document_recommendation", END)
 
-    memory = MemorySaver()
-    return builder.compile(checkpointer=memory)
+    # memory = MemorySaver() # Replaced in-memory saver
+    # Use SqliteSaver for persistence. Ensure 'checkpoints.sqlite' is writable
+    # in your deployment environment and shared across processes/instances if necessary.
+    # memory = SqliteSaver.from_conn_string("checkpoints.sqlite")
+    # with SqliteSaver.from_conn_string("checkpoints.sqlite") as memory:
+    # return builder.compile(checkpointer=memory)
     # return builder.compile()
+    return builder
 
 
 # Create and run the graph
