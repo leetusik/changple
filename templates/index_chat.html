@@ -144,6 +144,11 @@
                 
                 <textarea class="input-box-unlocked" placeholder="창업의 모든 것을 물어보세요"></textarea>
 
+                <!-- Loading Spinner Element (Moved Here) -->
+                <!-- <div id="loading-spinner" class="loading-spinner-overlay" style="display: none; position: absolute; top: 50%; right: 50px; transform: translateY(-50%); background: none; width: auto; height: auto; z-index: 10;">
+                    <div class="spinner" style="width: 20px; height: 20px; border-width: 3px;"></div> /* Adjusted size */
+                </div> -->
+
                 <!-- 창플 아이콘 (input 미입력) -->
                 <div class="changple-btn">
                     <svg class="changple-icon" width="30" height="34" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -168,88 +173,10 @@
             </div>
         </div>
 
-
-
-
-
-        <div class="help-btn">
-            <p>?</p>
-        </div>
-
-        <div id="help-box" class="help-box" style="background-color: rgba(255, 255, 255, 0.9);">
-            <div class="help-box-naver">
-                <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M23.9999 47.5111C36.7606 47.5111 47.1051 37.1666 47.1051 24.4059C47.1051 11.6453 36.7606 1.30078 23.9999 1.30078C11.2393 1.30078 0.894775 11.6453 0.894775 24.4059C0.894775 37.1666 11.2393 47.5111 23.9999 47.5111Z" fill="#617DAE"/>
-                    <path d="M11.6393 13.4766H20.2404C20.2404 13.4766 28.0528 25.277 28.2835 25.5934C28.5198 25.9131 28.5472 25.5934 28.5472 25.5934C28.1868 23.7674 27.7957 22.9478 27.7957 20.0266V13.4766H36.3606V35.3372H27.7957C27.7957 35.3372 20.1437 24.1663 19.913 23.8576C19.6811 23.5467 19.6504 23.8576 19.6504 23.8576C19.9448 25.3649 20.2052 25.6165 20.2052 28.2346V35.3373H11.6392L11.6393 13.4766Z" fill="white"/>
-                    </svg>
-                <a href="https://cafe.naver.com/cjdckddus" target="_blank" class="styled-link">
-                    창플 네이버카페
-                </a>
-            </div>
-            <div class="help-box-naver-blog">
-                <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M23.9999 47.5111C36.7606 47.5111 47.1051 37.1666 47.1051 24.4059C47.1051 11.6453 36.7606 1.30078 23.9999 1.30078C11.2393 1.30078 0.894775 11.6453 0.894775 24.4059C0.894775 37.1666 11.2393 47.5111 23.9999 47.5111Z" fill="#617DAE"/>
-                    <path d="M11.6393 13.4766H20.2404C20.2404 13.4766 28.0528 25.277 28.2835 25.5934C28.5198 25.9131 28.5472 25.5934 28.5472 25.5934C28.1868 23.7674 27.7957 22.9478 27.7957 20.0266V13.4766H36.3606V35.3372H27.7957C27.7957 35.3372 20.1437 24.1663 19.913 23.8576C19.6811 23.5467 19.6504 23.8576 19.6504 23.8576C19.9448 25.3649 20.2052 25.6165 20.2052 28.2346V35.3373H11.6392L11.6393 13.4766Z" fill="white"/>
-                </svg>
-                <a href="https://blog.naver.com/changple123" target="_blank" class="styled-link">
-                    창플 브랜드 블로그
-                </a>
-            </div>
-            <div class="help-box-insta">
-                <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <g clip-path="url(#clip0_1063_220)">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 24.4062C0 11.1515 10.7452 0.40625 24 0.40625C37.2548 0.40625 48 11.1515 48 24.4062C48 37.661 37.2548 48.4062 24 48.4062C10.7452 48.4062 0 37.661 0 24.4062ZM24.0012 11.6062C20.5249 11.6062 20.0886 11.6214 18.7233 11.6835C17.3606 11.7459 16.4305 11.9617 15.6166 12.2782C14.7747 12.6051 14.0606 13.0425 13.3491 13.7542C12.6371 14.4657 12.1997 15.1799 11.8717 16.0215C11.5544 16.8357 11.3384 17.7661 11.2771 19.1282C11.216 20.4936 11.2 20.93 11.2 24.4063C11.2 27.8826 11.2155 28.3176 11.2773 29.6829C11.34 31.0456 11.5557 31.9757 11.872 32.7896C12.1992 33.6315 12.6365 34.3457 13.3483 35.0572C14.0595 35.7692 14.7736 36.2075 15.615 36.5345C16.4294 36.851 17.3598 37.0668 18.7222 37.1292C20.0876 37.1914 20.5236 37.2066 23.9996 37.2066C27.4762 37.2066 27.9111 37.1914 29.2765 37.1292C30.6391 37.0668 31.5703 36.851 32.3848 36.5345C33.2264 36.2075 33.9394 35.7692 34.6506 35.0572C35.3626 34.3457 35.8 33.6316 36.128 32.79C36.4427 31.9758 36.6587 31.0454 36.7227 29.6833C36.784 28.3179 36.8 27.8826 36.8 24.4063C36.8 20.93 36.784 20.4939 36.7227 19.1285C36.6587 17.7658 36.4427 16.8357 36.128 16.0218C35.8 15.1799 35.3626 14.4657 34.6506 13.7542C33.9386 13.0422 33.2266 12.6049 32.384 12.2782C31.5679 11.9617 30.6373 11.7459 29.2746 11.6835C27.9092 11.6214 27.4746 11.6062 23.9972 11.6062H24.0012Z" fill="#617DAE"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M22.8529 13.9134C23.1937 13.9129 23.574 13.9134 24.0012 13.9134C27.4188 13.9134 27.8239 13.9257 29.1735 13.987C30.4215 14.0441 31.0989 14.2526 31.5501 14.4278C32.1474 14.6598 32.5733 14.9371 33.021 15.3851C33.469 15.8331 33.7464 16.2598 33.9789 16.8572C34.1541 17.3078 34.3629 17.9852 34.4197 19.2332C34.481 20.5825 34.4944 20.9879 34.4944 24.4039C34.4944 27.8199 34.481 28.2253 34.4197 29.5746C34.3626 30.8226 34.1541 31.5 33.9789 31.9506C33.7469 32.548 33.469 32.9733 33.021 33.4211C32.573 33.8691 32.1477 34.1464 31.5501 34.3784C31.0994 34.5544 30.4215 34.7624 29.1735 34.8195C27.8242 34.8808 27.4188 34.8941 24.0012 34.8941C20.5833 34.8941 20.1782 34.8808 18.8289 34.8195C17.5809 34.7619 16.9035 34.5533 16.4521 34.3781C15.8547 34.1461 15.428 33.8688 14.98 33.4208C14.532 32.9728 14.2547 32.5472 14.0222 31.9496C13.847 31.4989 13.6382 30.8216 13.5814 29.5736C13.52 28.2242 13.5078 27.8189 13.5078 24.4007C13.5078 20.9825 13.52 20.5793 13.5814 19.23C13.6384 17.982 13.847 17.3046 14.0222 16.8534C14.2542 16.2561 14.532 15.8294 14.98 15.3814C15.428 14.9334 15.8547 14.6561 16.4521 14.4235C16.9033 14.2475 17.5809 14.0395 18.8289 13.9822C20.0097 13.9289 20.4673 13.9129 22.8529 13.9102V13.9134ZM30.8338 16.0387C29.9858 16.0387 29.2978 16.726 29.2978 17.5742C29.2978 18.4222 29.9858 19.1102 30.8338 19.1102C31.6818 19.1102 32.3698 18.4222 32.3698 17.5742C32.3698 16.7262 31.6818 16.0387 30.8338 16.0387ZM24.0012 17.8334C20.371 17.8334 17.4278 20.7767 17.4278 24.4068C17.4278 28.037 20.371 30.9789 24.0012 30.9789C27.6314 30.9789 30.5735 28.037 30.5735 24.4068C30.5735 20.7767 27.6314 17.8334 24.0012 17.8334Z" fill="#617DAE"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M24.0012 20.1406C26.3575 20.1406 28.2679 22.0508 28.2679 24.4073C28.2679 26.7636 26.3575 28.674 24.0012 28.674C21.6446 28.674 19.7345 26.7636 19.7345 24.4073C19.7345 22.0508 21.6446 20.1406 24.0012 20.1406Z" fill="#617DAE"/>
-                    </g>
-                    <defs>
-                    <clipPath id="clip0_1063_220">
-                    <rect width="48" height="48" fill="white" transform="translate(0 0.40625)"/>
-                    </clipPath>
-                    </defs>
-                    </svg>
-                <a href="https://www.instagram.com/changple_official/" target="_blank" class="styled-link">
-                    창플 instagram
-                </a>
-            </div>
-            <div class="help-box-youtube">
-                <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <g clip-path="url(#clip0_1063_229)">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 24.4062C0 11.1515 10.7452 0.40625 24 0.40625C37.2548 0.40625 48 11.1515 48 24.4062C48 37.661 37.2548 48.4062 24 48.4062C10.7452 48.4062 0 37.661 0 24.4062ZM36.265 18.4795C35.9706 17.3485 35.1031 16.4579 34.0016 16.1556C32.0054 15.6062 24 15.6062 24 15.6062C24 15.6062 15.9946 15.6062 13.9983 16.1556C12.8967 16.4579 12.0292 17.3485 11.7348 18.4795C11.2 20.5293 11.2 24.8062 11.2 24.8062C11.2 24.8062 11.2 29.0831 11.7348 31.1331C12.0292 32.2641 12.8967 33.1547 13.9983 33.4571C15.9946 34.0063 24 34.0062 24 34.0062C24 34.0062 32.0054 34.0063 34.0016 33.4571C35.1031 33.1547 35.9706 32.2641 36.265 31.1331C36.8 29.0831 36.8 24.8062 36.8 24.8062C36.8 24.8062 36.8 20.5293 36.265 18.4795Z" fill="#617DAE"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M21.6 29.207V21.207L28 25.2071L21.6 29.207Z" fill="#617DAE"/>
-                    </g>
-                    <defs>
-                    <clipPath id="clip0_1063_229">
-                    <rect width="48" height="48" fill="white" transform="translate(0 0.40625)"/>
-                    </clipPath>
-                    </defs>
-                    </svg>
-                <a href="https://www.youtube.com/@TV-ib4ns" target="_blank" class="styled-link">
-                    창플 tv
-                </a>
-            </div>
-            <div class="help-box-youtube2">
-                <svg width="26" height="26" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <g clip-path="url(#clip0_1063_229)">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 24.4062C0 11.1515 10.7452 0.40625 24 0.40625C37.2548 0.40625 48 11.1515 48 24.4062C48 37.661 37.2548 48.4062 24 48.4062C10.7452 48.4062 0 37.661 0 24.4062ZM36.265 18.4795C35.9706 17.3485 35.1031 16.4579 34.0016 16.1556C32.0054 15.6062 24 15.6062 24 15.6062C24 15.6062 15.9946 15.6062 13.9983 16.1556C12.8967 16.4579 12.0292 17.3485 11.7348 18.4795C11.2 20.5293 11.2 24.8062 11.2 24.8062C11.2 24.8062 11.2 29.0831 11.7348 31.1331C12.0292 32.2641 12.8967 33.1547 13.9983 33.4571C15.9946 34.0063 24 34.0062 24 34.0062C24 34.0062 32.0054 34.0063 34.0016 33.4571C35.1031 33.1547 35.9706 32.2641 36.265 31.1331C36.8 29.0831 36.8 24.8062 36.8 24.8062C36.8 24.8062 36.8 20.5293 36.265 18.4795Z" fill="#617DAE"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M21.6 29.207V21.207L28 25.2071L21.6 29.207Z" fill="#617DAE"/>
-                    </g>
-                    <defs>
-                    <clipPath id="clip0_1063_229">
-                    <rect width="48" height="48" fill="white" transform="translate(0 0.40625)"/>
-                    </clipPath>
-                    </defs>
-                </svg>
-                <a href="https://www.youtube.com/@TV-wf6mg" target="_blank" class="styled-link">
-                    창플비즈니스 tv
-                </a>
-            </div>
-        </div>
-
         <!-- Loading Spinner Element -->
-        <div id="loading-spinner" class="loading-spinner-overlay" style="display: none;">
-            <div class="spinner"></div>
-        </div>
+         <div id="loading-spinner" class="loading-spinner-overlay" style="display: none;">
+             <div class="spinner"></div>
+         </div> 
 
     </div>
 
@@ -353,7 +280,7 @@
              // Chat API 호출 함수 (스트리밍 방식)
             async function callChatAPI(query, isInitialMessage = false) {
                 // Show spinner
-                if (loadingSpinner) loadingSpinner.style.display = 'flex'; // 스피너 표시
+                // if (loadingSpinner) loadingSpinner.style.display = 'flex'; // 스피너 표시 - REMOVED
 
                 // --- 로딩 시 UI 변경 (입력창 비활성화, 버튼 상태 변경) ---
                 const inputBox = document.querySelector('.input-box-unlocked'); // inputBox 참조는 유지 (값 사용 위해)
@@ -367,11 +294,11 @@
                 }
 
                 // AI 응답 메시지 영역 미리 생성 및 ID 가져오기
-                const aiContentSpanId = addMessageToChat('assistant', ''); // 빈 메시지로 시작
+                const aiContentSpanId = addMessageToChat('assistant', '', true); // Pass showSpinner=true
 
                 if (!aiContentSpanId) {
                     console.error("AI 메시지 영역 생성 실패");
-                    if (loadingSpinner) loadingSpinner.style.display = 'none'; // 스피너 숨김
+                    // if (loadingSpinner) loadingSpinner.style.display = 'none'; // 스피너 숨김 - REMOVED
                      // --- 로딩 종료 시 UI 복원 (중단 버튼만) ---
                      if(stopStreamingBtn) stopStreamingBtn.style.display = 'none'; // 중단 버튼 숨김
                      // --- 로딩 종료 시 UI 복원 끝 ---
@@ -381,8 +308,16 @@
                 const aiContentSpan = document.getElementById(aiContentSpanId);
                 let accumulatedResponse = '';
                 abortController = new AbortController(); // 새 AbortController 생성
+                let spinnerHidden = false; // Flag to track if spinner has been hidden
+                let aiMessageDiv = null; // Reference to the assistant message div
 
                 try {
+                    // Find the message div containing the spinner
+                    const aiContentSpanElement = document.getElementById(aiContentSpanId);
+                    if (aiContentSpanElement) {
+                        aiMessageDiv = aiContentSpanElement.closest('.prompt-p');
+                    }
+
                     const response = await fetch('/api/chat/', {
                         method: 'POST',
                         headers: {
@@ -441,7 +376,189 @@
                                         }
                                     } else if (data.end) {
                                         console.log('End signal received.');
-                                        // 최종 쿼리 카운트 업데이트
+                                        // Final updates, ensure spinner/status hidden
+                                        if (!spinnerHidden && aiMessageDiv) {
+                                            const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                                            if (spinnerContainer) spinnerContainer.style.display = 'none';
+                                            if (contentSpan) contentSpan.style.display = 'inline';
+                                        }
+                                        
+                                        // Log document information if available
+                                        if (data.documents && Array.isArray(data.documents) && data.documents.length > 0) {
+                                            console.log('Retrieved documents:');
+                                            data.documents.forEach((doc, index) => {
+                                                console.log(`${index + 1}. ${doc.title} (${doc.source})`);
+                                            });
+                                            
+                                            // Create the source toggle container according to designer's structure
+                                            const sourceToggleHTML = `
+                                            <div class="source-toggle-container">
+                                                <div class="toggle-area">
+                                                    <button class="toggle-icon">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                            <polyline points="9 6 15 12 9 18"></polyline>
+                                                        </svg>
+                                                    </button>
+                                                    <div class="toggle-text">
+                                                        <p>출처 보기</p>
+                                                    </div>
+                                                </div>
+                                                <div class="source-list-area" style="display: none;">
+                                                    ${data.documents.map((doc, index) => `
+                                                        <div class="source-list-item-${index + 1}">
+                                                            <p>[${index + 1}]</p>
+                                                            <p>
+                                                                <a href="${doc.source}" target="_blank" style="color: #617DAE; text-decoration: none;">
+                                                                    ${doc.title}
+                                                                </a>
+                                                            </p>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>`;
+                                            
+                                            // Add the CSS styles
+                                            const styleElement = document.createElement('style');
+                                            styleElement.textContent = `
+                                                .source-toggle-container {
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    width: 100%;
+                                                    padding-bottom: 20px;
+                                                    padding-left: 40px;
+                                                    margin-top: 0px;
+                                                    margin-bottom: 10px;
+                                                    gap: 10px;
+                                                }
+                                                
+                                                .toggle-area {
+                                                    display: flex;
+                                                    flex-direction: row;
+                                                    align-items: center;
+                                                    width: 100%;
+                                                    height: 36px;
+                                                    gap: 14px;
+                                                    padding-left: 4px;
+                                                }
+                                                
+                                                .toggle-icon {
+                                                    width: 34px;
+                                                    height: 34px;
+                                                    border-radius: 4px;
+                                                    outline-width: 1px;
+                                                    outline-style: solid;
+                                                    outline-color: #617dae;
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    appearance: none;
+                                                    -webkit-appearance: none;
+                                                    -moz-appearance: none;
+                                                    background: none;
+                                                    border: none;
+                                                    cursor: pointer;
+                                                }
+                                                
+                                                .toggle-text {
+                                                    font-size: 16px;
+                                                    color: #617dae;
+                                                }
+                                                
+                                                .toggle-text p {
+                                                    margin: 0;
+                                                }
+                                                
+                                                .source-list-area {
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    width: 100%;
+                                                    padding-left: 54px;
+                                                    align-items: flex-start;
+                                                    gap: 16px;
+                                                }
+                                                
+                                                .source-list-area > div {
+                                                    display: flex;
+                                                    align-items: flex-start;
+                                                    gap: 8px;
+                                                }
+                                                
+                                                .source-list-area p {
+                                                    color: #617dae;
+                                                    margin: 0;
+                                                }
+
+                                                /* Update free-use-count-container styles */
+                                                .free-use-count-container {
+                                                    display: flex;
+                                                    flex-direction: row;
+                                                    align-items: flex-start;
+                                                    padding-left: 40px;
+                                                    padding-bottom: 20px;
+                                                    gap: 10px;
+                                                }
+                                            `;
+                                            
+                                            // Add elements to the DOM
+                                            document.head.appendChild(styleElement);
+                                            
+                                            // Store the toggle HTML to be inserted after the free use count element
+                                            window.pendingSourceToggleHTML = sourceToggleHTML;
+                                            
+                                            // Update the addFreeUseCount function to include the source toggle but hide the free usage counter
+                                            const originalAddFreeUseCount = addFreeUseCount;
+                                            addFreeUseCount = function(remainingCount, totalLimit) {
+                                                // Remove existing free use counters but don't create new ones
+                                                const existingCounters = document.querySelectorAll('.free-use-count-container');
+                                                existingCounters.forEach(counter => counter.remove());
+                                                
+                                                // If we have a pending source toggle, add it directly to the prompt container
+                                                if (window.pendingSourceToggleHTML) {
+                                                    const promptContainer = document.querySelector('.prompt-wrapper');
+                                                    
+                                                    if (promptContainer) {
+                                                        // Insert the toggle directly into the prompt container
+                                                        promptContainer.insertAdjacentHTML('beforeend', window.pendingSourceToggleHTML);
+                                                        
+                                                        // Now add the toggle functionality
+                                                        const toggleIcon = promptContainer.querySelector('.toggle-icon');
+                                                        const sourceListArea = promptContainer.querySelector('.source-list-area');
+                                                        
+                                                        if (toggleIcon && sourceListArea) {
+                                                            toggleIcon.addEventListener('click', function() {
+                                                                const isHidden = sourceListArea.style.display === 'none';
+                                                                sourceListArea.style.display = isHidden ? 'flex' : 'none';
+                                                                
+                                                                // Change arrow direction - right when closed, down when opened
+                                                                if (isHidden) {
+                                                                    // When opening, show down arrow
+                                                                    this.innerHTML = `
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                                                        </svg>
+                                                                    `;
+                                                                } else {
+                                                                    // When closing, show right arrow
+                                                                    this.innerHTML = `
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <polyline points="9 6 15 12 9 18"></polyline>
+                                                                        </svg>
+                                                                    `;
+                                                                }
+                                                            });
+                                                        }
+                                                        
+                                                        // Clear the pending toggle
+                                                        window.pendingSourceToggleHTML = null;
+                                                    }
+                                                }
+                                            };
+                                        } else {
+                                            console.log('No documents retrieved or available');
+                                        }
+                                        
+                                        // Update query counts etc.
                                         if (data.remaining_queries !== undefined) {
                                             remainingQueries = data.remaining_queries;
                                             queryLimit = data.query_limit || queryLimit;
@@ -457,6 +574,18 @@
                                         await reader.cancel();
                                         throw new Error(data.error); // 오류 발생 시 스트림 처리 중단
                                     }
+
+                                    // Hide spinner and show content span on first data arrival
+                                    if (!spinnerHidden && (data.token || data.end || data.error)) {
+                                        if (aiMessageDiv) {
+                                            const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                                            if (spinnerContainer) spinnerContainer.remove();
+                                        }
+                                        const contentSpan = document.getElementById(aiContentSpanId);
+                                        if (contentSpan) contentSpan.style.display = 'inline'; // Or 'block' depending on desired layout
+                                        
+                                        spinnerHidden = true;
+                                    }
                                 } catch (e) {
                                     console.error('Error parsing message:', message, e);
                                 }
@@ -470,21 +599,40 @@
                     }
                 } catch (error) {
                      console.error('Error during fetch or stream processing:', error);
-                     if (aiContentSpan) {
-                         // AbortError가 *아닌* 경우에만 여기서 오류 메시지 설정
-                         if (!(error.message === 'AbortError' || error.name === 'AbortError')) {
-                              if (!aiContentSpan.textContent.startsWith('오류') && !aiContentSpan.textContent.startsWith('스트리밍 중 오류')) {
-                                  // 이미 오류 메시지가 표시되지 않은 경우에만 기본 오류 메시지 표시
-                                  aiContentSpan.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
-                              }
-                         }
-                         // AbortError의 경우, finally 블록에서 최종 메시지를 처리합니다.
-                     }
+                     if (aiMessageDiv) {
+                           // Remove spinner on error as well, if not already removed
+                           if (!spinnerHidden) {
+                               const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                               if (spinnerContainer) spinnerContainer.remove();
+                               const contentSpan = document.getElementById(aiContentSpanId);
+                               if (contentSpan) contentSpan.style.display = 'inline'; // Show span for error message
+                               spinnerHidden = true;
+                           }
+ 
+                          // AbortError가 *아닌* 경우에만 여기서 오류 메시지 설정
+                          if (!(error.message === 'AbortError' || error.name === 'AbortError')) {
+                               const contentSpan = document.getElementById(aiContentSpanId);
+                               if (contentSpan && !contentSpan.textContent.startsWith('오류') && !contentSpan.textContent.startsWith('스트리밍 중 오류')) {
+                                   // 이미 오류 메시지가 표시되지 않은 경우에만 기본 오류 메시지 표시
+                                   contentSpan.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
+                               }
+                          }
+                          // AbortError의 경우, finally 블록에서 최종 메시지를 처리합니다.
+                      }
 
                 } finally {
                     
-                    if (loadingSpinner) {
-                        loadingSpinner.style.display = 'none'; // 스피너 숨김
+                    // Ensure spinner is hidden if it wasn't already (e.g., due to immediate error before first chunk)
+                    // if (loadingSpinner && !spinnerHidden) {
+                    //     loadingSpinner.style.display = 'none'; 
+                    // } - REMOVED
+ 
+                    // Ensure spinner inside message is removed if loop was exited early
+                    if (!spinnerHidden && aiMessageDiv) {
+                        const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                        if (spinnerContainer) spinnerContainer.remove();
+                        const contentSpan = document.getElementById(aiContentSpanId);
+                        if (contentSpan) contentSpan.style.display = 'inline';
                     }
 
                     const wasAborted = abortController && abortController.signal.aborted;
@@ -819,18 +967,23 @@
             const helpBtn = document.querySelector('.help-btn');
             const helpBox = document.getElementById('help-box');
 
-            // Show or hide help box when help button is clicked
-            helpBtn.addEventListener('click', function(event) {
-                event.stopPropagation(); // Prevent the click from bubbling up to the document
-                helpBox.classList.toggle('visible');
-            });
+            // Only set up event listeners if both elements exist
+            if (helpBtn && helpBox) {
+                // Show or hide help box when help button is clicked
+                helpBtn.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up to the document
+                    helpBox.classList.toggle('visible');
+                });
 
-            // Hide help box when clicking anywhere else
-            document.addEventListener('click', function(event) {
-                if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
-                    helpBox.classList.remove('visible');
-                }
-            });
+                // Hide help box when clicking anywhere else
+                document.addEventListener('click', function(event) {
+                    if (!helpBtn.contains(event.target) && !helpBox.contains(event.target)) {
+                        helpBox.classList.remove('visible');
+                    }
+                });
+            } else {
+                console.log("Help button or help box elements not found");
+            }
 
             // --- 스트리밍 중단 버튼 이벤트 리스너 추가 ---
             if (stopStreamingBtn) {

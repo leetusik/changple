@@ -16,7 +16,7 @@ function adjustTextareaHeight() {
 }
 
 // 대화 메시지를 화면에 추가하는 함수
-function addMessageToChat(role, content) {
+function addMessageToChat(role, content, showSpinner = false) {
   const promptContainer = document.querySelector(".prompt-wrapper");
   if (!promptContainer) return null; // ID를 반환해야 하므로 null 반환
 
@@ -60,11 +60,19 @@ function addMessageToChat(role, content) {
       formattedContent = DOMPurify.sanitize(marked.parse(content));
     }
 
-    // 초기에는 비어있는 span을 포함하여 추가
+    // Spinner HTML (adjust styling as needed, maybe move to CSS)
+    const spinnerHTML = showSpinner
+      ? `<div class="spinner-container" style="display: flex; justify-content: flex-start; align-items: center; padding: 10px;"><div class="spinner"></div><span class="node-status" style="margin-left: 10px; font-style: italic; color: grey; font-size: 0.9em;"></span></div>`
+      : "";
+
+    // 초기에는 spinner 또는 비어있는 span을 포함하여 추가
     const botMessageHTML = `
       <br>
       <div id="${messageId}" class="prompt-p">
-        <span id="${contentSpanId}">${formattedContent}</span> 
+        ${spinnerHTML} 
+        <span id="${contentSpanId}" ${
+      showSpinner ? 'style="display: none;"' : ""
+    }>${formattedContent}</span> 
       </div>
     `;
     promptContainer.insertAdjacentHTML("beforeend", botMessageHTML);

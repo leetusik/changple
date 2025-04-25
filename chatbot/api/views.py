@@ -8,13 +8,16 @@ from django.conf import settings
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.text import slugify
+
+# from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from dotenv import load_dotenv
-from langchain.memory import ConversationBufferMemory
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.documents import Document
+
+# from langchain.memory import ConversationBufferMemory
+from langchain_core.messages import AIMessageChunk
 
 from chatbot.models import ChatMessage, ChatSession
 
@@ -24,16 +27,7 @@ logger = logging.getLogger(__name__)
 # Import necessary components from chain service
 # Make sure llm and get_retriever are accessible
 try:
-    from chatbot.services.chain import (
-        create_chain,
-        get_retriever,
-        handle_post_generation,
-        llm,
-    )
-
-    # Initialize retriever globally (assuming thread-safety)
-    retriever = get_retriever()
-    logger.info("Successfully imported chain components and initialized retriever.")
+    from chatbot.services.chain import get_graph
 except ImportError as e:
     logger.critical(f"Failed to import chain components: {str(e)}")
     raise RuntimeError("챗봇 서비스 초기화 실패. 서버를 시작할 수 없습니다.")
@@ -246,9 +240,9 @@ def chat(request):
         query = data.get("query", "")
         session_nonce = data.get("session_nonce", "")
 
-        # Clean up session_nonce if it contains query parameters
-        if session_nonce and "?" in session_nonce:
-            session_nonce = session_nonce.split("?")[0]
+        # # Clean up session_nonce if it contains query parameters
+        # if session_nonce and "?" in session_nonce:
+        #     session_nonce = session_nonce.split("?")[0]
 
         # user query
         logger.info(f"User query (session: {session_nonce}): \n{query}")
@@ -320,83 +314,76 @@ def chat(request):
             # 데이터베이스에서 대화 내역 가져오기
             messages = chat_session.messages.all().order_by("created_at")
 
-            # Create a new memory buffer for this request
-            memory = ConversationBufferMemory(
-                return_messages=True,
-                output_key="answer",
-                input_key="question",
-                memory_key="chat_history",
-            )
+            # # Create a new memory buffer for this request
+            # memory = ConversationBufferMemory(
+            #     return_messages=True,
+            #     output_key="answer",
+            #     input_key="question",
+            #     memory_key="chat_history",
+            # )
+            # messages_to_add = []
+            # # Populate memory from DB messages
+            # for i, msg in enumerate(messages):
+            #     if msg.role == "user" and i != 0:
+            #         # memory.chat_memory.add_user_message(msg.content)
+            #         messages_to_add.append({"role": "user", "content": msg.content})
+            #     elif msg.role == "assistant":
+            #         # memory.chat_memory.add_ai_message(msg.content)
+            #         messages_to_add.append(
+            #             {"role": "assistant", "content": msg.content}
+            #         )
 
-            # Populate memory from DB messages
-            for msg in messages:
-                if msg.role == "user":
-                    memory.chat_memory.add_user_message(msg.content)
-                elif msg.role == "assistant":
-                    memory.chat_memory.add_ai_message(msg.content)
-
-            # Create the chain for this specific request, passing the populated memory
-            request_chain = create_chain(llm=llm, retriever=retriever, memory=memory)
+            graph = get_graph()
             # ----------------------------------------------
-
-            # 세션 ID와 대화 기록을 포함한 체인 입력 구성
-            chain_input = {
-                "question": query,
-                "user_info": user_info,
-            }
-
-            # Add authenticated user object to input if available (chain might use it)
-            if user:
-                chain_input["user"] = user
 
             # --- 스트리밍 응답 생성 ---
             def event_stream():
+                final_answer_streamed = ""  # Store the final answer as it's streamed
+                last_yielded_token_data = None  # Keep track of the last thing we sent
                 full_answer = ""
-                post_process_executed = False
-                final_used_question = None
 
                 try:
                     logger.info(f"Starting stream for session {session_nonce}")
-                    stream = request_chain.stream(chain_input)
+                    for chunk in graph.stream(
+                        {"messages": [{"role": "user", "content": query}]},
+                        config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
+                        stream_mode="messages",
+                    ):
 
-                    for chunk in stream:
-                        full_answer += chunk
-                        yield f"data: {json.dumps({'token': chunk})}\n\n"
-
+                        if (
+                            isinstance(chunk, tuple)
+                            and type(chunk[0]) == AIMessageChunk
+                        ):
+                            answer_content = chunk[0].content
+                            # Only yield if the answer content is new/different from the last one
+                            if (
+                                answer_content
+                                and answer_content != final_answer_streamed
+                            ):
+                                final_answer_streamed = (
+                                    answer_content  # Update the streamed answer
+                                )
+                                token_data = {"token": final_answer_streamed}
+                                if token_data != last_yielded_token_data:
+                                    yield f"data: {json.dumps(token_data)}\n\n"
+                                    last_yielded_token_data = token_data
+                                    full_answer += answer_content
+                                    logger.debug(
+                                        f"Sent answer chunk: {final_answer_streamed}"
+                                    )
                     logger.info(
-                        f"Stream finished for session {session_nonce}. Full answer length: {len(full_answer)}"
+                        f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
                     )
+
+                    # --- Post-stream processing ---
                     post_processing_input = {
-                        "question": chain_input.get("question"),
-                        "user_info": chain_input.get("user_info"),
+                        "question": query,  # Use original query
                     }
                     final_used_question = post_processing_input.get("question")
 
-                    if final_used_question:
-                        logger.info(
-                            f"Executing post-generation for session {session_nonce}, Q: {final_used_question[:50]}..."
-                        )
-                        post_gen_result = handle_post_generation(
-                            post_processing_input, full_answer, memory
-                        )
-                        updated_user_info = post_gen_result.get("updated_user_info")
-                        post_process_executed = True
-
-                        if updated_user_info is not None:
-                            request.session[f"user_info_{session_nonce}"] = (
-                                updated_user_info
-                            )
-                            logger.info(
-                                f"Saved updated user_info to session {session_nonce}: {updated_user_info}"
-                            )
-
-                        if user and not is_premium:
-                            user.increment_query_count()
-                            logger.info(
-                                f"Incremented query count for user {user.username}"
-                            )
-
-                        # Check if this is the initial message and if it was already saved during session creation
+                    # Use the final_answer_streamed which contains the complete answer
+                    if final_used_question and final_answer_streamed:
+                        # Check if this is the initial message and if it was already saved
                         is_initial_message = (
                             chat_session.messages.count() == 1
                             and chat_session.request_sent
@@ -412,35 +399,96 @@ def chat(request):
                             )
                         else:
                             logger.info(
-                                f"Skipping saving duplicate user message for session {session_nonce} as it was already saved during session creation"
+                                f"Skipping saving duplicate user message for session {session_nonce}"
                             )
 
                         # Always save the AI response
                         ai_msg = ChatMessage.objects.create(
-                            session=chat_session, role="assistant", content=full_answer
+                            session=chat_session,
+                            role="assistant",
+                            content=full_answer,
                         )
                         logger.info(
                             f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
                         )
-
+                    elif not full_answer:
+                        logger.warning(
+                            f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
+                        )
                     else:
                         logger.warning(
-                            f"Skipping post-generation for session {session_nonce}: 'question' missing in prepared input."
+                            f"Skipping post-generation DB saving for session {session_nonce}: 'question' missing."
+                        )
+                    # --- End Post-stream processing ---
+
+                    # Send the end signal *after* saving is attempted
+                    # Ensure we send it even if no answer was streamed
+
+                    # Get document information to pass to frontend
+                    doc_info = []
+                    try:
+                        # Get state from the graph
+                        state = graph.get_state(
+                            config={
+                                "configurable": {"thread_id": f"chat_{session_nonce}"}
+                            }
                         )
 
-                    yield f"data: {json.dumps({'end': True})}\n\n"
+                        # StateSnapshot object structure handling
+                        # Try different approaches to access documents based on the state structure
+                        docs = []
+                        if hasattr(state, "documents"):
+                            # Direct attribute access
+                            docs = state.documents
+                        elif hasattr(state, "values") and hasattr(state.values, "get"):
+                            # Dictionary-like access through values
+                            docs = state.values.get("documents", [])
+                        elif isinstance(state, dict):
+                            # Dictionary access
+                            docs = state.get("documents", [])
+
+                        # Log the state structure for debugging
+                        logger.info(f"State type: {type(state)}")
+
+                        # Only process if docs is a list or similar iterable
+                        if docs and hasattr(docs, "__iter__"):
+                            doc_info = []
+                            for doc in docs:
+                                if hasattr(doc, "metadata"):
+                                    doc_info.append(
+                                        {
+                                            "title": doc.metadata.get(
+                                                "title", "No title"
+                                            ),
+                                            "source": doc.metadata.get(
+                                                "source", "No source"
+                                            ),
+                                        }
+                                    )
+                            logger.info(f"Extracted {len(doc_info)} document(s)")
+                    except Exception as e:
+                        logger.error(
+                            f"Error extracting document info: {e}", exc_info=True
+                        )
+
+                    # Always send the end signal, even if document extraction failed
+                    try:
+                        yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
+                    except Exception as e:
+                        logger.error(f"Error sending end signal: {e}", exc_info=True)
+                        # Fallback to a simple end signal without documents
+                        yield f"data: {json.dumps({'end': True})}\n\n"
 
                 except Exception as e:
                     logger.error(
                         f"Error during streaming or post-processing for session {session_nonce}: {e}",
                         exc_info=True,
                     )
-                    yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
-                finally:
-                    if not post_process_executed:
-                        logger.warning(
-                            f"Post-generation was not executed for session {session_nonce}."
-                        )
+                    # Avoid sending 'end' signal again if an error occurred before it was sent
+                    try:
+                        yield f"data: {json.dumps({'error': '스트리밍 중 서버 오류가 발생했습니다.'})}\n\n"
+                    except Exception as yield_err:
+                        logger.error(f"Error yielding error message: {yield_err}")
 
             response = StreamingHttpResponse(
                 event_stream(), content_type="text/event-stream"
