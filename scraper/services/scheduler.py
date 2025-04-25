@@ -56,6 +56,7 @@ def schedule_crawler(hour=3, minute=0, batch_size=100):
         interval=86400,  # 24 hours in seconds
         repeat=None,  # Repeat indefinitely
         meta={"job_name": "daily_crawler"},  # Metadata for job identification
+        timeout=3600,  # 1 hour timeout
     )
 
     logger.info(

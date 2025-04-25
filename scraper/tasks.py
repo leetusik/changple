@@ -31,7 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)  # Get logger for this module
 
 
-@job("default")  # Specify the queue name explicitly
+@job("default", timeout=3600)  # Specify the queue name explicitly with 1 hour timeout
 def run_scheduled_crawler(
     start_id: Optional[int] = None, end_id: Optional[int] = None, batch_size: int = 100
 ):

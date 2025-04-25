@@ -18,6 +18,7 @@ from langchain_core.documents import Document
 
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from chatbot.models import ChatMessage, ChatSession
 
@@ -344,140 +345,158 @@ def chat(request):
 
                 try:
                     logger.info(f"Starting stream for session {session_nonce}")
-                    for chunk in graph.stream(
-                        {"messages": [{"role": "user", "content": query}]},
-                        config={"configurable": {"thread_id": f"chat_{session_nonce}"}},
-                        stream_mode="messages",
-                    ):
-
-                        if (
-                            isinstance(chunk, tuple)
-                            and type(chunk[0]) == AIMessageChunk
+                    # Set a timeout for stream operations
+                    timeout = 120  # 2 minutes timeout
+                    graph = get_graph()
+                    with SqliteSaver.from_conn_string("checkpoints.sqlite") as memory:
+                        graph = graph.compile(checkpointer=memory)
+                        for chunk in graph.stream(
+                            {"messages": [{"role": "user", "content": query}]},
+                            config={
+                                "configurable": {
+                                    "thread_id": f"chat_{session_nonce}",
+                                    "timeout": timeout,
+                                }
+                            },
+                            stream_mode="messages",
                         ):
-                            answer_content = chunk[0].content
-                            # Only yield if the answer content is new/different from the last one
+
                             if (
-                                answer_content
-                                and answer_content != final_answer_streamed
+                                isinstance(chunk, tuple)
+                                and type(chunk[0]) == AIMessageChunk
                             ):
-                                final_answer_streamed = (
-                                    answer_content  # Update the streamed answer
-                                )
-                                token_data = {"token": final_answer_streamed}
-                                if token_data != last_yielded_token_data:
-                                    yield f"data: {json.dumps(token_data)}\n\n"
-                                    last_yielded_token_data = token_data
-                                    full_answer += answer_content
-                                    logger.debug(
-                                        f"Sent answer chunk: {final_answer_streamed}"
+                                answer_content = chunk[0].content
+                                # Only yield if the answer content is new/different from the last one
+                                if (
+                                    answer_content
+                                    and answer_content != final_answer_streamed
+                                ):
+                                    final_answer_streamed = (
+                                        answer_content  # Update the streamed answer
                                     )
-                    logger.info(
-                        f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
-                    )
-
-                    # --- Post-stream processing ---
-                    post_processing_input = {
-                        "question": query,  # Use original query
-                    }
-                    final_used_question = post_processing_input.get("question")
-
-                    # Use the final_answer_streamed which contains the complete answer
-                    if final_used_question and final_answer_streamed:
-                        # Check if this is the initial message and if it was already saved
-                        is_initial_message = (
-                            chat_session.messages.count() == 1
-                            and chat_session.request_sent
+                                    token_data = {"token": final_answer_streamed}
+                                    if token_data != last_yielded_token_data:
+                                        yield f"data: {json.dumps(token_data)}\n\n"
+                                        last_yielded_token_data = token_data
+                                        full_answer += answer_content
+                                        # Reduce logging frequency to save memory
+                                        if len(full_answer) % 500 == 0:
+                                            logger.debug(
+                                                f"Sent answer chunk (current length: {len(full_answer)})"
+                                            )
+                        logger.info(
+                            f"Stream finished for session {session_nonce}. Final answer length: {len(full_answer)}"
                         )
 
-                        # Only save the user message if it's not the initial message that was already saved
-                        if not is_initial_message:
-                            user_msg = ChatMessage.objects.create(
-                                session=chat_session, role="user", content=query
+                        # --- Post-stream processing ---
+                        post_processing_input = {
+                            "question": query,  # Use original query
+                        }
+                        final_used_question = post_processing_input.get("question")
+
+                        # Use the final_answer_streamed which contains the complete answer
+                        if final_used_question and final_answer_streamed:
+                            # Check if this is the initial message and if it was already saved
+                            is_initial_message = (
+                                chat_session.messages.count() == 1
+                                and chat_session.request_sent
+                            )
+
+                            # Only save the user message if it's not the initial message that was already saved
+                            if not is_initial_message:
+                                user_msg = ChatMessage.objects.create(
+                                    session=chat_session, role="user", content=query
+                                )
+                                logger.info(
+                                    f"Saved user message (ID: {user_msg.id}) to DB for session {session_nonce}"
+                                )
+                            else:
+                                logger.info(
+                                    f"Skipping saving duplicate user message for session {session_nonce}"
+                                )
+
+                            # Always save the AI response
+                            ai_msg = ChatMessage.objects.create(
+                                session=chat_session,
+                                role="assistant",
+                                content=full_answer,
                             )
                             logger.info(
-                                f"Saved user message (ID: {user_msg.id}) to DB for session {session_nonce}"
+                                f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
+                            )
+                        elif not full_answer:
+                            logger.warning(
+                                f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
                             )
                         else:
-                            logger.info(
-                                f"Skipping saving duplicate user message for session {session_nonce}"
+                            logger.warning(
+                                f"Skipping post-generation DB saving for session {session_nonce}: 'question' missing."
+                            )
+                        # --- End Post-stream processing ---
+
+                        # Send the end signal *after* saving is attempted
+                        # Ensure we send it even if no answer was streamed
+
+                        # Get document information to pass to frontend
+                        doc_info = []
+                        try:
+                            # Get state from the graph
+                            state = graph.get_state(
+                                config={
+                                    "configurable": {
+                                        "thread_id": f"chat_{session_nonce}"
+                                    }
+                                }
                             )
 
-                        # Always save the AI response
-                        ai_msg = ChatMessage.objects.create(
-                            session=chat_session,
-                            role="assistant",
-                            content=full_answer,
-                        )
-                        logger.info(
-                            f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
-                        )
-                    elif not full_answer:
-                        logger.warning(
-                            f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
-                        )
-                    else:
-                        logger.warning(
-                            f"Skipping post-generation DB saving for session {session_nonce}: 'question' missing."
-                        )
-                    # --- End Post-stream processing ---
+                            # StateSnapshot object structure handling
+                            # Try different approaches to access documents based on the state structure
+                            docs = []
+                            if hasattr(state, "documents"):
+                                # Direct attribute access
+                                docs = state.documents
+                            elif hasattr(state, "values") and hasattr(
+                                state.values, "get"
+                            ):
+                                # Dictionary-like access through values
+                                docs = state.values.get("documents", [])
+                            elif isinstance(state, dict):
+                                # Dictionary access
+                                docs = state.get("documents", [])
 
-                    # Send the end signal *after* saving is attempted
-                    # Ensure we send it even if no answer was streamed
+                            # Log the state structure for debugging
+                            logger.info(f"State type: {type(state)}")
 
-                    # Get document information to pass to frontend
-                    doc_info = []
-                    try:
-                        # Get state from the graph
-                        state = graph.get_state(
-                            config={
-                                "configurable": {"thread_id": f"chat_{session_nonce}"}
-                            }
-                        )
+                            # Only process if docs is a list or similar iterable
+                            if docs and hasattr(docs, "__iter__"):
+                                doc_info = []
+                                for doc in docs:
+                                    if hasattr(doc, "metadata"):
+                                        doc_info.append(
+                                            {
+                                                "title": doc.metadata.get(
+                                                    "title", "No title"
+                                                ),
+                                                "source": doc.metadata.get(
+                                                    "source", "No source"
+                                                ),
+                                            }
+                                        )
+                                logger.info(f"Extracted {len(doc_info)} document(s)")
+                        except Exception as e:
+                            logger.error(
+                                f"Error extracting document info: {e}", exc_info=True
+                            )
 
-                        # StateSnapshot object structure handling
-                        # Try different approaches to access documents based on the state structure
-                        docs = []
-                        if hasattr(state, "documents"):
-                            # Direct attribute access
-                            docs = state.documents
-                        elif hasattr(state, "values") and hasattr(state.values, "get"):
-                            # Dictionary-like access through values
-                            docs = state.values.get("documents", [])
-                        elif isinstance(state, dict):
-                            # Dictionary access
-                            docs = state.get("documents", [])
-
-                        # Log the state structure for debugging
-                        logger.info(f"State type: {type(state)}")
-
-                        # Only process if docs is a list or similar iterable
-                        if docs and hasattr(docs, "__iter__"):
-                            doc_info = []
-                            for doc in docs:
-                                if hasattr(doc, "metadata"):
-                                    doc_info.append(
-                                        {
-                                            "title": doc.metadata.get(
-                                                "title", "No title"
-                                            ),
-                                            "source": doc.metadata.get(
-                                                "source", "No source"
-                                            ),
-                                        }
-                                    )
-                            logger.info(f"Extracted {len(doc_info)} document(s)")
-                    except Exception as e:
-                        logger.error(
-                            f"Error extracting document info: {e}", exc_info=True
-                        )
-
-                    # Always send the end signal, even if document extraction failed
-                    try:
-                        yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
-                    except Exception as e:
-                        logger.error(f"Error sending end signal: {e}", exc_info=True)
-                        # Fallback to a simple end signal without documents
-                        yield f"data: {json.dumps({'end': True})}\n\n"
+                        # Always send the end signal, even if document extraction failed
+                        try:
+                            yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
+                        except Exception as e:
+                            logger.error(
+                                f"Error sending end signal: {e}", exc_info=True
+                            )
+                            # Fallback to a simple end signal without documents
+                            yield f"data: {json.dumps({'end': True})}\n\n"
 
                 except Exception as e:
                     logger.error(
