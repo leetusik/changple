@@ -506,25 +506,24 @@
                                             // Store the toggle HTML to be inserted after the free use count element
                                             window.pendingSourceToggleHTML = sourceToggleHTML;
                                             
-                                            // Update the addFreeUseCount function to include the source toggle
+                                            // Update the addFreeUseCount function to include the source toggle but hide the free usage counter
                                             const originalAddFreeUseCount = addFreeUseCount;
                                             addFreeUseCount = function(remainingCount, totalLimit) {
-                                                // Call the original function
-                                                originalAddFreeUseCount(remainingCount, totalLimit);
+                                                // Remove existing free use counters but don't create new ones
+                                                const existingCounters = document.querySelectorAll('.free-use-count-container');
+                                                existingCounters.forEach(counter => counter.remove());
                                                 
-                                                // If we have a pending source toggle, add it after the free use count
+                                                // If we have a pending source toggle, add it directly to the prompt container
                                                 if (window.pendingSourceToggleHTML) {
                                                     const promptContainer = document.querySelector('.prompt-wrapper');
-                                                    const freeUseCount = document.querySelector('.free-use-count-container');
                                                     
-                                                    if (promptContainer && freeUseCount) {
-                                                        // Insert the toggle after the free use count
-                                                        freeUseCount.insertAdjacentHTML('afterend', window.pendingSourceToggleHTML);
+                                                    if (promptContainer) {
+                                                        // Insert the toggle directly into the prompt container
+                                                        promptContainer.insertAdjacentHTML('beforeend', window.pendingSourceToggleHTML);
                                                         
                                                         // Now add the toggle functionality
                                                         const toggleIcon = promptContainer.querySelector('.toggle-icon');
                                                         const sourceListArea = promptContainer.querySelector('.source-list-area');
-                                                        const svgPath = promptContainer.querySelector('.toggle-icon svg path');
                                                         
                                                         if (toggleIcon && sourceListArea) {
                                                             toggleIcon.addEventListener('click', function() {
