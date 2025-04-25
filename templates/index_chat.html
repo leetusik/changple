@@ -390,62 +390,171 @@
                                                 console.log(`${index + 1}. ${doc.title} (${doc.source})`);
                                             });
                                             
-                                            // Add toggle button and document list after the AI's response
-                                            if (aiMessageDiv) {
-                                                // Create documents container
-                                                const docsContainer = document.createElement('div');
-                                                docsContainer.className = 'related-docs-container';
-                                                docsContainer.style.marginTop = '10px';
-                                                docsContainer.style.display = 'none'; // Initially hidden
+                                            // Create the source toggle container according to designer's structure
+                                            const sourceToggleHTML = `
+                                            <div class="source-toggle-container">
+                                                <div class="toggle-area">
+                                                    <button class="toggle-icon">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                            <polyline points="9 6 15 12 9 18"></polyline>
+                                                        </svg>
+                                                    </button>
+                                                    <div class="toggle-text">
+                                                        <p>출처 보기</p>
+                                                    </div>
+                                                </div>
+                                                <div class="source-list-area" style="display: none;">
+                                                    ${data.documents.map((doc, index) => `
+                                                        <div class="source-list-item-${index + 1}">
+                                                            <p>[${index + 1}]</p>
+                                                            <p>
+                                                                <a href="${doc.source}" target="_blank" style="color: #617DAE; text-decoration: none;">
+                                                                    ${doc.title}
+                                                                </a>
+                                                            </p>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>`;
+                                            
+                                            // Add the CSS styles
+                                            const styleElement = document.createElement('style');
+                                            styleElement.textContent = `
+                                                .source-toggle-container {
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    width: 100%;
+                                                    padding-bottom: 20px;
+                                                    padding-left: 40px;
+                                                    margin-top: 0px;
+                                                    margin-bottom: 10px;
+                                                    gap: 10px;
+                                                }
                                                 
-                                                // Create toggle button
-                                                const toggleBtn = document.createElement('button');
-                                                toggleBtn.className = 'related-docs-toggle';
-                                                toggleBtn.textContent = '관련 문서 보기 ▼';
-                                                toggleBtn.style.marginTop = '10px';
-                                                toggleBtn.style.padding = '5px 10px';
-                                                toggleBtn.style.backgroundColor = '#f5f5f5';
-                                                toggleBtn.style.border = '1px solid #ddd';
-                                                toggleBtn.style.borderRadius = '4px';
-                                                toggleBtn.style.cursor = 'pointer';
+                                                .toggle-area {
+                                                    display: flex;
+                                                    flex-direction: row;
+                                                    align-items: center;
+                                                    width: 100%;
+                                                    height: 36px;
+                                                    gap: 14px;
+                                                    padding-left: 4px;
+                                                }
                                                 
-                                                // Add documents to container
-                                                const docsList = document.createElement('ul');
-                                                docsList.style.listStyleType = 'none';
-                                                docsList.style.padding = '10px';
-                                                docsList.style.margin = '5px 0';
-                                                docsList.style.backgroundColor = '#f9f9f9';
-                                                docsList.style.border = '1px solid #eee';
-                                                docsList.style.borderRadius = '4px';
+                                                .toggle-icon {
+                                                    width: 34px;
+                                                    height: 34px;
+                                                    border-radius: 4px;
+                                                    outline-width: 1px;
+                                                    outline-style: solid;
+                                                    outline-color: #617dae;
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    appearance: none;
+                                                    -webkit-appearance: none;
+                                                    -moz-appearance: none;
+                                                    background: none;
+                                                    border: none;
+                                                    cursor: pointer;
+                                                }
                                                 
-                                                data.documents.forEach((doc, index) => {
-                                                    const docItem = document.createElement('li');
-                                                    docItem.style.margin = '8px 0';
+                                                .toggle-text {
+                                                    font-size: 16px;
+                                                    color: #617dae;
+                                                }
+                                                
+                                                .toggle-text p {
+                                                    margin: 0;
+                                                }
+                                                
+                                                .source-list-area {
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    width: 100%;
+                                                    padding-left: 54px;
+                                                    align-items: flex-start;
+                                                    gap: 16px;
+                                                }
+                                                
+                                                .source-list-area > div {
+                                                    display: flex;
+                                                    align-items: flex-start;
+                                                    gap: 8px;
+                                                }
+                                                
+                                                .source-list-area p {
+                                                    color: #617dae;
+                                                    margin: 0;
+                                                }
+
+                                                /* Update free-use-count-container styles */
+                                                .free-use-count-container {
+                                                    display: flex;
+                                                    flex-direction: row;
+                                                    align-items: flex-start;
+                                                    padding-left: 40px;
+                                                    padding-bottom: 20px;
+                                                    gap: 10px;
+                                                }
+                                            `;
+                                            
+                                            // Add elements to the DOM
+                                            document.head.appendChild(styleElement);
+                                            
+                                            // Store the toggle HTML to be inserted after the free use count element
+                                            window.pendingSourceToggleHTML = sourceToggleHTML;
+                                            
+                                            // Update the addFreeUseCount function to include the source toggle
+                                            const originalAddFreeUseCount = addFreeUseCount;
+                                            addFreeUseCount = function(remainingCount, totalLimit) {
+                                                // Call the original function
+                                                originalAddFreeUseCount(remainingCount, totalLimit);
+                                                
+                                                // If we have a pending source toggle, add it after the free use count
+                                                if (window.pendingSourceToggleHTML) {
+                                                    const promptContainer = document.querySelector('.prompt-wrapper');
+                                                    const freeUseCount = document.querySelector('.free-use-count-container');
                                                     
-                                                    const docLink = document.createElement('a');
-                                                    docLink.href = doc.source;
-                                                    docLink.target = '_blank';
-                                                    docLink.textContent = `${index + 1}. ${doc.title}`;
-                                                    docLink.style.color = '#617DAE';
-                                                    docLink.style.textDecoration = 'none';
-                                                    
-                                                    docItem.appendChild(docLink);
-                                                    docsList.appendChild(docItem);
-                                                });
-                                                
-                                                docsContainer.appendChild(docsList);
-                                                
-                                                // Add toggle functionality
-                                                toggleBtn.addEventListener('click', function() {
-                                                    const isHidden = docsContainer.style.display === 'none';
-                                                    docsContainer.style.display = isHidden ? 'block' : 'none';
-                                                    toggleBtn.textContent = isHidden ? '관련 문서 숨기기 ▲' : '관련 문서 보기 ▼';
-                                                });
-                                                
-                                                // Append toggle and container to message
-                                                aiMessageDiv.appendChild(toggleBtn);
-                                                aiMessageDiv.appendChild(docsContainer);
-                                            }
+                                                    if (promptContainer && freeUseCount) {
+                                                        // Insert the toggle after the free use count
+                                                        freeUseCount.insertAdjacentHTML('afterend', window.pendingSourceToggleHTML);
+                                                        
+                                                        // Now add the toggle functionality
+                                                        const toggleIcon = promptContainer.querySelector('.toggle-icon');
+                                                        const sourceListArea = promptContainer.querySelector('.source-list-area');
+                                                        const svgPath = promptContainer.querySelector('.toggle-icon svg path');
+                                                        
+                                                        if (toggleIcon && sourceListArea) {
+                                                            toggleIcon.addEventListener('click', function() {
+                                                                const isHidden = sourceListArea.style.display === 'none';
+                                                                sourceListArea.style.display = isHidden ? 'flex' : 'none';
+                                                                
+                                                                // Change arrow direction - right when closed, down when opened
+                                                                if (isHidden) {
+                                                                    // When opening, show down arrow
+                                                                    this.innerHTML = `
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                                                        </svg>
+                                                                    `;
+                                                                } else {
+                                                                    // When closing, show right arrow
+                                                                    this.innerHTML = `
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <polyline points="9 6 15 12 9 18"></polyline>
+                                                                        </svg>
+                                                                    `;
+                                                                }
+                                                            });
+                                                        }
+                                                        
+                                                        // Clear the pending toggle
+                                                        window.pendingSourceToggleHTML = null;
+                                                    }
+                                                }
+                                            };
                                         } else {
                                             console.log('No documents retrieved or available');
                                         }

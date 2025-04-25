@@ -194,7 +194,7 @@ body {
   line-height: 1.2;
   word-break: keep-all;
   overflow-wrap: break-word;
-  padding-bottom: 10px;
+  padding-bottom: 0px;
   padding-left: 40px;
   padding-right: 200px;
   color: #2a4169;
