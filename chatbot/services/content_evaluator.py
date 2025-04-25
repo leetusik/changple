@@ -1,15 +1,17 @@
 import csv
+import json
 import os
-import nest_asyncio
+from typing import List
 
+import nest_asyncio
 import pandas as pd
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.pydantic_v1 import BaseModel, Field
-from typing import List
-import json
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from .chain import load_llm
 
 nest_asyncio.apply()
 # langchain-google-genai 라이브러리가 내부적으로 비동기(asyncio) 기능을 사용하기 때문에 nest-asyncioo 설치
@@ -23,11 +25,12 @@ load_dotenv()
 google_api_key = os.getenv("GOOGLE_API_KEY")
 
 # Initialize GPT-4o model
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0,
-    google_api_key=google_api_key,
-)
+# llm = ChatGoogleGenerativeAI(
+#     model="gemini-2.0-flash",
+#     temperature=0,
+#     google_api_key=google_api_key,
+# )
+llm = load_llm()
 
 # # Define the example Q&A for each category
 # EXAMPLE_QA_MAP = {
@@ -250,26 +253,30 @@ llm = ChatGoogleGenerativeAI(
 # 1. questions 리스트의 각 항목을 위한 모델 정의
 class QuestionItem(BaseModel):
     """Pydantic model defining a question object"""
+
     question: str = Field(
         description="A generated question (natural user style, generalized, in Korean)."
     )
 
+
 # 2. ContentOutput 모델 수정
 class ContentOutput(BaseModel):
     """Pydantic model defining the structured output from the LLM"""
+
     summary: str = Field(
         description="A concise, one-sentence summary of the [CONTENT] in Korean, preserving key advice, insights, and practical information."
     )
     keywords: List[str] = Field(
         description="An array of exactly 10 keywords in Korean, extracted from [CONTENT], focusing on business terms, restaurant industry concepts, entrepreneurship topics, and brand names.",
         min_items=10,
-        max_items=10
+        max_items=10,
     )
     questions: List[QuestionItem] = Field(
         description="An array of exactly 6 generalized questions in Korean, ALL written in informal Korean (반말). The array contains a mix of two types: 3 questions for which the [CONTENT] provides a direct answer (seeking general principles, methods, reasons, etc.), and 3 questions reflecting naive, arrogant, or simplistic assumptions for which the [CONTENT] serves as a basis to critique, challenge, or correct the question's premise. All 6 questions must avoid specific details (names, numbers, specific cases) mentioned in the text and focus on broader concepts or underlying assumptions.",
         min_items=6,
-        max_items=6
+        max_items=6,
     )
+
 
 def summary_and_keywords(content):
     """
@@ -347,24 +354,24 @@ You are an expert AI assistant tasked with processing input text (`[CONTENT]`) t
                 # 파싱 실패 또는 예상치 못한 형식
                 raw_output = result.get("raw")
                 error_msg = f"Failed to parse LLM output into ContentOutput model. Raw output: {raw_output}"
-                print(error_msg) # 혹은 logger 사용
+                print(error_msg)  # 혹은 logger 사용
                 raise ValueError(error_msg)
         elif isinstance(result, ContentOutput):
-             # include_raw=False (기본값)를 사용했을 때의 처리
-             summary_text = result.summary
-             keywords = result.keywords
-             possible_questions = result.questions
-             return summary_text, keywords, possible_questions  
+            # include_raw=False (기본값)를 사용했을 때의 처리
+            summary_text = result.summary
+            keywords = result.keywords
+            possible_questions = result.questions
+            return summary_text, keywords, possible_questions
         else:
-             # 예상치 못한 결과 타입
-             error_msg = f"Unexpected result type from chain: {type(result)}"
-             print(error_msg) # 혹은 logger 사용
-             raise ValueError(error_msg)
+            # 예상치 못한 결과 타입
+            error_msg = f"Unexpected result type from chain: {type(result)}"
+            print(error_msg)  # 혹은 logger 사용
+            raise ValueError(error_msg)
 
     except Exception as e:
         # Log the error and raise a specific ValueError or return None
         error_info = f"Error in summary_and_keywords: {e}"
-        print(error_info) # 혹은 logger 사용
+        print(error_info)  # 혹은 logger 사용
         # 여기서 에러를 다시 raise 하거나, (None, None, None) 등을 반환하여
         # 호출하는 쪽(예: ingest.py)에서 처리하도록 할 수 있습니다.
         # ingest.py의 SkipDocumentError 처리를 유지하려면 여기서 ValueError를 raise하는 것이 적합합니다.
