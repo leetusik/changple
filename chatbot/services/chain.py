@@ -107,8 +107,8 @@ def load_llm(model_name="gemini-2.5-flash-preview-04-17"):
 
 
 def load_embeddings():
-    # embeddings = OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    # embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
     return embeddings
 
 

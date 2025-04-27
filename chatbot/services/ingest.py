@@ -128,8 +128,11 @@ def get_embeddings_model() -> Embeddings:
     Returns an embedding model instance.
     The chunk_size parameter here is for API batching, not text splitting.
     """
-    # return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
-    return GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
+    return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    # return GoogleGenerativeAIEmbeddings(
+    #     model="models/gemini-embedding-exp-03-07",
+    #     chunk_size=200,
+    # )
 
 
 def load_posts_from_database(
@@ -254,6 +257,7 @@ def ingest_docs():
         if raw_doc.metadata["possible_questions"] is None:
             try:
                 # Process the document (generate summary/keywords)
+                # pass
                 processed_doc = gpt_summarize(raw_doc)  # Updates DB and doc.metadata
                 processed_docs.append(processed_doc)
                 logger.info(f"{idx}/{total_docs} documents processed")
@@ -343,7 +347,7 @@ def ingest_docs():
 
     try:
         # Batch documents for embedding and upsertion
-        embedding_batch_size = 20  # Consider Pinecone limits if issues arise
+        embedding_batch_size = 5  # Consider Pinecone limits if issues arise
         total_batches = (len(new_docs) - 1) // embedding_batch_size + 1
 
         for i in range(0, len(new_docs), embedding_batch_size):
