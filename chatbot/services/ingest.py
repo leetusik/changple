@@ -1,11 +1,13 @@
 """Load posts from database, clean up, split, ingest into Pinecone for RAG chatbot."""
 
+import asyncio  # Added asyncio
 import logging
 import os
 import time  # Added for retry sleep
 from typing import Any, Dict, List
 
 import django
+import nest_asyncio  # Added nest_asyncio
 from django.db.models import Q
 from django.db.models.functions import Length
 from dotenv import load_dotenv
@@ -15,22 +17,24 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 # Now import Django models after setting up Django
-from scraper.models import NaverCafeData
+from scraper.models import AllowedAuthor, NaverCafeData
 
 load_dotenv()
 
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 
-from chatbot.services.content_evaluator import QuestionItem, summary_and_keywords
+from chatbot.services.content_evaluator import summary_and_keywords
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+nest_asyncio.apply()  # Apply nest_asyncio to allow running async from sync
 
 
 # Custom exception for document processing control flow
@@ -69,23 +73,17 @@ def gpt_summarize(doc: Document) -> Document:
     if doc.metadata["possible_questions"] is None:
         try:
             # Generate summary, keywords, and questions from the original content
-            summary, keywords, possible_questions_list = summary_and_keywords(
-                doc.page_content
+            temp_content = f"제목:{doc.metadata['title']}\n{doc.page_content}"
+            # Run the async function synchronously using asyncio.run()
+            summary, keywords, possible_questions_list = asyncio.run(
+                summary_and_keywords(temp_content)
             )
 
-            # questions_list는 QuestionItem 객체의 리스트일 수 있으므로 문자열 리스트로 변환
-            # content_evaluator.py의 반환 타입 변경에 맞춰 수정 필요 (이미 문자열 리스트로 반환한다면 이 변환은 불필요)
-            # 만약 QuestionItem 객체 리스트로 반환된다면:
-            if possible_questions_list and isinstance(
-                possible_questions_list[0], QuestionItem
-            ):
-                questions_str_list = [item.question for item in possible_questions_list]
-            else:
-                questions_str_list = (
-                    possible_questions_list
-                    if isinstance(possible_questions_list, list)
-                    else []
-                )
+            questions_str_list = (
+                possible_questions_list
+                if isinstance(possible_questions_list, list)
+                else []
+            )
 
             # Update metadata (DO NOT replace page_content)
             doc.metadata["summary"] = summary
@@ -131,6 +129,10 @@ def get_embeddings_model() -> Embeddings:
     The chunk_size parameter here is for API batching, not text splitting.
     """
     return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    # return GoogleGenerativeAIEmbeddings(
+    #     model="models/gemini-embedding-exp-03-07",
+    #     chunk_size=200,
+    # )
 
 
 def load_posts_from_database(
@@ -144,12 +146,25 @@ def load_posts_from_database(
         List of Documents
     """
     try:
+        # Get active authors from AllowedAuthor model
+        active_authors = list(
+            AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
+        )
+
+        if not active_authors:
+            logger.warning(
+                "No active authors found in AllowedAuthor model. Using default author."
+            )
+            active_authors = ["창플"]
+
+        logger.info(f"Using active authors: {active_authors}")
+
+        # active_authors = ["창플"]
+
         # Use proper Length annotation instead of unsupported len lookup
         # Updated filter to check for null possible_questions
         posts = NaverCafeData.objects.annotate(content_length=Length("content")).filter(
-            author__in=[
-                "창플",
-            ],
+            author__in=active_authors,
             content_length__gt=min_content_length,
             # possible_questions__isnull=True,
         )
@@ -203,6 +218,19 @@ def ingest_docs():
 
     # Initialize Pinecone for filtering ids
     pc = Pinecone(api_key=PINECONE_API_KEY)
+    # print(pc.list_indexes().names())
+    if PINECONE_INDEX_NAME not in pc.list_indexes().names():
+        print("Creating index")
+        pc.create_index(
+            PINECONE_INDEX_NAME,
+            dimension=3072,
+            metric="cosine",
+            spec=ServerlessSpec(
+                cloud="aws",
+                region=PINECONE_ENVIRONMENT,
+            ),
+        )
+
     index = pc.Index(PINECONE_INDEX_NAME)
 
     vector_store = PineconeVectorStore(
@@ -229,6 +257,7 @@ def ingest_docs():
         if raw_doc.metadata["possible_questions"] is None:
             try:
                 # Process the document (generate summary/keywords)
+                # pass
                 processed_doc = gpt_summarize(raw_doc)  # Updates DB and doc.metadata
                 processed_docs.append(processed_doc)
                 logger.info(f"{idx}/{total_docs} documents processed")
@@ -318,7 +347,7 @@ def ingest_docs():
 
     try:
         # Batch documents for embedding and upsertion
-        embedding_batch_size = 20  # Consider Pinecone limits if issues arise
+        embedding_batch_size = 5  # Consider Pinecone limits if issues arise
         total_batches = (len(new_docs) - 1) // embedding_batch_size + 1
 
         for i in range(0, len(new_docs), embedding_batch_size):
@@ -336,16 +365,11 @@ def ingest_docs():
                 )  # gpt_summarize에서 문자열 리스트로 저장됨
 
                 # 키워드와 질문 포맷팅
-                keywords_str = " ".join(keywords_list)
-                questions_str = "\n".join(questions_list)  # 각 질문을 줄바꿈으로 구분
+                keywords_str = ",".join(keywords_list)
+                questions_str = ",".join(questions_list)  # 각 질문을 줄바꿈으로 구분
 
                 # 임베딩을 위한 텍스트 생성 (요약 + 키워드 + 질문 형식)
-                text_for_embedding = f"""
-제목: {title}
-요약: {summary}
-키워드: {keywords_str}
-질문: 
-{questions_str}"""
+                text_for_embedding = f"""제목:'{title}',키워드:'{keywords_str}',요약:'{summary}',질문:'{questions_str}'"""
 
                 # 원본 Document 객체를 복사하여 page_content만 교체 (metadata 유지)
                 doc.page_content = text_for_embedding
@@ -376,14 +400,14 @@ def ingest_docs():
         logger.error(f"Error upserting documents to Pinecone: {e}", exc_info=True)
         raise RuntimeError("Pinecone ingestion failed during document upsert.") from e
 
-    # # Get final stats from Pinecone
-    # try:
-    #     stats = index.describe_index_stats()
-    #     logger.info(
-    #         f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
-    #     )
-    # except Exception as e:
-    #     logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
+    # Get final stats from Pinecone
+    try:
+        stats = index.describe_index_stats()
+        logger.info(
+            f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
+        )
+    except Exception as e:
+        logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
 
 
 if __name__ == "__main__":
