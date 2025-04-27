@@ -13,7 +13,7 @@ import pydantic
 from langchain_core.documents import Document
 from langchain_core.messages import AnyMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langgraph.checkpoint.memory import MemorySaver
@@ -107,7 +107,8 @@ def load_llm(model_name="gemini-2.5-flash-preview-04-17"):
 
 
 def load_embeddings():
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    # embeddings = OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
     return embeddings
 
 

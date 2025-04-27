@@ -126,4 +126,4 @@ class AllowedAuthorAdmin(admin.ModelAdmin):
 admin.site.register(NaverCafeData, NaverCafeDataAdmin)
 # admin.site.register(PostStatus, PostStatusAdmin)
 # admin.site.register(AllowedCategory, AllowedCategoryAdmin)
-# admin.site.register(AllowedAuthor, AllowedAuthorAdmin)
+admin.site.register(AllowedAuthor, AllowedAuthorAdmin)

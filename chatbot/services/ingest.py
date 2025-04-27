@@ -15,14 +15,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 # Now import Django models after setting up Django
-from scraper.models import NaverCafeData
+from scraper.models import AllowedAuthor, NaverCafeData
 
 load_dotenv()
 
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
@@ -130,7 +130,8 @@ def get_embeddings_model() -> Embeddings:
     Returns an embedding model instance.
     The chunk_size parameter here is for API batching, not text splitting.
     """
-    return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    # return OpenAIEmbeddings(model="text-embedding-3-large", chunk_size=200)
+    return GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
 
 
 def load_posts_from_database(
@@ -144,12 +145,23 @@ def load_posts_from_database(
         List of Documents
     """
     try:
+        # Get active authors from AllowedAuthor model
+        active_authors = list(
+            AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
+        )
+
+        if not active_authors:
+            logger.warning(
+                "No active authors found in AllowedAuthor model. Using default author."
+            )
+            active_authors = ["창플"]
+
+        logger.info(f"Using active authors: {active_authors}")
+
         # Use proper Length annotation instead of unsupported len lookup
         # Updated filter to check for null possible_questions
         posts = NaverCafeData.objects.annotate(content_length=Length("content")).filter(
-            author__in=[
-                "창플",
-            ],
+            author__in=active_authors,
             content_length__gt=min_content_length,
             # possible_questions__isnull=True,
         )
@@ -203,6 +215,13 @@ def ingest_docs():
 
     # Initialize Pinecone for filtering ids
     pc = Pinecone(api_key=PINECONE_API_KEY)
+    if PINECONE_INDEX_NAME not in pc.list_indexes():
+        pc.create_index(
+            PINECONE_INDEX_NAME,
+            dimension=3072,
+            metric="cosine",
+        )
+
     index = pc.Index(PINECONE_INDEX_NAME)
 
     vector_store = PineconeVectorStore(
@@ -340,12 +359,7 @@ def ingest_docs():
                 questions_str = "\n".join(questions_list)  # 각 질문을 줄바꿈으로 구분
 
                 # 임베딩을 위한 텍스트 생성 (요약 + 키워드 + 질문 형식)
-                text_for_embedding = f"""
-제목: {title}
-요약: {summary}
-키워드: {keywords_str}
-질문: 
-{questions_str}"""
+                text_for_embedding = f"""제목:'{title}',키워드:'{keywords_str}',요약:'{summary}',질문:'{questions_str}'"""
 
                 # 원본 Document 객체를 복사하여 page_content만 교체 (metadata 유지)
                 doc.page_content = text_for_embedding
@@ -376,14 +390,14 @@ def ingest_docs():
         logger.error(f"Error upserting documents to Pinecone: {e}", exc_info=True)
         raise RuntimeError("Pinecone ingestion failed during document upsert.") from e
 
-    # # Get final stats from Pinecone
-    # try:
-    #     stats = index.describe_index_stats()
-    #     logger.info(
-    #         f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
-    #     )
-    # except Exception as e:
-    #     logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
+    # Get final stats from Pinecone
+    try:
+        stats = index.describe_index_stats()
+        logger.info(
+            f"Pinecone index '{PINECONE_INDEX_NAME}' now has {stats.total_vector_count} total vectors."
+        )
+    except Exception as e:
+        logger.warning(f"Could not retrieve final index stats from Pinecone: {e}")
 
 
 if __name__ == "__main__":
