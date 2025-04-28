@@ -107,9 +107,15 @@ async def summary_and_keywords(content, max_retries=2, initial_backoff=2):
                     raw_output = result.get("raw")
                     error_msg = f"Failed to parse main LLM output. Raw: {raw_output}"
                     logger.error(error_msg)
-                    raise ValueError(
-                        error_msg
-                    )  # Raise specific error for parsing failure
+                    # If this is the first attempt, try with fast_chain instead of immediately raising
+                    if attempt == 1:
+                        raise ValueError(
+                            error_msg
+                        )  # Will be caught by the ValueError handler below
+                    else:
+                        raise ValueError(
+                            error_msg
+                        )  # Raise specific error for parsing failure
             elif isinstance(result, ContentOutput):
                 summary_text = result.summary
                 ten_keywords = result.ten_keywords
@@ -120,94 +126,114 @@ async def summary_and_keywords(content, max_retries=2, initial_backoff=2):
                     f"Unexpected result type from main LLM chain: {type(result)}"
                 )
                 logger.error(error_msg)
-                raise ValueError(error_msg)  # Raise specific error for unexpected type
+                # If this is the first attempt, try with fast_chain instead of immediately raising
+                if attempt == 1:
+                    raise ValueError(
+                        error_msg
+                    )  # Will be caught by the ValueError handler below
+                else:
+                    raise ValueError(
+                        error_msg
+                    )  # Raise specific error for unexpected type
 
-        except asyncio.TimeoutError:
-            logger.warning(
-                f"Attempt {attempt}/{max_retries}: Main LLM timed out. Falling back to fast LLM (gemini-2.5-flash)."
-            )
-            last_exception = asyncio.TimeoutError(
-                "Main LLM timed out after 30 seconds."
-            )
+        except (asyncio.TimeoutError, ValueError, Exception) as e:
+            # Any error in first attempt, try fast LLM
+            if attempt == 1:
+                error_type = type(e).__name__
+                logger.warning(
+                    f"Attempt {attempt}/{max_retries}: Main LLM failed with {error_type}. Error: {e}. Falling back to fast LLM."
+                )
+                last_exception = e
 
-            # --- Fallback Attempt with Fast LLM ---
-            try:
-                logger.info("Invoking fast LLM chain...")
-                # No timeout applied to fallback, or a different one could be set
-                fallback_result = await fast_chain.ainvoke({"content": content})
-                logger.info("Fast LLM chain invocation successful.")
+                # --- Fallback Attempt with Fast LLM ---
+                try:
+                    logger.info("Invoking fast LLM chain...")
+                    # No timeout applied to fallback, or a different one could be set
+                    fallback_result = await fast_chain.ainvoke({"content": content})
+                    logger.info("Fast LLM chain invocation successful.")
 
-                # Process fallback result
-                if isinstance(fallback_result, dict) and "parsed" in fallback_result:
-                    parsed_output = fallback_result.get("parsed")
-                    if parsed_output and isinstance(parsed_output, ContentOutput):
-                        summary_text = parsed_output.summary
-                        ten_keywords = parsed_output.ten_keywords
-                        five_retrieval_queries = parsed_output.five_retrieval_queries
+                    # Process fallback result
+                    if (
+                        isinstance(fallback_result, dict)
+                        and "parsed" in fallback_result
+                    ):
+                        parsed_output = fallback_result.get("parsed")
+                        if parsed_output and isinstance(parsed_output, ContentOutput):
+                            summary_text = parsed_output.summary
+                            ten_keywords = parsed_output.ten_keywords
+                            five_retrieval_queries = (
+                                parsed_output.five_retrieval_queries
+                            )
+                            return (
+                                summary_text,
+                                ten_keywords,
+                                five_retrieval_queries,
+                            )  # Success on fallback
+                        else:
+                            raw_output = fallback_result.get("raw")
+                            error_msg = f"Failed to parse fast LLM fallback output. Raw: {raw_output}"
+                            logger.error(error_msg)
+                            # Don't retry after fallback failure
+                            raise ValueError(error_msg)
+                    elif isinstance(fallback_result, ContentOutput):
+                        summary_text = fallback_result.summary
+                        ten_keywords = fallback_result.ten_keywords
+                        five_retrieval_queries = fallback_result.five_retrieval_queries
                         return (
                             summary_text,
                             ten_keywords,
                             five_retrieval_queries,
                         )  # Success on fallback
                     else:
-                        raw_output = fallback_result.get("raw")
-                        error_msg = f"Failed to parse fast LLM fallback output. Raw: {raw_output}"
+                        error_msg = f"Unexpected result type from fast LLM chain: {type(fallback_result)}"
                         logger.error(error_msg)
-                        raise ValueError(
-                            error_msg
-                        )  # Raise specific error for parsing failure on fallback
-                elif isinstance(fallback_result, ContentOutput):
-                    summary_text = fallback_result.summary
-                    ten_keywords = fallback_result.ten_keywords
-                    five_retrieval_queries = fallback_result.five_retrieval_queries
-                    return (
-                        summary_text,
-                        ten_keywords,
-                        five_retrieval_queries,
-                    )  # Success on fallback
-                else:
-                    error_msg = f"Unexpected result type from fast LLM chain: {type(fallback_result)}"
-                    logger.error(error_msg)
-                    raise ValueError(
-                        error_msg
-                    )  # Raise specific error for unexpected type on fallback
+                        # Don't retry after fallback failure
+                        raise ValueError(error_msg)
 
-            except Exception as fallback_e:
-                logger.error(f"Error during fast LLM fallback: {fallback_e}")
-                last_exception = (
-                    fallback_e  # Update last exception to the fallback error
-                )
-                break  # Exit retry loop after fallback failure
-
-            # If fallback processing failed (e.g., ValueError from parsing), the exception is caught below
-            # and the loop will break.
-
-        except (
-            ValueError
-        ) as parse_or_type_e:  # Catch parsing/type errors from main or fallback
-            logger.error(
-                f"Attempt {attempt}/{max_retries}: Unrecoverable error: {parse_or_type_e}"
-            )
-            last_exception = parse_or_type_e
-            break  # Exit loop immediately on parsing or type errors
-
-        except Exception as e:
-            # Handle other exceptions from main LLM call (non-timeout, non-parsing)
-            logger.error(
-                f"Attempt {attempt}/{max_retries}: Error invoking main LLM: {e}"
-            )
-            last_exception = e
-
-            if attempt < max_retries:
-                backoff_time = initial_backoff * (2 ** (attempt - 1))
-                logger.info(f"Retrying main LLM in {backoff_time} seconds...")
-                await asyncio.sleep(backoff_time)
-                continue  # Continue to next attempt with main LLM
+                except Exception as fallback_e:
+                    logger.error(f"Error during fast LLM fallback: {fallback_e}")
+                    last_exception = fallback_e
+                    # Continue with retries using main model if we have retries left
+                    if attempt < max_retries:
+                        backoff_time = initial_backoff * (2 ** (attempt - 1))
+                        logger.info(f"Retrying main LLM in {backoff_time} seconds...")
+                        await asyncio.sleep(backoff_time)
+                        continue
+                    else:
+                        # If no more retries, exit the loop
+                        break
             else:
-                logger.error(
-                    "Max retries reached for main LLM after non-timeout error."
-                )
-                break  # Exit loop if max retries reached
+                # Not the first attempt, handle based on error type
+                if isinstance(e, asyncio.TimeoutError):
+                    logger.error(
+                        f"Timeout on retry attempt {attempt}. No more fallbacks."
+                    )
+                    last_exception = e
+                    # No more fallbacks after first attempt, just break if this is the last retry
+                    if attempt >= max_retries:
+                        break
+                    # Otherwise do a retry with backoff
+                    backoff_time = initial_backoff * (2 ** (attempt - 1))
+                    logger.info(f"Retrying main LLM in {backoff_time} seconds...")
+                    await asyncio.sleep(backoff_time)
+                    continue
+                elif isinstance(e, ValueError):
+                    # ValueErrors (parsing/type errors) are considered unrecoverable
+                    logger.error(f"Unrecoverable error on attempt {attempt}: {e}")
+                    last_exception = e
+                    break  # Exit loop immediately on parsing or type errors
+                else:
+                    # Other exceptions - retry with main model if we have retries left
+                    logger.error(f"Error on attempt {attempt}: {e}")
+                    last_exception = e
+                    if attempt < max_retries:
+                        backoff_time = initial_backoff * (2 ** (attempt - 1))
+                        logger.info(f"Retrying main LLM in {backoff_time} seconds...")
+                        await asyncio.sleep(backoff_time)
+                        continue
+                    else:
+                        logger.error("Max retries reached for main LLM.")
+                        break
 
     # --- End of Loop ---
     # If loop finished without returning (i.e., all attempts/fallback failed)
