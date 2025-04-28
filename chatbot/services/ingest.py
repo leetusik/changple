@@ -34,7 +34,17 @@ from chatbot.services.content_evaluator import summary_and_keywords
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-nest_asyncio.apply()  # Apply nest_asyncio to allow running async from sync
+# Apply nest_asyncio to allow running async from sync
+nest_asyncio.apply()
+
+# Get or create a common event loop for all async operations
+try:
+    # Try to get the current event loop
+    loop = asyncio.get_event_loop()
+except RuntimeError:
+    # If no event loop exists, create a new one
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
 
 # Custom exception for document processing control flow
@@ -74,8 +84,10 @@ def gpt_summarize(doc: Document) -> Document:
         try:
             # Generate summary, keywords, and questions from the original content
             temp_content = f"제목:{doc.metadata['title']}\n{doc.page_content}"
-            # Run the async function synchronously using asyncio.run()
-            summary, keywords, possible_questions_list = asyncio.run(
+
+            # Instead of asyncio.run, use the shared event loop to run the coroutine
+            # This prevents creating and closing event loops repeatedly
+            summary, keywords, possible_questions_list = loop.run_until_complete(
                 summary_and_keywords(temp_content)
             )
 
