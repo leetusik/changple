@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Optional, Union, cast
 
+os.environ["GRPC_DNS_RESOLVER"] = "native"
+
 # Third-party imports
 import pydantic
 from langchain_core.documents import Document
@@ -100,9 +102,9 @@ def reduce_docs(
 # -----------------------------------------------------------------------------
 
 
-def load_llm(model_name="gemini-2.5-flash-preview-04-17"):
+def load_llm(model_name="gemini-2.5-flash-preview-04-17", temperature=0):
     # def load_llm(model_name="gemini-2.0-flash"):
-    llm = ChatGoogleGenerativeAI(model=model_name, temperature=0)
+    llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
     return llm
 
 
@@ -126,7 +128,7 @@ def load_vector_store_retriever():
     vector_store = PineconeVectorStore(
         index_name=index_name, embedding=load_embeddings(), text_key="text"
     )
-    yield vector_store.as_retriever(search_kwargs={"k": 3})
+    yield vector_store.as_retriever(search_kwargs={"k": 4})
 
 
 # -----------------------------------------------------------------------------
@@ -213,13 +215,14 @@ def generate_queries(state: AgentState):
     class Response(TypedDict):
         queries: list[str]
 
-    model = load_llm(model_name="gemini-2.0-flash").with_structured_output(Response)
+    model = load_llm(
+        model_name="gemini-2.5-flash-preview-04-17", temperature=1
+    ).with_structured_output(Response)
     generate_queries_system_prompt = """
-    당신은 유능한 질문 분해자입니다. 유저의 질문에 알맞는 정보를 수집할 수 있도록, 유저의 질문을 3개의 "단어 나열"로 분해해주세요.
-    각각의 단어 나열은 최소 2개, 최대 5개의 단어로 구성됩니다.
-    각각 3개의 단어 나열은 반드시 유저가 사용한 단어들을 포함해야 합니다.
-    각각 3개의 단어 나열이 최대한 겹치지 않도록 노력하세요.
-    창플의 기초 지식을 적극 활용하여, 유저에게 도움이 될 수 있는 정보를 찾기 위해 단어 나열을 구성하세요.
+    유저의 질문을 통해 문서를 리트리벌 하기 위해 유저의 질문을 3개의 "단어 나열"로 분해하세요.
+    총 3개의 단어 나열은 반드시 유저가 사용한 단어를 모두 포함해야 합니다.
+    질문이 너무 짧아 단어가 중복될 경우, 창의적으로 유사한 단어로 대체하세요.(술집 -> 소주, 위스키, 와인 등)
+    이는 유저에게 잘 맞는 정보를 제공하기 위함임을 기억하고, 주어진 창플의 기초 지식을 활용하여 유저에게 최대한 도움이 될 수 있는 단어 나열 3개를 생성하세요.
 
     <창플의 기초 지식>
     창플 챗봇 Base Knowledge (창플 카페 포스트 기반)
