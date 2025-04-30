@@ -146,6 +146,7 @@ class DisallowedBrands(models.Model):
 
 class GoodtoKnowBrands(models.Model):
     name = models.CharField(max_length=200, unique=True, null=False, blank=False)
+    description = models.TextField(null=True, blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
     is_goodto_know = models.BooleanField(default=True)
 
