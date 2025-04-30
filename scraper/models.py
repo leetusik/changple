@@ -17,7 +17,10 @@ class NaverCafeData(models.Model):
     keywords = models.JSONField(null=True, blank=True, default=None)
     summary = models.TextField(null=True, blank=True, default=None)
     possible_questions = models.JSONField(
-        null=True, blank=True, default=None, help_text="List of generated questions (strings) based on the content"
+        null=True,
+        blank=True,
+        default=None,
+        help_text="List of generated questions (strings) based on the content",
     )
 
     def __str__(self):
@@ -123,6 +126,32 @@ class AllowedAuthor(models.Model):
         verbose_name = "Allowed Author"
         verbose_name_plural = "Allowed Authors"
         ordering = ["author_group", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class DisallowedBrands(models.Model):
+    name = models.CharField(max_length=200, unique=True, null=False, blank=False)
+    date_added = models.DateTimeField(auto_now_add=True)
+    is_disallowed = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Disallowed Brand"
+        verbose_name_plural = "Disallowed Brands"
+
+    def __str__(self):
+        return self.name
+
+
+class GoodtoKnowBrands(models.Model):
+    name = models.CharField(max_length=200, unique=True, null=False, blank=False)
+    date_added = models.DateTimeField(auto_now_add=True)
+    is_goodto_know = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Good to Know Brand"
+        verbose_name_plural = "Good to Know Brands"
 
     def __str__(self):
         return self.name
