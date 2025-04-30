@@ -25,6 +25,9 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+# Now import Django models after setup
+from scraper.models import DisallowedBrands
+
 # -----------------------------------------------------------------------------
 # Document formatting and utility functions
 # -----------------------------------------------------------------------------
@@ -124,11 +127,17 @@ index_name = os.environ.get("PINECONE_INDEX_NAME")
 
 
 @contextmanager
-def load_vector_store_retriever():
+def load_vector_store_retriever(disallowed_brands: list[str]):
     vector_store = PineconeVectorStore(
         index_name=index_name, embedding=load_embeddings(), text_key="text"
     )
-    yield vector_store.as_retriever(search_kwargs={"k": 4})
+    # Dynamically use the fetched list of disallowed brands in the filter
+    yield vector_store.as_retriever(
+        search_kwargs={
+            "k": 5,
+            "filter": {"keywords": {"$nin": disallowed_brands}},
+        }
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -157,6 +166,7 @@ class AgentState(MessagesState):
     query: str = field(default="")
     retrieve_queries: list[str] = field(default_factory=list)
     helpful_documents: list[str] = field(default_factory=list)
+    disallowed_brands: list[str] = field(default_factory=list)
 
 
 # -----------------------------------------------------------------------------
@@ -307,7 +317,15 @@ VMD에 투자하라: 비싼 인테리어 공사보다 브랜드 콘셉트를 담
     """
     prompt = [SystemMessage(generate_queries_system_prompt)] + state["messages"][-5:]
     response = cast(Response, model.invoke(prompt))
-    return {"retrieve_queries": response["queries"]}
+    disallowed_brands = list(
+        DisallowedBrands.objects.filter(is_disallowed=True).values_list(
+            "name", flat=True
+        )
+    )
+    return {
+        "retrieve_queries": response["queries"],
+        "disallowed_brands": disallowed_brands,
+    }
 
 
 def retrieve_in_parallel(state: AgentState) -> list[Send]:
@@ -318,7 +336,7 @@ def retrieve_in_parallel(state: AgentState) -> list[Send]:
 
 
 def retrieve_documents(state: QueryState):
-    with load_vector_store_retriever() as retriever:
+    with load_vector_store_retriever(state["disallowed_brands"]) as retriever:
         response = retriever.invoke(state.query)
         return {"documents": response}
 
