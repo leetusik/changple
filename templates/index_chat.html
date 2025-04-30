@@ -370,9 +370,19 @@
                                     if (data.token) {
                                         accumulatedResponse += data.token;
                                         if (aiContentSpan) {
-                                            // 이전: aiContentSpan.textContent = accumulatedResponse;
-                                            // 변경: 스트리밍 중 마크다운 실시간 렌더링
-                                            aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(accumulatedResponse));
+                                            // Original implementation:
+                                            // aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(accumulatedResponse));
+                                            
+                                            // Enhanced markdown parsing with list item handling
+                                            // First, ensure proper spacing around list items
+                                            let processedResponse = accumulatedResponse;
+                                            
+                                            // Fix bullet points that might be incorrectly joined
+                                            // Look for asterisks or bullets that aren't at the start of a line
+                                            processedResponse = processedResponse.replace(/([^\n])(\s*)([•\*]\s+)/g, "$1\n$3");
+                                            
+                                            // Now parse with marked and sanitize
+                                            aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(processedResponse));
                                         }
                                     } else if (data.end) {
                                         console.log('End signal received.');
