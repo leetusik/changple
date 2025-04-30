@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from scraper.models import AllowedAuthor, AllowedCategory, NaverCafeData, PostStatus
+from scraper.models import (
+    AllowedAuthor,
+    AllowedCategory,
+    DisallowedBrands,
+    GoodtoKnowBrands,
+    NaverCafeData,
+    PostStatus,
+)
 
 
 class ActiveCategoryFilter(admin.SimpleListFilter):
@@ -123,7 +130,63 @@ class AllowedAuthorAdmin(admin.ModelAdmin):
     deactivate_authors.short_description = "Deactivate selected authors"
 
 
-admin.site.register(NaverCafeData, NaverCafeDataAdmin)
-# admin.site.register(PostStatus, PostStatusAdmin)
-# admin.site.register(AllowedCategory, AllowedCategoryAdmin)
+class DisallowedBrandsAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_disallowed", "date_added")
+    list_filter = ("is_disallowed",)
+    search_fields = ("name",)
+    list_per_page = 50
+    actions = ["activate_disallowed_brands", "deactivate_disallowed_brands"]
+    list_editable = ["is_disallowed"]
+
+    def activate_disallowed_brands(self, request, queryset):
+        queryset.update(is_disallowed=True)
+        self.message_user(
+            request, f"{queryset.count()} disallowed brands have been activated."
+        )
+
+    activate_disallowed_brands.short_description = "Activate selected disallowed brands"
+
+    def deactivate_disallowed_brands(self, request, queryset):
+        queryset.update(is_disallowed=False)
+        self.message_user(
+            request, f"{queryset.count()} disallowed brands have been deactivated."
+        )
+
+    deactivate_disallowed_brands.short_description = (
+        "Deactivate selected disallowed brands"
+    )
+
+
+class GoodtoKnowBrandsAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_goodto_know", "date_added")
+    list_filter = ("is_goodto_know",)
+    search_fields = ("name",)
+    list_per_page = 50
+    actions = ["activate_goodto_know_brands", "deactivate_goodto_know_brands"]
+    list_editable = ["is_goodto_know"]
+
+    def activate_goodto_know_brands(self, request, queryset):
+        queryset.update(is_goodto_know=True)
+        self.message_user(
+            request, f"{queryset.count()} good to know brands have been activated."
+        )
+
+    activate_goodto_know_brands.short_description = (
+        "Activate selected good to know brands"
+    )
+
+    def deactivate_goodto_know_brands(self, request, queryset):
+        queryset.update(is_goodto_know=False)
+        self.message_user(
+            request, f"{queryset.count()} good to know brands have been deactivated."
+        )
+
+    deactivate_goodto_know_brands.short_description = (
+        "Deactivate selected good to know brands"
+    )
+
+
 admin.site.register(AllowedAuthor, AllowedAuthorAdmin)
+admin.site.register(DisallowedBrands, DisallowedBrandsAdmin)
+admin.site.register(GoodtoKnowBrands, GoodtoKnowBrandsAdmin)
+admin.site.register(NaverCafeData, NaverCafeDataAdmin)
