@@ -139,7 +139,7 @@ def chat_view(request, session_nonce=None):
                 "created_at": message.created_at,
             }
             # assistant 메시지일 경우 helpful_documents 필드를 추가
-            if message.role == "assistant":
+            if message.role == "assistant" and message.helpful_documents:
                 message_data["documents"] = message.helpful_documents
             else:
                 message_data["documents"] = []
