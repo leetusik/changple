@@ -255,3 +255,56 @@ function openConsultationModal() {
     });
   }
 }
+
+/**
+ * 문서 목록을 기반으로 출처 토글 UI를 생성하고 채팅창에 렌더링합니다.
+ * @param {Array<Object>} documents - 표시할 문서 객체의 배열. 각 객체는 title과 source 속성을 가져야 합니다.
+ */
+function renderSourceToggle(documents) {
+    if (!documents || !Array.isArray(documents) || documents.length === 0) {
+        console.log('No documents to display or invalid format.');
+        return;
+    }
+
+    const promptContainer = document.querySelector('.prompt-wrapper');
+    if (!promptContainer) {
+        console.error('.prompt-wrapper element not found.');
+        return;
+    }
+
+    // Create the source toggle container HTML
+    const sourceToggleHTML = `
+    <div class="source-toggle-container">
+        <div class="toggle-area">
+            <button class="toggle-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 6 15 12 9 18"></polyline>
+                </svg>
+            </button>
+            <div class="toggle-text">
+                <p>출처 보기</p>
+            </div>
+        </div>
+        <div class="source-list-area" style="display: none;">
+            ${documents.map((doc, index) => `
+                <div class="source-list-item-${index + 1}">
+                    <p>[${index + 1}]</p>
+                    <p>
+                        <a href="${doc.source}" target="_blank" style="color: #617DAE; text-decoration: none;">
+                            ${doc.title}
+                        </a>
+                    </p>
+                </div>
+            `).join('')}
+        </div>
+    </div>`;
+
+    // Insert the HTML
+    promptContainer.insertAdjacentHTML('beforeend', sourceToggleHTML);
+
+    // Scroll the new element into view
+    const newToggle = promptContainer.lastElementChild;
+    if (newToggle && newToggle.classList.contains('source-toggle-container')) {
+        newToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}

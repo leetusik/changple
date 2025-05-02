@@ -131,14 +131,19 @@ def chat_view(request, session_nonce=None):
         chat_messages = chat_session.messages.all()
 
         # Format messages for template
-        chat_history = [
-            {
+        chat_history = []
+        for message in chat_messages:
+            message_data = {
                 "role": message.role,
                 "content": message.content,
                 "created_at": message.created_at,
             }
-            for message in chat_messages
-        ]
+            # assistant 메시지일 경우 helpful_documents 필드를 추가
+            if message.role == "assistant":
+                message_data["documents"] = message.helpful_documents
+            else:
+                message_data["documents"] = []
+            chat_history.append(message_data)
 
         # Format the chat history for JavaScript chain format
         chat_history_json = []
@@ -221,7 +226,6 @@ def chat_view(request, session_nonce=None):
     context = {
         "chat_session": chat_session,
         "chat_history": chat_history,
-        "chat_history_json": chat_history_json,
         "initial_message": initial_message,  # Pass initial message to template
         "remaining_queries": remaining_queries,
         "query_limit": query_limit,
@@ -415,14 +419,76 @@ def chat(request):
                                     f"Skipping saving duplicate user message for session {session_nonce}"
                                 )
 
-                            # Always save the AI response
+                            # --- Extract data from final state BEFORE saving AI message ---
+                            doc_info = []
+                            retrieved_queries = [] # Initialize retrieve_queries list
+                            try:
+                                # Get state from the graph
+                                state = graph.get_state(
+                                    config={
+                                        "configurable": {
+                                            "thread_id": f"chat_{session_nonce}"
+                                        }
+                                    }
+                                )
+                                logger.info(f"State type: {type(state)}") # Log state type for debugging
+
+                                # --- Extract Documents (doc_info) ---
+                                docs = []
+                                if hasattr(state, "documents"):
+                                    docs = state.documents
+                                elif hasattr(state, "values") and hasattr(
+                                    state.values, "get"
+                                ):
+                                    docs = state.values.get("documents", [])
+                                elif isinstance(state, dict):
+                                    docs = state.get("documents", [])
+
+                                if docs and hasattr(docs, "__iter__"):
+                                    for doc in docs:
+                                        if hasattr(doc, "metadata"):
+                                            doc_info.append(
+                                                {
+                                                    "title": doc.metadata.get(
+                                                        "title", "No title"
+                                                    ),
+                                                    "source": doc.metadata.get(
+                                                        "source", "No source"
+                                                    ),
+                                                }
+                                            )
+                                    logger.info(f"Extracted {len(doc_info)} document(s) for helpful_documents")
+
+                                # --- Extract Retrieve Queries ---
+                                if hasattr(state, "values") and hasattr(
+                                    state.values, "get"
+                                ):
+                                    retrieved_queries = state.values.get('retrieve_queries', [])
+                                elif isinstance(state, dict):
+                                    retrieved_queries = state.get('retrieve_queries', [])
+
+                                if retrieved_queries:
+                                    logger.info(f"Extracted {len(retrieved_queries)} retrieve queries")
+                                else:
+                                    logger.info("No retrieve queries found in state")
+
+                            except Exception as e:
+                                logger.error(
+                                    f"Error extracting document or query info from state: {e}", exc_info=True
+                                )
+                            # --- End extraction ---
+
+
+                            # Always save the AI response, now including the extracted fields
                             ai_msg = ChatMessage.objects.create(
                                 session=chat_session,
                                 role="assistant",
                                 content=full_answer,
+                                retrieve_queries=retrieved_queries if retrieved_queries else None, # 저장할 쿼리가 있으면 저장, 없으면 null
+                                helpful_documents=doc_info if doc_info else None, # 저장할 문서 정보가 있으면 저장, 없으면 null
                             )
                             logger.info(
-                                f"Saved AI message (ID: {ai_msg.id}) to DB for session {session_nonce}"
+                                f"Saved AI message (ID: {ai_msg.id}) with retrieve_queries and helpful_documents to DB for session {session_nonce}"
                             )
                         elif not full_answer:
                             logger.warning(
@@ -437,59 +503,9 @@ def chat(request):
                         # Send the end signal *after* saving is attempted
                         # Ensure we send it even if no answer was streamed
 
-                        # Get document information to pass to frontend
-                        doc_info = []
+                        # Note: The doc_info extraction logic is moved up to be used for DB saving AND the end signal
                         try:
-                            # Get state from the graph
-                            state = graph.get_state(
-                                config={
-                                    "configurable": {
-                                        "thread_id": f"chat_{session_nonce}"
-                                    }
-                                }
-                            )
-
-                            # StateSnapshot object structure handling
-                            # Try different approaches to access documents based on the state structure
-                            docs = []
-                            if hasattr(state, "documents"):
-                                # Direct attribute access
-                                docs = state.documents
-                            elif hasattr(state, "values") and hasattr(
-                                state.values, "get"
-                            ):
-                                # Dictionary-like access through values
-                                docs = state.values.get("documents", [])
-                            elif isinstance(state, dict):
-                                # Dictionary access
-                                docs = state.get("documents", [])
-
-                            # Log the state structure for debugging
-                            logger.info(f"State type: {type(state)}")
-
-                            # Only process if docs is a list or similar iterable
-                            if docs and hasattr(docs, "__iter__"):
-                                doc_info = []
-                                for doc in docs:
-                                    if hasattr(doc, "metadata"):
-                                        doc_info.append(
-                                            {
-                                                "title": doc.metadata.get(
-                                                    "title", "No title"
-                                                ),
-                                                "source": doc.metadata.get(
-                                                    "source", "No source"
-                                                ),
-                                            }
-                                        )
-                                logger.info(f"Extracted {len(doc_info)} document(s)")
-                        except Exception as e:
-                            logger.error(
-                                f"Error extracting document info: {e}", exc_info=True
-                            )
-
-                        # Always send the end signal, even if document extraction failed
-                        try:
+                            # Send end signal with documents (doc_info already extracted above)
                             yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
                         except Exception as e:
                             logger.error(
