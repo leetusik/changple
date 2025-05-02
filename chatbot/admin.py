@@ -14,8 +14,8 @@ admin.site.index_title = "관리자 home"
 class ChatMessageInline(admin.StackedInline):
     model = ChatMessage
     extra = 0
-    readonly_fields = ("role", "created_at", "user_liked", "user_disliked")
-    fields = ("role", "content", "user_disliked", "created_at")
+    readonly_fields = ("role", "content", "retrieve_queries", "helpful_documents", "user_disliked", "created_at")
+    fields = ("role", "content", "retrieve_queries", "helpful_documents", "user_disliked", "created_at")
     can_delete = False
     verbose_name = "채팅 내용"
     verbose_name_plural = "채팅 내용"

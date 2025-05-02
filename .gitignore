@@ -187,3 +187,7 @@ whoosh_index/
 
 *.json
 *.jsonl
+
+checkpoints.sqlite
+checkpoints.sqlite-shm
+checkpoints.sqlite-wal

@@ -58,6 +58,8 @@ class ChatMessage(models.Model):
     ]
     role = models.CharField(max_length=10, choices=STATUS_CHOICES)
     content = models.TextField()
+    retrieve_queries = models.JSONField(null=True, blank=True)
+    helpful_documents = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     user_liked = models.BooleanField(null=True, blank=True)
     user_disliked = models.BooleanField(null=True, blank=True)
