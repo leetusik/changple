@@ -212,6 +212,27 @@ def load_posts_from_database(
         return []
 
 
+def get_all_pinecone_ids(index):
+    """
+    Get all existing IDs from a Pinecone index using pagination.
+
+    Args:
+        index: Pinecone index object
+
+    Returns:
+        Set of all vector IDs in the index
+    """
+    all_ids = set()
+
+    # Default limit is 100 per page
+    response = list(index.list())
+    temp_list = list()
+    for i in response:
+        temp_list += i
+
+    return set(temp_list)
+
+
 def ingest_docs():
     """
     Load posts missing possible_questions from database, generate summary/keywords/questions,
@@ -293,58 +314,22 @@ def ingest_docs():
     logger.info(f"Preparing to upsert {len(processed_docs)} documents to Pinecone.")
 
     ### Check current ids ###
-    existing_ids = set()
-    try:
-        batch_size = 25  # Reduced batch size from 100 to 25 to avoid timeouts
-        for i in range(0, len(raw_docs), batch_size):
-            batch_docs = raw_docs[i : i + batch_size]
-            batch_ids = [str(doc.metadata["post_id"]) for doc in batch_docs]
-            logger.info(
-                f"Checking existence of {len(batch_docs)} documents in Pinecone (batch {i//batch_size + 1})..."
-            )
-
-            # Retry logic for fetch
-            for attempt in range(MAX_FETCH_RETRIES):
-                try:
-                    fetch_response = index.fetch(ids=batch_ids)
-                    existing_ids.update(fetch_response.vectors.keys())
-                    logger.debug(
-                        f"Batch {i//batch_size + 1} fetch successful on attempt {attempt + 1}"
-                    )
-                    break  # Success, exit retry loop for this batch
-                except Exception as fetch_e:
-                    # Check if it's a server error (e.g., 5xx) potentially worth retrying
-                    is_server_error = (
-                        hasattr(fetch_e, "status") and fetch_e.status >= 1000
-                    )
-
-                    logger.warning(
-                        f"Pinecone fetch attempt {attempt + 1}/{MAX_FETCH_RETRIES} failed for batch {i//batch_size + 1}: {fetch_e}"
-                    )
-
-                    if not is_server_error or attempt == MAX_FETCH_RETRIES - 1:
-                        # Final attempt failed or it's not a server error, raise the exception to abort
-                        logger.error(
-                            f"Pinecone fetch failed permanently after {attempt + 1} attempt(s)."
-                        )
-                        raise RuntimeError(
-                            f"Failed to fetch existing IDs from Pinecone after {attempt + 1} retries."
-                        ) from fetch_e
-                    else:
-                        # Wait before retrying server error
-                        sleep_time = INITIAL_BACKOFF * (2**attempt)
-                        logger.info(
-                            f"Retrying fetch in {sleep_time} seconds due to server error..."
-                        )
-                        time.sleep(sleep_time)
-
-        logger.info(f"Found {len(existing_ids)} existing chunk IDs in Pinecone.")
-    except Exception as e:
-        # Catch errors during the overall fetch process or the re-raised RuntimeError
-        logger.error(f"Error during Pinecone ID fetch process: {e}", exc_info=True)
-        # Re-raise as a runtime error to signal failure to the caller
-        raise RuntimeError("Pinecone ingestion failed during ID fetch.") from e
+    existing_ids = get_all_pinecone_ids(index)
     ### Check current ids end ###
+
+    ### deleted posts handle ###
+    db_post_id_set = set(str(doc.metadata["post_id"]) for doc in processed_docs)
+
+    only_pinecone_exist = existing_ids - db_post_id_set
+    if only_pinecone_exist:
+        logger.info(
+            f"Found {len(only_pinecone_exist)} documents only in Pinecone. Deleting from Pinecone..."
+        )
+        index.delete(ids=list(only_pinecone_exist))
+        logger.info(
+            f"Successfully deleted {len(only_pinecone_exist)} documents from Pinecone."
+        )
+    ### deleted posts handle ends ###
 
     ### filter to ingest docs ###
     new_docs = [
