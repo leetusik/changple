@@ -52,7 +52,7 @@ class ActiveAuthorFilter(admin.SimpleListFilter):
 class NaverCafeDataAdmin(admin.ModelAdmin):
     list_display = ("title", "category", "author", "published_date", "post_id")
     list_filter = (ActiveCategoryFilter, ActiveAuthorFilter, "category")
-    search_fields = ("title", "content", "category")
+    search_fields = ("title", "content", "category", "post_id")
     list_per_page = 20
 
 
