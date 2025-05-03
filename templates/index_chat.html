@@ -859,6 +859,25 @@
                                             <polyline points="6 9 12 15 18 9"></polyline>
                                         </svg>
                                     `;
+                                    
+                                    // After opening, check if the bottom of the source list is visible
+                                    // If not, scroll to make it visible
+                                    setTimeout(() => {
+                                        const sourceListRect = sourceListArea.getBoundingClientRect();
+                                        const containerRect = promptContainer.getBoundingClientRect();
+                                        
+                                        // Check if the bottom of the source list is below the visible area
+                                        if (sourceListRect.bottom > containerRect.bottom) {
+                                            // Calculate how much we need to scroll to make the entire source list visible
+                                            const scrollNeeded = sourceListRect.bottom - containerRect.bottom + 20; // 20px extra padding
+                                            
+                                            // Smoothly scroll to show the sources
+                                            promptContainer.scrollBy({
+                                                top: scrollNeeded,
+                                                behavior: 'smooth'
+                                            });
+                                        }
+                                    }, 100); // Small delay to ensure DOM is updated
                                 } else {
                                     // Closing: show right arrow
                                     toggleIcon.innerHTML = `
