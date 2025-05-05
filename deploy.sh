@@ -1,0 +1,135 @@
+#!/bin/bash
+
+# Exit on error
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}Starting deployment for Changple app...${NC}"
+
+# Clean up existing containers and volumes
+echo -e "${YELLOW}Cleaning up existing deployment...${NC}"
+docker-compose down
+# More aggressive cleanup to avoid cached issues
+echo -e "${YELLOW}Performing deep cleanup of Docker resources...${NC}"
+docker system prune -af --volumes
+docker builder prune -af
+
+# --- Add Whoosh index cleanup and recreation ---
+echo -e "${YELLOW}Cleaning and recreating Whoosh index directory...${NC}"
+rm -rf chatbot/data/whoosh_index
+mkdir -p chatbot/data/whoosh_index
+# --- End Whoosh changes ---
+
+# Create necessary directories
+echo -e "${YELLOW}Creating necessary directories...${NC}"
+mkdir -p nginx/conf.d
+mkdir -p nginx/certbot/conf
+mkdir -p nginx/certbot/www
+mkdir -p logs
+chmod 777 ./logs # Make logs directory world-writable for Nginx container
+mkdir -p db_backups
+
+# Check if .env file exists
+if [ ! -f .env ]; then
+    echo -e "${RED}Error: .env file not found! Please create it first.${NC}"
+    exit 1
+fi
+
+# Check if SQLite database exists, create if not
+if [ ! -f db.sqlite3 ]; then
+    echo -e "${YELLOW}SQLite database not found, creating an empty one...${NC}"
+    touch db.sqlite3
+fi
+
+# Backup existing database if it exists and has content
+if [ -f db.sqlite3 ] && [ -s db.sqlite3 ]; then
+    echo -e "${YELLOW}Backing up existing database...${NC}"
+    cp db.sqlite3 "db_backups/db.sqlite3.backup-$(date +%Y%m%d-%H%M%S)"
+fi
+
+# Generate a random secret key if the current one is the default
+if grep -q "your_django_secret_key_here" .env; then
+    echo -e "${YELLOW}Generating a new Django secret key...${NC}"
+    NEW_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')
+    sed -i.bak "s/your_django_secret_key_here/$NEW_SECRET_KEY/" .env
+    rm .env.bak
+    echo -e "${GREEN}Secret key generated and updated in .env file${NC}"
+fi
+
+# Check for domain name
+DOMAIN="changple.ai"
+echo -e "${YELLOW}Deploying for domain: $DOMAIN${NC}"
+
+# Ensure port 80 is free for certbot
+echo -e "${YELLOW}Ensuring port 80 is available for certbot...${NC}"
+if netstat -tuln | grep -q ":80 "; then
+    echo -e "${RED}Warning: Port 80 is in use. Certbot may fail.${NC}"
+    echo -e "${YELLOW}Trying to stop any services using port 80...${NC}"
+    docker-compose down
+fi
+
+# Get SSL certificates with certbot
+echo -e "${YELLOW}Setting up SSL certificates with certbot...${NC}"
+docker run --rm -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
+                -v "$(pwd)/nginx/certbot/www:/var/www/certbot" \
+                -p 80:80 \
+                certbot/certbot certonly --standalone \
+                --non-interactive --agree-tos \
+                --email swangle2100@gmail.com \
+                --domains $DOMAIN \
+                --http-01-port=80
+
+# --- Add ownership change ---
+echo -e "${YELLOW}Fixing permissions for certbot files...${NC}"
+sudo chown -R $(id -u):$(id -g) ./nginx/certbot/conf
+# --- End ownership change ---
+
+# Rebuild the Docker containers with the new configuration
+echo -e "${YELLOW}Rebuilding Docker containers...${NC}"
+docker-compose build --no-cache
+
+# Start all services
+echo -e "${GREEN}Starting all services...${NC}"
+docker-compose up -d
+
+# Apply migrations
+echo -e "${YELLOW}Applying database migrations...${NC}"
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
+
+# Run collectstatic to ensure all static files are properly collected
+echo -e "${YELLOW}Collecting static files...${NC}"
+docker-compose exec web python manage.py collectstatic --noinput
+
+# Install Playwright browsers if they're needed for the scraper
+echo -e "${YELLOW}Installing Playwright browsers...${NC}"
+docker-compose exec web playwright install chromium
+docker-compose exec rq_worker playwright install chromium
+
+# Setup db backup cron job
+echo -e "${YELLOW}Setting up database backup cron job...${NC}"
+CRON_JOB="0 0 * * * cd $(pwd) && cp db.sqlite3 db_backups/db.sqlite3.backup-\$(date +\%Y\%m\%d)"
+(crontab -l 2>/dev/null | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab 
+
+# Calculate time 5 minutes from now in UTC
+echo -e "${YELLOW}Setting up crawler to run 5 minutes after deployment...${NC}"
+START_TIME=$(date -u "+%Y-%m-%d %H:%M:%S")
+
+# Linux format for date command
+FUTURE_TIME=$(date -u -d "+5 minutes" "+%H %M")
+FUTURE_HOUR=$(echo $FUTURE_TIME | cut -d' ' -f1)
+FUTURE_MINUTE=$(echo $FUTURE_TIME | cut -d' ' -f2)
+
+# Schedule the crawler to run at calculated time
+docker-compose exec web python manage.py schedule_crawler start --hour $FUTURE_HOUR --minute $FUTURE_MINUTE
+
+echo -e "${GREEN}Crawler scheduled to run at $(date -u -d "+5 minutes" "+%H:%M") UTC ($(TZ=Asia/Seoul date -d "+5 minutes" "+%H:%M") KST)${NC}"
+echo -e "${GREEN}Deployment completed successfully!${NC}"
+echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
+echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
+echo -e "${YELLOW}Database backups will be stored in the db_backups directory daily${NC}" 
