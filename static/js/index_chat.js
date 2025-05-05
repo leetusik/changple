@@ -60,9 +60,9 @@ function addMessageToChat(role, content, showSpinner = false) {
       formattedContent = DOMPurify.sanitize(marked.parse(content));
     }
 
-    // Spinner HTML (adjust styling as needed, maybe move to CSS)
+    // Spinner HTML with node status display
     const spinnerHTML = showSpinner
-      ? `<div class="spinner-container" style="display: flex; justify-content: flex-start; align-items: center; padding: 10px;"><div class="spinner"></div><span class="node-status" style="margin-left: 10px; font-style: italic; color: grey; font-size: 0.9em;"></span></div>`
+      ? `<div class="spinner-container" style="display: flex; justify-content: flex-start; align-items: center; padding: 10px;"><div class="message-spinner"></div><span class="node-status"></span></div>`
       : "";
 
     // 초기에는 spinner 또는 비어있는 span을 포함하여 추가
@@ -261,19 +261,19 @@ function openConsultationModal() {
  * @param {Array<Object>} documents - 표시할 문서 객체의 배열. 각 객체는 title과 source 속성을 가져야 합니다.
  */
 function renderSourceToggle(documents) {
-    if (!documents || !Array.isArray(documents) || documents.length === 0) {
-        console.log('No documents to display or invalid format.');
-        return;
-    }
+  if (!documents || !Array.isArray(documents) || documents.length === 0) {
+    console.log("No documents to display or invalid format.");
+    return;
+  }
 
-    const promptContainer = document.querySelector('.prompt-wrapper');
-    if (!promptContainer) {
-        console.error('.prompt-wrapper element not found.');
-        return;
-    }
+  const promptContainer = document.querySelector(".prompt-wrapper");
+  if (!promptContainer) {
+    console.error(".prompt-wrapper element not found.");
+    return;
+  }
 
-    // Create the source toggle container HTML
-    const sourceToggleHTML = `
+  // Create the source toggle container HTML
+  const sourceToggleHTML = `
     <div class="source-toggle-container">
         <div class="toggle-area">
             <button class="toggle-icon">
@@ -286,25 +286,31 @@ function renderSourceToggle(documents) {
             </div>
         </div>
         <div class="source-list-area" style="display: none;">
-            ${documents.map((doc, index) => `
+            ${documents
+              .map(
+                (doc, index) => `
                 <div class="source-list-item-${index + 1}">
                     <p>[${index + 1}]</p>
                     <p>
-                        <a href="${doc.source}" target="_blank" style="color: #617DAE; text-decoration: none;">
+                        <a href="${
+                          doc.source
+                        }" target="_blank" style="color: #617DAE; text-decoration: none;">
                             ${doc.title}
                         </a>
                     </p>
                 </div>
-            `).join('')}
+            `
+              )
+              .join("")}
         </div>
     </div>`;
 
-    // Insert the HTML
-    promptContainer.insertAdjacentHTML('beforeend', sourceToggleHTML);
+  // Insert the HTML
+  promptContainer.insertAdjacentHTML("beforeend", sourceToggleHTML);
 
-    // Scroll the new element into view
-    const newToggle = promptContainer.lastElementChild;
-    if (newToggle && newToggle.classList.contains('source-toggle-container')) {
-        newToggle.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+  // Scroll the new element into view
+  const newToggle = promptContainer.lastElementChild;
+  if (newToggle && newToggle.classList.contains("source-toggle-container")) {
+    newToggle.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }

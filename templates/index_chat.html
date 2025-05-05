@@ -374,6 +374,16 @@
                     const aiContentSpanElement = document.getElementById(aiContentSpanId);
                     if (aiContentSpanElement) {
                         aiMessageDiv = aiContentSpanElement.closest('.prompt-p');
+                        
+                        // Make sure node-status is initially visible in spinner container
+                        const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                        if (spinnerContainer) {
+                            const nodeStatus = spinnerContainer.querySelector('.node-status');
+                            if (nodeStatus) {
+                                nodeStatus.style.display = 'inline-block';
+                                nodeStatus.textContent = '준비중...';
+                            }
+                        }
                     }
 
                     const response = await fetch('/api/chat/', {
@@ -425,8 +435,76 @@
                                 try {
                                     const data = JSON.parse(message.slice(6));
 
+                                    // Always process langgraph_node first, if present
+                                    if (data.langgraph_node && aiMessageDiv) {
+                                        console.log("Received node update:", data.langgraph_node);
+                                        
+                                        // Find and update the node status element
+                                        const nodeStatusElement = aiMessageDiv.querySelector('.node-status');
+                                        if (nodeStatusElement) {
+                                            nodeStatusElement.textContent = data.langgraph_node;
+                                            nodeStatusElement.style.display = 'inline-block';
+                                            
+                                            // Force a tiny layout shift to trigger repaint
+                                            nodeStatusElement.style.opacity = '0.99';
+                                            setTimeout(() => {
+                                                nodeStatusElement.style.opacity = '1';
+                                            }, 10);
+                                        }
+                                        
+                                        // If this is just a node update without a token, send an event for debugging
+                                        if (!data.token) {
+                                            console.log("Node-only update:", data.langgraph_node);
+                                        }
+                                    }
+                                    
                                     if (data.token) {
+                                        // First token received - transition from loading to content
+                                        if (!spinnerHidden) {
+                                            // Save the current node for display
+                                            const currentNode = data.langgraph_node || '';
+                                            console.log("First token received, current node:", currentNode);
+                                            
+                                            // Don't hide the spinner until we've shown the node for longer
+                                            // Increased to 500ms to ensure there's time to see the final node
+                                            
+                                            // If this is the first token at all, set a global flag
+                                            if (!window.seenFirstToken) {
+                                                window.seenFirstToken = true;
+                                                window.lastNodeUpdate = currentNode;
+                                                console.log("First token ever received, delaying spinner hide");
+                                                
+                                                // On first token, apply longer delay
+                                                setTimeout(() => {
+                                                    if (aiMessageDiv) {
+                                                        const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                                                        if (spinnerContainer) {
+                                                            spinnerContainer.style.display = 'none';
+                                                        }
+                                                        const contentSpan = document.getElementById(aiContentSpanId);
+                                                        if (contentSpan) contentSpan.style.display = 'inline';
+                                                    }
+                                                    spinnerHidden = true;
+                                                }, 750); // Longer delay for first token to ensure node is visible
+                                            } else {
+                                                // For subsequent tokens, use shorter delay
+                                                setTimeout(() => {
+                                                    if (aiMessageDiv) {
+                                                        const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
+                                                        if (spinnerContainer) {
+                                                            spinnerContainer.style.display = 'none';
+                                                        }
+                                                        const contentSpan = document.getElementById(aiContentSpanId);
+                                                        if (contentSpan) contentSpan.style.display = 'inline';
+                                                    }
+                                                    spinnerHidden = true;
+                                                }, 150);
+                                            }
+                                        }
+                                        
+                                        // Add token to accumulated response
                                         accumulatedResponse += data.token;
+                                        
                                         if (aiContentSpan) {
                                             // Original implementation:
                                             // aiContentSpan.innerHTML = DOMPurify.sanitize(marked.parse(accumulatedResponse));
@@ -447,7 +525,9 @@
                                         // Final updates, ensure spinner/status hidden
                                         if (!spinnerHidden && aiMessageDiv) {
                                             const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
-                                            if (spinnerContainer) spinnerContainer.style.display = 'none';
+                                            if (spinnerContainer) {
+                                                spinnerContainer.style.display = 'none';
+                                            }
                                             if (contentSpan) contentSpan.style.display = 'inline';
                                         }
                                         
@@ -481,11 +561,13 @@
                                         throw new Error(data.error); // 오류 발생 시 스트림 처리 중단
                                     }
 
-                                    // Hide spinner and show content span on first data arrival
-                                    if (!spinnerHidden && (data.token || data.end || data.error)) {
+                                    // Handle spinner and content span for end or error events (token case is handled above)
+                                    if (!spinnerHidden && (data.end || data.error)) {
                                         if (aiMessageDiv) {
                                             const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
-                                            if (spinnerContainer) spinnerContainer.remove();
+                                            if (spinnerContainer) {
+                                                spinnerContainer.style.display = 'none';
+                                            }
                                         }
                                         const contentSpan = document.getElementById(aiContentSpanId);
                                         if (contentSpan) contentSpan.style.display = 'inline'; // Or 'block' depending on desired layout
@@ -509,7 +591,9 @@
                            // Remove spinner on error as well, if not already removed
                            if (!spinnerHidden) {
                                const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
-                               if (spinnerContainer) spinnerContainer.remove();
+                               if (spinnerContainer) {
+                                   spinnerContainer.style.display = 'none';
+                               }
                                const contentSpan = document.getElementById(aiContentSpanId);
                                if (contentSpan) contentSpan.style.display = 'inline'; // Show span for error message
                                spinnerHidden = true;
@@ -533,10 +617,12 @@
                     //     loadingSpinner.style.display = 'none'; 
                     // } - REMOVED
  
-                    // Ensure spinner inside message is removed if loop was exited early
+                    // Ensure spinner inside message is handled if loop was exited early
                     if (!spinnerHidden && aiMessageDiv) {
                         const spinnerContainer = aiMessageDiv.querySelector('.spinner-container');
-                        if (spinnerContainer) spinnerContainer.remove();
+                        if (spinnerContainer) {
+                            spinnerContainer.style.display = 'none';
+                        }
                         const contentSpan = document.getElementById(aiContentSpanId);
                         if (contentSpan) contentSpan.style.display = 'inline';
                     }

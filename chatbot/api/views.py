@@ -41,6 +41,12 @@ except Exception as e:
 # load_dotenv()
 load_dotenv()
 
+node_map = {
+    "route_query": "질문 분류 중",
+    "generate_queries": "관련 문서 찾는 중",
+    "documents_handler": "적절한 문서 고르는 중",
+}
+
 
 def index(request):
     return render(request, "index.html")
@@ -364,13 +370,32 @@ def chat(request):
                             },
                             stream_mode="messages",
                         ):
-
                             if (
                                 isinstance(chunk, tuple)
                                 and type(chunk[0]) == AIMessageChunk
                             ):
+                                # Always log the node
+                                current_node = node_map.get(
+                                    chunk[1]["langgraph_node"], ""
+                                )
+                                # print(f"chunk: {current_node}")
+
+                                # Always send node status update even if no content
+                                # Send a node-only update if we haven't seen this node before
+                                if (
+                                    last_yielded_token_data is None
+                                    or current_node
+                                    != last_yielded_token_data.get("langgraph_node")
+                                ):
+                                    # Send a node-only update first
+                                    node_data = {
+                                        "langgraph_node": current_node,
+                                    }
+                                    yield f"data: {json.dumps(node_data)}\n\n"
+                                    # print(f"Sent node-only update: {current_node}")
+
+                                # Process content if available
                                 answer_content = chunk[0].content
-                                # Only yield if the answer content is new/different from the last one
                                 if (
                                     answer_content
                                     and answer_content != final_answer_streamed
@@ -378,7 +403,10 @@ def chat(request):
                                     final_answer_streamed = (
                                         answer_content  # Update the streamed answer
                                     )
-                                    token_data = {"token": final_answer_streamed}
+                                    token_data = {
+                                        "token": final_answer_streamed,
+                                        "langgraph_node": current_node,
+                                    }
                                     if token_data != last_yielded_token_data:
                                         yield f"data: {json.dumps(token_data)}\n\n"
                                         last_yielded_token_data = token_data
@@ -421,7 +449,7 @@ def chat(request):
 
                             # --- Extract data from final state BEFORE saving AI message ---
                             doc_info = []
-                            retrieved_queries = [] # Initialize retrieve_queries list
+                            retrieved_queries = []  # Initialize retrieve_queries list
                             try:
                                 # Get state from the graph
                                 state = graph.get_state(
@@ -431,7 +459,9 @@ def chat(request):
                                         }
                                     }
                                 )
-                                logger.info(f"State type: {type(state)}") # Log state type for debugging
+                                logger.info(
+                                    f"State type: {type(state)}"
+                                )  # Log state type for debugging
 
                                 # --- Extract Documents (doc_info) ---
                                 docs = []
@@ -457,35 +487,47 @@ def chat(request):
                                                     ),
                                                 }
                                             )
-                                    logger.info(f"Extracted {len(doc_info)} document(s) for helpful_documents")
+                                    logger.info(
+                                        f"Extracted {len(doc_info)} document(s) for helpful_documents"
+                                    )
 
                                 # --- Extract Retrieve Queries ---
                                 if hasattr(state, "values") and hasattr(
                                     state.values, "get"
                                 ):
-                                    retrieved_queries = state.values.get('retrieve_queries', [])
+                                    retrieved_queries = state.values.get(
+                                        "retrieve_queries", []
+                                    )
                                 elif isinstance(state, dict):
-                                    retrieved_queries = state.get('retrieve_queries', [])
+                                    retrieved_queries = state.get(
+                                        "retrieve_queries", []
+                                    )
 
                                 if retrieved_queries:
-                                    logger.info(f"Extracted {len(retrieved_queries)} retrieve queries")
+                                    logger.info(
+                                        f"Extracted {len(retrieved_queries)} retrieve queries"
+                                    )
                                 else:
                                     logger.info("No retrieve queries found in state")
 
                             except Exception as e:
                                 logger.error(
-                                    f"Error extracting document or query info from state: {e}", exc_info=True
+                                    f"Error extracting document or query info from state: {e}",
+                                    exc_info=True,
                                 )
                             # --- End extraction ---
-
 
                             # Always save the AI response, now including the extracted fields
                             ai_msg = ChatMessage.objects.create(
                                 session=chat_session,
                                 role="assistant",
                                 content=full_answer,
-                                retrieve_queries=retrieved_queries if retrieved_queries else None, # 저장할 쿼리가 있으면 저장, 없으면 null
-                                helpful_documents=doc_info if doc_info else None, # 저장할 문서 정보가 있으면 저장, 없으면 null
+                                retrieve_queries=(
+                                    retrieved_queries if retrieved_queries else None
+                                ),  # 저장할 쿼리가 있으면 저장, 없으면 null
+                                helpful_documents=(
+                                    doc_info if doc_info else None
+                                ),  # 저장할 문서 정보가 있으면 저장, 없으면 null
                             )
                             logger.info(
                                 f"Saved AI message (ID: {ai_msg.id}) with retrieve_queries and helpful_documents to DB for session {session_nonce}"
