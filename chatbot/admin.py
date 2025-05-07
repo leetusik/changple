@@ -4,6 +4,8 @@ from datetime import datetime
 from django.contrib import admin
 from django.http import HttpResponse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from markdown_it import MarkdownIt
 
 from .models import ChatMessage, ChatSession
 
@@ -14,11 +16,55 @@ admin.site.index_title = "관리자 home"
 class ChatMessageInline(admin.StackedInline):
     model = ChatMessage
     extra = 0
-    readonly_fields = ("role", "content", "retrieve_queries", "helpful_documents", "user_disliked", "created_at")
-    fields = ("role", "content", "retrieve_queries", "helpful_documents", "user_disliked", "created_at")
+    readonly_fields = ("role", "formatted_content", "user_messages_content", "formatted_retrieve_queries", "formatted_helpful_documents", "user_disliked", "created_at")
+    fields = ("user_messages_content", "formatted_content", "formatted_retrieve_queries", "formatted_helpful_documents", "user_disliked", "created_at", "human_feedback")
     can_delete = False
-    verbose_name = "채팅 내용"
-    verbose_name_plural = "채팅 내용"
+    verbose_name = "채팅 메시지"
+    verbose_name_plural = "채팅 기록"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(role='assistant')
+
+    def user_messages_content(self, obj):
+        if obj.session:
+            previous_user_message = obj.session.messages.filter(
+                role='user',
+                created_at__lt=obj.created_at
+            ).order_by('-created_at').first()
+
+            if previous_user_message:
+                return previous_user_message.content
+        return "-"
+    user_messages_content.short_description = "사용자 질문"
+
+    def formatted_content(self, obj):
+        md = MarkdownIt()
+        return mark_safe(md.render(obj.content))
+    formatted_content.short_description = "창플 AI 답변"
+
+    def formatted_retrieve_queries(self, obj):
+        if obj.retrieve_queries:
+            if isinstance(obj.retrieve_queries, list):
+                return format_html("<br>".join(obj.retrieve_queries))
+            else:
+                return obj.retrieve_queries
+        return "-"
+    formatted_retrieve_queries.short_description = "검색 쿼리"
+
+    def formatted_helpful_documents(self, obj):
+        if obj.helpful_documents:
+            if isinstance(obj.helpful_documents, list):
+                doc_strings = []
+                for doc in obj.helpful_documents:
+                    title = doc.get("title", "N/A")
+                    source = doc.get("source", "#")
+                    doc_strings.append(f'<a href="{source}" target="_blank">{title}</a>')
+                return format_html("<br>".join(doc_strings))
+            else:
+                return obj.helpful_documents
+        return "-"
+    formatted_helpful_documents.short_description = "참고 문서"
 
 
 @admin.register(ChatSession)
