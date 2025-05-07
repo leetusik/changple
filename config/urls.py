@@ -54,4 +54,6 @@ urlpatterns = [
     path("api/chat/", chat, name="root_chat_api"),
     # Privacy policy URL
     path("privacy/", privacy_policy, name="privacy_policy"),
+    # Payment plan URL
+    path("payplan/", TemplateView.as_view(template_name="payment/payplan.html"), name="payplan"),
 ]

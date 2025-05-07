@@ -63,11 +63,8 @@ class ChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     user_liked = models.BooleanField(null=True, blank=True)
     user_disliked = models.BooleanField(null=True, blank=True)
+    human_feedback = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ["created_at"]
 
-    def __str__(self):
-        role_display = '(질문)' if self.role == 'user' else '(답변)'
-        content_display = self.content[:50] + "..." if len(self.content) > 50 else self.content
-        return f"{role_display} {content_display}"
