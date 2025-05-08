@@ -3,9 +3,7 @@ from .settings import *
 # Security settings
 DEBUG = os.environ.get("DEBUG", False) == "1"
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "changple.ai,134.185.116.242").split(
-    ","
-)
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "changple.ai,140.245.64.173").split(",")
 
 # Ensure CSRF and session cookies are secure
 CSRF_COOKIE_SECURE = True
