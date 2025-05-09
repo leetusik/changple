@@ -19,6 +19,8 @@ from langchain_core.documents import Document
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
 from langgraph.checkpoint.sqlite import SqliteSaver
+from rest_framework import APIView
+from rest_framework.response import Response
 
 from chatbot.models import ChatMessage, ChatSession
 
@@ -596,3 +598,30 @@ def chat(request):
 def privacy_policy(request):
     """개인정보처리방침 페이지"""
     return render(request, "privacy_policy.html")
+
+
+class Rating(APIView):
+    def post(self, request):
+        data = json.loads(request.body)
+        message_pk = data.get("message_pk")
+        rating = data.get("rating")
+
+        try:
+            message = ChatMessage.objects.get(pk=message_pk)
+        except ChatMessage.DoesNotExist:
+            return JsonResponse({"error": "Message not found"}, status=404)
+
+        if message.role != "assistant":
+            return JsonResponse(
+                {"error": "Only assistant messages can be rated"}, status=400
+            )
+
+        if rating == None:
+            message.good_or_bad = None
+        else:
+            message.good_or_bad = rating
+        message.save(update_fields=["good_or_bad"])
+
+        return JsonResponse(
+            {"status": "success", "message_pk": message_pk, "rating": rating}
+        )
