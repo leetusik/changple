@@ -9,38 +9,58 @@ from markdown_it import MarkdownIt
 
 from .models import ChatMessage, ChatSession
 
-admin.site.site_header = format_html('<img src="/static/img/cp-logo-main.svg" height="40px" style="margin-right: 10px; filter: brightness(0) invert(1);"><br>Changple AI - Admin Page')
+admin.site.site_header = format_html(
+    '<img src="/static/img/cp-logo-main.svg" height="40px" style="margin-right: 10px; filter: brightness(0) invert(1);"><br>Changple AI - Admin Page'
+)
 admin.site.site_title = "창플 AI 관리자 페이지"
 admin.site.index_title = "관리자 home"
+
 
 class ChatMessageInline(admin.StackedInline):
     model = ChatMessage
     extra = 0
-    readonly_fields = ("role", "formatted_content", "user_messages_content", "formatted_retrieve_queries", "formatted_helpful_documents", "user_disliked", "created_at")
-    fields = ("user_messages_content", "formatted_content", "formatted_retrieve_queries", "formatted_helpful_documents", "user_disliked", "created_at", "human_feedback")
+    readonly_fields = (
+        "role",
+        "formatted_content",
+        "user_messages_content",
+        "formatted_retrieve_queries",
+        "formatted_helpful_documents",
+        "created_at",
+    )
+    fields = (
+        "user_messages_content",
+        "formatted_content",
+        "formatted_retrieve_queries",
+        "formatted_helpful_documents",
+        "created_at",
+        "human_feedback",
+    )
     can_delete = False
     verbose_name = "채팅 메시지"
     verbose_name_plural = "채팅 기록"
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.filter(role='assistant')
+        return qs.filter(role="assistant")
 
     def user_messages_content(self, obj):
         if obj.session:
-            previous_user_message = obj.session.messages.filter(
-                role='user',
-                created_at__lt=obj.created_at
-            ).order_by('-created_at').first()
+            previous_user_message = (
+                obj.session.messages.filter(role="user", created_at__lt=obj.created_at)
+                .order_by("-created_at")
+                .first()
+            )
 
             if previous_user_message:
                 return previous_user_message.content
         return "-"
+
     user_messages_content.short_description = "사용자 질문"
 
     def formatted_content(self, obj):
         md = MarkdownIt()
         return mark_safe(md.render(obj.content))
+
     formatted_content.short_description = "창플 AI 답변"
 
     def formatted_retrieve_queries(self, obj):
@@ -50,6 +70,7 @@ class ChatMessageInline(admin.StackedInline):
             else:
                 return obj.retrieve_queries
         return "-"
+
     formatted_retrieve_queries.short_description = "검색 쿼리"
 
     def formatted_helpful_documents(self, obj):
@@ -59,11 +80,14 @@ class ChatMessageInline(admin.StackedInline):
                 for doc in obj.helpful_documents:
                     title = doc.get("title", "N/A")
                     source = doc.get("source", "#")
-                    doc_strings.append(f'<a href="{source}" target="_blank">{title}</a>')
+                    doc_strings.append(
+                        f'<a href="{source}" target="_blank">{title}</a>'
+                    )
                 return format_html("<br>".join(doc_strings))
             else:
                 return obj.helpful_documents
         return "-"
+
     formatted_helpful_documents.short_description = "참고 문서"
 
 
@@ -77,8 +101,20 @@ class ChatSessionAdmin(admin.ModelAdmin):
         "updated_by",
         "download_session_link",
     )
-    search_fields = ("session_id", "user__name", "user__nickname", "user__username", "user__email")
-    readonly_fields = ("session_nonce", "session_id", "request_sent", "is_updated", "updated_by")
+    search_fields = (
+        "session_id",
+        "user__name",
+        "user__nickname",
+        "user__username",
+        "user__email",
+    )
+    readonly_fields = (
+        "session_nonce",
+        "session_id",
+        "request_sent",
+        "is_updated",
+        "updated_by",
+    )
     list_filter = ("created_at", "updated_at", "user", "updated_by", "is_updated")
     date_hierarchy = "created_at"
     inlines = [ChatMessageInline]
@@ -189,10 +225,11 @@ class ChatSessionAdmin(admin.ModelAdmin):
             obj.is_updated = True
             obj.updated_by = request.user.username
         super().save_model(request, obj, form, change)
-    
+
     def has_add_permission(self, request):
         # disable adding new ChatSession
         return False
+
 
 # @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
