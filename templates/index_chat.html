@@ -1081,6 +1081,20 @@
                                             <polyline points="6 9 12 15 18 9"></polyline>
                                         </svg>
                                     `;
+                                    
+                                    // Check if this is the last toggle-icon on the page
+                                    const allToggleIcons = document.querySelectorAll('.toggle-icon');
+                                    const lastToggleIcon = allToggleIcons[allToggleIcons.length - 1];
+                                    
+                                    // Only scroll to the bottom if the clicked toggle-icon is the last one
+                                    if (toggleIcon === lastToggleIcon) {
+                                        setTimeout(() => {
+                                            promptContainer.scrollTo({
+                                                top: promptContainer.scrollHeight,
+                                                behavior: 'smooth'
+                                            });
+                                        }, 100);
+                                    }
                                 } else {
                                     // Closing: show right arrow
                                     toggleIcon.innerHTML = `
