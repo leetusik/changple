@@ -25,7 +25,6 @@ class ChatSession(models.Model):
     request_sent = models.BooleanField(default=False)
     is_updated = models.BooleanField(default=False)
     updated_by = models.CharField(max_length=150, blank=True, null=True)
-    
 
     def __str__(self):
         return f"채팅 세션 {self.session_id}"
@@ -53,18 +52,28 @@ class ChatMessage(models.Model):
         ChatSession, on_delete=models.CASCADE, related_name="messages"
     )
     STATUS_CHOICES = [
-        ('user', '사용자'),
-        ('assistant', '창플 AI'),
+        ("user", "사용자"),
+        ("assistant", "창플 AI"),
+    ]
+    GOOD_OR_BAD = [
+        ("good", "GOOD"),
+        ("bad", "BAD"),
     ]
     role = models.CharField(max_length=10, choices=STATUS_CHOICES)
     content = models.TextField()
     retrieve_queries = models.JSONField(null=True, blank=True)
     helpful_documents = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    user_liked = models.BooleanField(null=True, blank=True)
-    user_disliked = models.BooleanField(null=True, blank=True)
+    good_or_bad = models.CharField(
+        max_length=10,
+        choices=GOOD_OR_BAD,
+        default=None,
+        null=True,
+        blank=True,
+    )
+    # user_liked = models.BooleanField(null=True, blank=True)
+    # user_disliked = models.BooleanField(null=True, blank=True)
     human_feedback = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ["created_at"]
-

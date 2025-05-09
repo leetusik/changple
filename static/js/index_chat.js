@@ -16,7 +16,12 @@ function adjustTextareaHeight() {
 }
 
 // 대화 메시지를 화면에 추가하는 함수
-function addMessageToChat(role, content, showSpinner = false) {
+function addMessageToChat(
+  role,
+  content,
+  showSpinner = false,
+  messagePk = null
+) {
   const promptContainer = document.querySelector(".prompt-wrapper");
   if (!promptContainer) return null; // ID를 반환해야 하므로 null 반환
 
@@ -65,14 +70,33 @@ function addMessageToChat(role, content, showSpinner = false) {
       ? `<div class="spinner-container" style="display: flex; justify-content: flex-start; align-items: center; padding: 10px;"><div class="message-spinner"></div><span class="node-status"></span></div>`
       : "";
 
+    // Add rating buttons for assistant messages
+    const ratingHTML = `
+      <div class="message-rating" data-message-pk="${messagePk || ""}">
+        <button class="rating-btn rating-good" title="좋아요">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+        </button>
+        <button class="rating-btn rating-bad" title="별로예요">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+
     // 초기에는 spinner 또는 비어있는 span을 포함하여 추가
     const botMessageHTML = `
       <br>
-      <div id="${messageId}" class="prompt-p">
+      <div id="${messageId}" class="prompt-p" data-message-pk="${
+      messagePk || ""
+    }">
         ${spinnerHTML} 
         <span id="${contentSpanId}" ${
       showSpinner ? 'style="display: none;"' : ""
-    }>${formattedContent}</span> 
+    }>${formattedContent}</span>
+        ${!showSpinner ? ratingHTML : ""}
       </div>
     `;
     promptContainer.insertAdjacentHTML("beforeend", botMessageHTML);
@@ -314,3 +338,118 @@ function renderSourceToggle(documents) {
     newToggle.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 }
+
+// Function to handle message ratings
+function setupRatingButtons() {
+  const promptContainer = document.querySelector(".prompt-wrapper");
+  if (!promptContainer) return;
+
+  // First, mark any existing ratings from server
+  document.querySelectorAll(".message-rating").forEach((container) => {
+    const messagePk = container.dataset.messagePk;
+    if (!messagePk) return;
+
+    // Check if the parent element has any active class set
+    const parentMessage = container.closest(".prompt-p");
+    if (parentMessage && parentMessage.dataset.rating) {
+      const rating = parentMessage.dataset.rating;
+      const ratingBtn = container.querySelector(`.rating-${rating}`);
+      if (ratingBtn) {
+        ratingBtn.classList.add("active");
+      }
+    }
+  });
+
+  // Use event delegation for all rating buttons
+  promptContainer.addEventListener("click", function (event) {
+    const ratingBtn = event.target.closest(".rating-btn");
+    if (!ratingBtn) return; // Not a rating button
+
+    const ratingContainer = ratingBtn.closest(".message-rating");
+    if (!ratingContainer) return;
+
+    const messagePk = ratingContainer.dataset.messagePk;
+    if (!messagePk) {
+      console.error("Message ID not found for rating");
+      return;
+    }
+
+    // Determine rating value
+    const isGood = ratingBtn.classList.contains("rating-good");
+    const isBad = ratingBtn.classList.contains("rating-bad");
+    let ratingValue = null;
+
+    // If clicking an already active button, clear the rating
+    if (ratingBtn.classList.contains("active")) {
+      ratingValue = null;
+      ratingBtn.classList.remove("active");
+    } else {
+      // Otherwise set the new rating
+      ratingValue = isGood ? "good" : "bad";
+
+      // Remove active class from all buttons in this container
+      ratingContainer.querySelectorAll(".rating-btn").forEach((btn) => {
+        btn.classList.remove("active");
+      });
+
+      // Add active class to clicked button
+      ratingBtn.classList.add("active");
+    }
+
+    // Temporarily disable buttons during API call
+    ratingContainer.querySelectorAll(".rating-btn").forEach((btn) => {
+      btn.classList.add("disabled");
+    });
+
+    // Send rating to API
+    fetch("/api/rating/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
+      body: JSON.stringify({
+        message_pk: messagePk,
+        rating: ratingValue,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Rating submitted successfully:", data);
+
+        // Store rating in parent message element for persistence
+        const parentMessage = ratingContainer.closest(".prompt-p");
+        if (parentMessage) {
+          parentMessage.dataset.rating = ratingValue;
+        }
+
+        // Re-enable buttons
+        ratingContainer.querySelectorAll(".rating-btn").forEach((btn) => {
+          btn.classList.remove("disabled");
+        });
+      })
+      .catch((error) => {
+        console.error("Error submitting rating:", error);
+
+        // Re-enable buttons on error
+        ratingContainer.querySelectorAll(".rating-btn").forEach((btn) => {
+          btn.classList.remove("disabled");
+        });
+
+        // Reset the active state on error
+        if (ratingValue !== null) {
+          ratingBtn.classList.remove("active");
+        }
+      });
+  });
+}
+
+// Initialize rating buttons when DOM is loaded
+document.addEventListener("DOMContentLoaded", function () {
+  setupRatingButtons();
+});

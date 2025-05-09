@@ -19,6 +19,8 @@ from langchain_core.documents import Document
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
 from langgraph.checkpoint.sqlite import SqliteSaver
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from chatbot.models import ChatMessage, ChatSession
 
@@ -143,7 +145,12 @@ def chat_view(request, session_nonce=None):
                 "role": message.role,
                 "content": message.content,
                 "created_at": message.created_at,
+                "id": message.id,  # Include message ID for all messages
             }
+            # Include rating information for assistant messages
+            if message.role == "assistant":
+                message_data["good_or_bad"] = message.good_or_bad
+
             # assistant 메시지일 경우 helpful_documents 필드를 추가
             if message.role == "assistant" and message.helpful_documents:
                 message_data["documents"] = message.helpful_documents
@@ -532,29 +539,27 @@ def chat(request):
                             logger.info(
                                 f"Saved AI message (ID: {ai_msg.id}) with retrieve_queries and helpful_documents to DB for session {session_nonce}"
                             )
+
+                            # Send message_pk to frontend for rating functionality
+                            yield f"data: {json.dumps({'message_pk': ai_msg.id})}\n\n"
+
+                            # Send end signal with message_pk included
+                            yield f"data: {json.dumps({'end': True, 'documents': doc_info or [], 'message_pk': ai_msg.id, 'remaining_queries': remaining_queries, 'query_limit': query_limit, 'is_premium': is_premium})}\n\n"
+                            return
                         elif not full_answer:
                             logger.warning(
                                 f"Skipping DB saving for session {session_nonce} as no answer was generated/streamed (final_answer_streamed empty)."
                             )
+                            # End signal without message_pk since no message was saved
+                            yield f"data: {json.dumps({'end': True, 'remaining_queries': remaining_queries, 'query_limit': query_limit, 'is_premium': is_premium})}\n\n"
+                            return
                         else:
                             logger.warning(
                                 f"Skipping post-generation DB saving for session {session_nonce}: 'question' missing."
                             )
-                        # --- End Post-stream processing ---
-
-                        # Send the end signal *after* saving is attempted
-                        # Ensure we send it even if no answer was streamed
-
-                        # Note: The doc_info extraction logic is moved up to be used for DB saving AND the end signal
-                        try:
-                            # Send end signal with documents (doc_info already extracted above)
-                            yield f"data: {json.dumps({'end': True, 'documents': doc_info})}\n\n"
-                        except Exception as e:
-                            logger.error(
-                                f"Error sending end signal: {e}", exc_info=True
-                            )
-                            # Fallback to a simple end signal without documents
-                            yield f"data: {json.dumps({'end': True})}\n\n"
+                            # End signal without message_pk
+                            yield f"data: {json.dumps({'end': True, 'remaining_queries': remaining_queries, 'query_limit': query_limit, 'is_premium': is_premium})}\n\n"
+                            return
 
                 except Exception as e:
                     logger.error(
@@ -596,3 +601,35 @@ def chat(request):
 def privacy_policy(request):
     """개인정보처리방침 페이지"""
     return render(request, "privacy_policy.html")
+
+
+class Rating(APIView):
+    def post(self, request):
+        # Change this line:
+        # data = json.loads(request.body)
+
+        # To this:
+        data = request.data
+
+        message_pk = data.get("message_pk")
+        rating = data.get("rating")
+
+        try:
+            message = ChatMessage.objects.get(pk=message_pk)
+        except ChatMessage.DoesNotExist:
+            return JsonResponse({"error": "Message not found"}, status=404)
+
+        if message.role != "assistant":
+            return JsonResponse(
+                {"error": "Only assistant messages can be rated"}, status=400
+            )
+
+        if rating == None:
+            message.good_or_bad = None
+        else:
+            message.good_or_bad = rating
+        message.save(update_fields=["good_or_bad"])
+
+        return JsonResponse(
+            {"status": "success", "message_pk": message_pk, "rating": rating}
+        )
