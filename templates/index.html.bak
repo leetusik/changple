@@ -88,7 +88,7 @@
                     <svg class="payment-icon" width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.7339 0.200195L13.2023 7.40581L18.9589 2.82986L15.452 9.29355L22.8032 9.48839L15.962 12.1857L21.4681 17.0602L14.4936 14.7291L15.5782 22.0023L11.7339 15.7335L7.88962 22.0023L8.97425 14.7291L1.9998 17.0602L7.50585 12.1857L0.664688 9.48839L8.01582 9.29355L4.50899 2.82986L10.2655 7.40581L11.7339 0.200195Z" fill="#889DC4"/>
                     </svg>
-                    <div class="payment-btn-text">유료플랜</div>
+                    <div class="payment-btn-text">유료플랜 결제</div>
                 </button>
             </div>
         </div>
@@ -129,11 +129,9 @@
 
 
             <div class="main-block">
-                {% if user.nickname %}
-                <div class="title">{{ user.nickname }}님 안녕하세요</div>
-                {% else %}
-                <div class="title">안녕하세요 창플 AI입니다</div>
-                {% endif %}
+
+                <div class="title">무엇이 궁금하세요?</div>
+                
                 <div class="suggestions">
                     <div class="suggestion-box" id="suggestion-box-1">카페 창업시 준비해야 할 기본적인 것들은 무엇이 있나요?</div>
                     <div class="suggestion-box" id="suggestion-box-2">창플의 창업 철학에 대해 얘기해줘</div>
@@ -143,7 +141,7 @@
                 {% if user.is_authenticated %}
                 <!-- Input unlocked for logged in users -->
                 <div class="input-container-unlocked">
-                    <textarea class="input-box-unlocked" placeholder="오늘 어떤 도움을 드릴까요?" autofocus rows="1"></textarea>
+                    <textarea class="input-box-unlocked" placeholder="최대한 질문을 구체적으로 작성해 주실수록 좋습니다." autofocus rows="1"></textarea>
                     
                     <!-- Changple icon (when input is empty) -->
                     <div class="changple-btn">
@@ -341,7 +339,7 @@
             
             // Reset input field state on page load
             inputBox.disabled = false;
-            inputBox.placeholder = "오늘 어떤 도움을 드릴까요?";
+            inputBox.placeholder = "최대한 질문을 구체적으로 작성해 주실수록 좋습니다.";
             inputBox.value = "";
             
             // Show/hide the appropriate button based on input content
@@ -506,24 +504,7 @@
 
 
             //------------- 질문 예시 박스 3개 : mouseover 컬러 변경 -------------------------------
-            const suggestionBoxes = document.querySelectorAll('.suggestion-box');
-            
-            // 모든 suggestion box에 호버 효과 적용
-            if (suggestionBoxes && suggestionBoxes.length > 0) {
-                suggestionBoxes.forEach(box => {
-                    // 마우스가 div 위에 올라갔을 때
-                    box.addEventListener('mouseover', function() {
-                        this.style.backgroundColor = '#f5f5f5';
-                        this.style.transition = 'background-color 0.3s ease';
-                    });
-                    
-                    // 마우스가 div에서 벗어났을 때
-                    box.addEventListener('mouseout', function() {
-                        this.style.backgroundColor = '#FFFFFF';
-                        this.style.transition = 'background-color 0.3s ease';
-                    });
-                });
-            }
+            // 이 코드는 static/js/index.js 파일로 이동되었습니다.
 
                 
 
