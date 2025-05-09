@@ -44,6 +44,44 @@
             }
         }
 
+        /* Rating buttons styling */
+        .message-rating {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            justify-content: flex-end;
+        }
+        
+        .rating-btn {
+            background: none;
+            border: 1px solid #e0e0e0;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #888;
+            transition: all 0.2s ease;
+        }
+        
+        .rating-btn:hover {
+            background-color: #f5f5f5;
+            color: #617DAE;
+        }
+        
+        .rating-btn.active {
+            background-color: #EFF2FA;
+            color: #617DAE;
+            border-color: #617DAE;
+        }
+        
+        .rating-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
 
     </style>
 </head>
@@ -311,18 +349,50 @@
                 
                 // Render existing chat messages from the server
                 {% for message in chat_history %}
-                    // Create a unique key for this message - using var instead of const to avoid redeclaration errors
-                    var messageKey = '{{ message.role }}' + '_' + '{{ forloop.counter }}';
-                    var documents = {{ message.documents|safe }};
+                    // Create a unique key for this message
+                    const messageKey = '{{ message.role }}' + '_' + '{{ forloop.counter }}';
+                    const documents = {{ message.documents|safe }};
                     
                     // Only render if not already rendered
                     if (!renderedMessages.has(messageKey)) {
                         renderedMessages.add(messageKey);
+                        
+                        {% if message.role == 'assistant' %}
+                        // For assistant messages, pass the message ID for rating functionality
+                        const contentSpanId = addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`, false, {{ message.id|default:'null' }});
+                        
+                        // Apply existing rating if available
+                        {% if message.good_or_bad %}
+                        // Use setTimeout to ensure the DOM has been updated
+                        setTimeout(() => {
+                            const messageDiv = document.getElementById(contentSpanId)?.closest('.prompt-p');
+                            if (messageDiv) {
+                                // Set rating data attribute
+                                messageDiv.dataset.rating = '{{ message.good_or_bad }}';
+                                
+                                // Add active class to the appropriate button
+                                const ratingContainer = messageDiv.querySelector('.message-rating');
+                                if (ratingContainer) {
+                                    const ratingBtn = ratingContainer.querySelector('.rating-{{ message.good_or_bad }}');
+                                    if (ratingBtn) {
+                                        ratingBtn.classList.add('active');
+                                    }
+                                }
+                            }
+                        }, 100);
+                        {% endif %}
+                        
+                        {% else %}
+                        // For user messages, no rating needed
                         addMessageToChat('{{ message.role }}', `{{ message.content|escapejs }}`);
+                        {% endif %}
+                        
                         console.log("Rendered message:", messageKey, "{{ message.role }}");
                     }
+                    
+                    // Add source toggle if this is an assistant message with documents
                     if ('{{message.role}}' == "assistant" && Array.isArray(documents) && documents.length > 0) {
-                        renderSourceToggle(documents); // index_chat.js 에 정의된 함수 호출
+                        renderSourceToggle(documents);
                     }
                 {% endfor %}
             {% endif %}
@@ -529,6 +599,33 @@
                                                 spinnerContainer.style.display = 'none';
                                             }
                                             if (contentSpan) contentSpan.style.display = 'inline';
+                                        }
+                                        
+                                        // Store message ID for rating if available
+                                        if (data.message_pk) {
+                                            // Add message_pk as a data attribute to the message container
+                                            if (aiMessageDiv) {
+                                                aiMessageDiv.dataset.messagePk = data.message_pk;
+                                            }
+                                            
+                                            // Also add rating buttons if they don't exist yet
+                                            if (aiMessageDiv && !aiMessageDiv.querySelector('.message-rating')) {
+                                                const ratingHTML = `
+                                                    <div class="message-rating" data-message-pk="${data.message_pk}">
+                                                        <button class="rating-btn rating-good" title="좋아요">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button class="rating-btn rating-bad" title="별로예요">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                `;
+                                                aiMessageDiv.insertAdjacentHTML('beforeend', ratingHTML);
+                                            }
                                         }
                                         
                                         // Log document information if available and render toggle

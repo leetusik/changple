@@ -22,6 +22,7 @@ from django.views.generic import TemplateView
 # 새로 만든 HomeView 임포트
 from chatbot.api.views import (  # Import privacy_policy view
     HomeView,
+    Rating,
     chat,
     chat_view,
     privacy_policy,
@@ -52,8 +53,13 @@ urlpatterns = [
     path("chat/", chat_view, name="root_chat_view_with_no_nonce"),
     path("chat/<str:session_nonce>/", chat_view, name="root_chat_view_with_nonce"),
     path("api/chat/", chat, name="root_chat_api"),
+    path("api/rating/", Rating.as_view(), name="rating_api"),
     # Privacy policy URL
     path("privacy/", privacy_policy, name="privacy_policy"),
     # Payment plan URL
-    path("payplan/", TemplateView.as_view(template_name="payment/payplan.html"), name="payplan"),
+    path(
+        "payplan/",
+        TemplateView.as_view(template_name="payment/payplan.html"),
+        name="payplan",
+    ),
 ]
