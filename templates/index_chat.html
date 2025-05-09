@@ -349,9 +349,9 @@
                 
                 // Render existing chat messages from the server
                 {% for message in chat_history %}
-                    // Create a unique key for this message
-                    const messageKey = '{{ message.role }}' + '_' + '{{ forloop.counter }}';
-                    const documents = {{ message.documents|safe }};
+                    // Create a unique key for this message - using var to avoid redeclaration errors in template loops
+                    var messageKey = '{{ message.role }}' + '_' + '{{ forloop.counter }}';
+                    var documents = {{ message.documents|safe }};
                     
                     // Only render if not already rendered
                     if (!renderedMessages.has(messageKey)) {
