@@ -15,6 +15,7 @@
                 </svg>
             </a>
         </button>
+
         <div class="page-title-area">
             <span>성공적인 창업을 위한 요금제</span>
         </div>
@@ -155,7 +156,64 @@
     </main>
 
     <footer>
-
+        <div class="company-info">
+            (주)창플 | 283-88-00641 | 한범구 | 서울 송파구 송파대로 167 (문정동)테라타워 B동, 707호 | 02-2054-3956 | tiger9@changple.com
+        </div>
+        <div class="copyright">
+            <p>
+                @Copyright @ ChangpleTeamBusiness Inc. All Rights Reserved. 
+            </p>
+            <p>
+                <a href="" class="personal-info-link" target="_blank">개인정보처리방침</a>
+            </P>
+        </div>
     </footer>
+
+    <script>
+        /*----pricing-button-Pro : hovering----*/
+        const pricingButtonPro = document.querySelectorAll('.pricing-button-pro');
+    
+        pricingButtonPro.forEach(card => {
+            const originalBackgroundColor = card.style.backgroundColor;
+    
+            card.addEventListener('mouseover', () => {
+                card.style.backgroundColor = '#6985B7'; // 마우스 호버 시 변경할 배경색
+            });
+    
+            card.addEventListener('mouseout', () => {
+                card.style.backgroundColor = originalBackgroundColor; // 마우스 아웃 시 원래 배경색으로 복원
+            });
+        });
+
+        /*----pricing-button-1:1 : hovering----*/
+        const pricingButtonConsult = document.querySelectorAll('.pricing-button-consult');
+
+        pricingButtonConsult.forEach(card => {
+            const originalBackgroundColor = card.style.backgroundColor;
+    
+            card.addEventListener('mouseover', () => {
+                card.style.backgroundColor = '#6985B7'; // 마우스 호버 시 변경할 배경색
+            });
+    
+            card.addEventListener('mouseout', () => {
+                card.style.backgroundColor = originalBackgroundColor; // 마우스 아웃 시 원래 배경색으로 복원
+            });
+        });
+
+        /*----back-arrow : hovering----*/
+        const backArrow = document.querySelectorAll('.back-arrow');
+
+        backArrow.forEach(arrow => {
+            const originalBackgroundColor = arrow.style.backgroundColor;
+    
+            arrow.addEventListener('mouseover', () => {
+                arrow.style.backgroundColor = '#E9EFFB'; // 마우스 호버 시 변경할 배경색
+            });
+    
+            arrow.addEventListener('mouseout', () => {
+                arrow.style.backgroundColor = originalBackgroundColor; // 마우스 아웃 시 원래 배경색으로 복원
+            });
+        });
+    </script>
 </body>
 </html>
