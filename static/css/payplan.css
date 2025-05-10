@@ -61,23 +61,22 @@ body {
 }
 
 header {
-    /* background: red; */
     height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 48px 48px;
+    margin: 26px;
 }
 
 .back-arrow {
-    /* background: blue; */
     background: none;
     border: none;
+    border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     cursor: pointer;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -92,18 +91,15 @@ header {
 
 .page-title-area {
     width: 100%;
-    color: #333;
     flex-grow: 1;
     text-align: center;
     margin-left: -36px;
     z-index: 0;
-}
-
-.page-title-area {
     color: #617dae;
     font-size: 32px;
     font-weight: 500;
 }
+
 
 .pricing-plans {
     display: flex;
@@ -116,7 +112,9 @@ header {
 
 .pricing-card {
     background-color: white;
-    border: solid #617dae;
+    /* border: solid #617dae; */
+    box-shadow: 2px 2px 10px 0px rgba(0, 0, 0, 0.1);
+
     width: 390px;
     height: 600px;
     border-radius: 20px;
@@ -191,7 +189,7 @@ header {
 
 .pricing-button-pro {
     background-color: #8097C0;
-    color: #E0E0E0;
+    color: #FFFFFF;
     width: 350px;
     height: 50px;
     display: block;
@@ -203,7 +201,7 @@ header {
 
 .pricing-button-consult {
     background-color: #8097C0;
-    color: #E0E0E0;
+    color: #FFFFFF;
     width: 350px;
     height: 50px;
     display: block;
@@ -230,4 +228,45 @@ header {
     display: flex;
     flex-direction: row;
     gap: 6px;
+}
+
+/*----------------------------------------*/
+footer {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #889dc4;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 999;
+}
+
+.company-info {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.copyright {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.copyright p {
+    display: inline;
+}
+
+.privacy-policy {
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.personal-info-link {
+    color: #617dae;
 }

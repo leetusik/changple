@@ -1,11 +1,13 @@
 a {
   text-decoration: none;
 }
+
 .profile-buttons-block a,
 .pay_plan-block-content-btn-area {
   text-decoration: none;
   /* color: inherit; */
 }
+
 .not-authenticated a {
   text-decoration: none;
   color: inherit;
@@ -32,11 +34,13 @@ a {
 
 /* Media query for mobile devices */
 @media screen and (max-width: 768px) {
-  body > header,
-  body > main,
-  body > footer {
+
+  body>header,
+  body>main,
+  body>footer {
     display: none !important;
   }
+
   .mobile-message {
     display: flex;
   }
@@ -55,11 +59,9 @@ body {
   width: 100%;
   min-height: 100vh;
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(250, 250, 250, 0.4) 19%,
-    rgba(194, 202, 225, 0.4) 95%
-  );
+  background: linear-gradient(180deg,
+      rgba(250, 250, 250, 0.4) 19%,
+      rgba(194, 202, 225, 0.4) 95%);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -67,8 +69,7 @@ body {
 }
 
 /*-------------------- header -------------------------*/
-header {
-  /* background-color: #889dc4; */
+/* header {
   width: 100%;
   height: 100px;
   display: flex;
@@ -79,9 +80,58 @@ header {
   padding-left: 30px;
   padding-right: 10px;
   padding-bottom: 30px;
+} */
+
+
+
+
+header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 26px;
 }
+
+.back-arrow {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  z-index: 99;
+}
+
+
+.back-arrow svg {
+  width: 42px;
+  height: 37px;
+}
+
+.page-title-area {
+  width: 100%;
+  flex-grow: 1;
+  text-align: center;
+  margin-left: -36px;
+  z-index: 0;
+  color: #617dae;
+  font-size: 32px;
+  font-weight: 500;
+}
+
+
+
+
+
+/* 
 .arrow-block {
-  /* background-color: aqua; */
   width: 50px;
   height: 50px;
   border-radius: 99px;
@@ -91,7 +141,6 @@ header {
   justify-content: center;
 }
 .title-block {
-  /* background-color: aqua; */
   width: 200px;
   height: auto;
   display: flex;
@@ -102,19 +151,20 @@ header {
 .title-block p {
   font-size: 40px;
   color: #617dae;
-}
+} */
 
 /*-------------------- main -------------------------*/
 main {
   /* background-color: red; */
-  width: 1920px;
-  height: fit-content;
+  width: 100%;
+  /* height: fit-content; */
   display: flex;
   flex-direction: column;
-  padding-left: 110px;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
 }
+
 /*----------- profile-container ------------*/
 .profile-container {
   background-color: white;
@@ -128,6 +178,7 @@ main {
   padding: 10px;
   gap: 6px;
 }
+
 /*---------- 1st-block ----------*/
 .profile-1st-block {
   /* background-color: aqua; */
@@ -140,6 +191,7 @@ main {
   gap: 20px;
   padding: 2px;
 }
+
 /*--- img area ---*/
 .profile-img-area {
   border-radius: 999px;
@@ -150,11 +202,13 @@ main {
   align-items: center;
   justify-content: center;
 }
+
 .profile-img-area img {
   border-radius: 999px;
   width: 110px;
   height: 110px;
 }
+
 /*--- text area ---*/
 .profile-text-area {
   /* background-color: blue; */
@@ -168,6 +222,7 @@ main {
   padding-left: 10px;
   padding-right: 10px;
 }
+
 .profile-id-area {
   /* background-color: red; */
   width: 280px;
@@ -177,11 +232,13 @@ main {
   align-items: center;
   justify-content: flex-start;
 }
+
 .profile-id-area p {
   font-size: 20px;
   font-weight: 800;
   color: #617dae;
 }
+
 .profile-email-area {
   /* background-color: red; */
   width: 280px;
@@ -190,6 +247,7 @@ main {
   align-items: center;
   justify-content: flex-start;
 }
+
 .profile-email-area p {
   font-size: 16px;
   color: #617dae;
@@ -212,22 +270,24 @@ main {
   color: #617dae;
   border-bottom: 1px solid #dddddd;
 }
+
 .name-block-title-area {
   /* background-color: black; */
   width: 120px;
   height: auto;
   font-size: 16px;
 }
-.name-block-title-area p {
-}
+
+.name-block-title-area p {}
+
 .name-block-content-area {
   /* background-color: black; */
   width: auto;
   height: auto;
   font-size: 16px;
 }
-.name-block-content-area p {
-}
+
+.name-block-content-area p {}
 
 /*----- phone_number-block -----*/
 .profile-phone_number-block {
@@ -245,22 +305,24 @@ main {
   color: #617dae;
   border-bottom: 1px solid #dddddd;
 }
+
 .phone_number-block-title-area {
   /* background-color: black; */
   width: 120px;
   height: auto;
   font-size: 16px;
 }
-.phone_number-block-title-area p {
-}
+
+.phone_number-block-title-area p {}
+
 .phone_number-block-content-area {
   /* background-color: black; */
   width: auto;
   height: auto;
   font-size: 16px;
 }
-.phone_number-block-content-area p {
-}
+
+.phone_number-block-content-area p {}
 
 /*----- login_info-block -----*/
 .profile-login_info-block {
@@ -278,22 +340,24 @@ main {
   color: #617dae;
   border-bottom: 1px solid #dddddd;
 }
+
 .login_info-block-title-area {
   /* background-color: black; */
   width: 120px;
   height: auto;
   font-size: 16px;
 }
-.login_info-block-title-area p {
-}
+
+.login_info-block-title-area p {}
+
 .login_info-block-content-area {
   /* background-color: black; */
   width: auto;
   height: auto;
   font-size: 16px;
 }
-.login_info-block-content-area p {
-}
+
+.login_info-block-content-area p {}
 
 /*----- join_date-block -----*/
 .profile-join_date-block {
@@ -311,22 +375,24 @@ main {
   color: #617dae;
   border-bottom: 1px solid #dddddd;
 }
+
 .join_date-block-title-area {
   /* background-color: black; */
   width: 120px;
   height: auto;
   font-size: 16px;
 }
-.join_date-block-title-area p {
-}
+
+.join_date-block-title-area p {}
+
 .join_date-block-content-area {
   /* background-color: black; */
   width: auto;
   height: auto;
   font-size: 16px;
 }
-.join_date_info-block-content-area p {
-}
+
+.join_date_info-block-content-area p {}
 
 /*----- pay_plan-block -----*/
 .profile-pay_plan-block {
@@ -345,6 +411,7 @@ main {
   border-bottom: 1px solid #dddddd;
   gap: 2px;
 }
+
 /*-- 사용횟수와 유료결제 버튼을 묶은 영역 --*/
 .pay_plan-block-container {
   /* background-color: black; */
@@ -354,6 +421,7 @@ main {
   align-items: center;
   gap: 10px;
 }
+
 .pay_plan-block-title-area {
   /* background-color: black; */
   /* width: 120px; */
@@ -361,16 +429,18 @@ main {
   height: auto;
   font-size: 16px;
 }
-.pay_plan-title-area p {
-}
+
+.pay_plan-title-area p {}
+
 .pay_plan-block-content-area {
   /* background-color: black; */
   width: auto;
   height: auto;
-  font-size: 16px;
+  font-size: 14px;
 }
-.pay_plan-block-content-area p {
-}
+
+.pay_plan-block-content-area p {}
+
 .pay_plan-block-content-btn-area {
   display: flex;
   flex-direction: row;
@@ -390,6 +460,7 @@ main {
   outline: 1px solid #304b79;
   background-color: #8097c0;
 }
+
 .pay_plan-block-content-btn-area svg {
   width: 20px;
   height: 20px;
@@ -404,14 +475,16 @@ main {
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
-  padding-top: 20px;
-  padding-bottom: 2px;
-  padding-left: 30px;
-  padding-right: 30px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
   color: #617dae;
   gap: 12px;
   /* background-color: #8097c0; */
 }
+
+
 .buttons-block-logout-area {
   display: flex;
   flex-direction: row;
@@ -428,6 +501,18 @@ main {
   outline: 1px solid #8097c0;
   background-color: white;
 }
+
+.resign-button-block {
+  width: 500px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  /* padding-left: 30px; */
+  padding-right: 50px;
+  padding-top: 24px;
+  padding-bottom: 8px;
+}
+
 .buttons-block-resign-area {
   display: flex;
   flex-direction: row;
@@ -435,14 +520,17 @@ main {
   align-items: center;
   width: auto;
   height: 28px;
-  font-size: 16px;
-  border-radius: 20px;
+  font-size: 14px;
+  /* border-radius: 20px; */
   padding: 8px;
   gap: 2px;
   color: #8097c0;
   border: 0;
-  background-color: #e4ebf9;
-  outline: 1px solid #8097c0;
+  border-radius: 30px;
+  text-decoration: underline;
+
+  /* background-color: #e4ebf9; */
+  /* outline: 1px solid #8097c0; */
 }
 
 /*----------------------------------------*/
@@ -460,14 +548,17 @@ footer {
   left: 0;
   z-index: 999;
 }
+
 .company-info {
   font-size: 12px;
   font-weight: 600;
 }
+
 .copyright {
   font-size: 12px;
   font-weight: 600;
 }
+
 .copyright p {
   display: inline;
 }
@@ -478,6 +569,7 @@ footer {
   text-decoration: underline;
   cursor: pointer;
 }
+
 .personal-info-link {
   color: #617dae;
 }
