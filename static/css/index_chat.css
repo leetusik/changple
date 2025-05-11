@@ -1,7 +1,6 @@
 @font-face {
   font-family: "SpoqaHanSansNeo-Regular";
-  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SpoqaHanSansNeo-Regular.woff")
-    format("woff");
+  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SpoqaHanSansNeo-Regular.woff") format("woff");
   font-weight: normal;
   font-style: normal;
 }
@@ -23,15 +22,15 @@ body {
   width: 100%;
   min-height: 100vh;
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(250, 250, 250, 0.4) 19%,
-    rgba(194, 202, 225, 0.4) 95%
-  ); /* 배경색에 투명도 적용 */
+  background: linear-gradient(180deg,
+      rgba(250, 250, 250, 0.4) 19%,
+      rgba(194, 202, 225, 0.4) 95%);
+  /* 배경색에 투명도 적용 */
   overflow: hidden;
   display: flex;
   /* flex-direction: column; */
-  overflow-y: hidden; /* Disable scrolling */
+  overflow-y: hidden;
+  /* Disable scrolling */
 }
 
 .prompt-container {
@@ -43,8 +42,10 @@ body {
   width: 100%;
   height: calc(100vh - 250px);
   overflow-y: auto;
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .prompt-answer-block {
@@ -204,8 +205,10 @@ body {
 
 .prompt-p span {
   /* Streaming content span */
-  white-space: pre-wrap; /* Preserve whitespace and allow wrapping */
-  word-break: break-word; /* Break long words */
+  white-space: pre-wrap;
+  /* Preserve whitespace and allow wrapping */
+  word-break: break-word;
+  /* Break long words */
 }
 
 /* Blinking cursor effect */
@@ -214,13 +217,15 @@ body {
     opacity: 0;
   }
 }
+
 .blinking-cursor {
   animation: blink 1s step-end infinite;
 }
 
 .prompt-text-area {
   width: fit-content;
-  max-width: 60%; /* 최대 너비를 부모 요소의 60%로 제한 */
+  max-width: 60%;
+  /* 최대 너비를 부모 요소의 60%로 제한 */
   background-color: #617dae;
   color: white;
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
@@ -301,10 +306,12 @@ body {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
 }
+
 .login-btn:hover {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
 }
+
 .payment-btn:hover {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
@@ -337,17 +344,20 @@ body {
   padding-bottom: 180px;
   width: 100%;
   position: relative;
-  margin-top: 50px; /* 헤더 높이만큼 마진 추가 */
+  margin-top: 50px;
+  /* 헤더 높이만큼 마진 추가 */
 }
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
 .main-content-prompt::-webkit-scrollbar {
-  display: none; /* Hide scrollbar */
+  display: none;
+  /* Hide scrollbar */
 }
 
 /* Hide scrollbar for Firefox */
 .main-content-prompt {
-  scrollbar-width: none; /* Hide scrollbar */
+  scrollbar-width: none;
+  /* Hide scrollbar */
 }
 
 .title {
@@ -401,14 +411,21 @@ body {
 .input-container-prompt {
   width: 100%;
   max-width: 1040px;
-  /* height: 148px; */ /* 고정 높이 제거 */
-  min-height: 80px; /* 최소 높이 설정 (예시) */
-  height: auto; /* 내용에 따라 높이 자동 조절 */
-  /* height: 148px; */ /* 고정 높이 제거 */
-  min-height: 80px; /* 최소 높이 설정 (예시) */
-  height: auto; /* 내용에 따라 높이 자동 조절 */
+  /* height: 148px; */
+  /* 고정 높이 제거 */
+  min-height: 80px;
+  /* 최소 높이 설정 (예시) */
+  height: auto;
+  /* 내용에 따라 높이 자동 조절 */
+  /* height: 148px; */
+  /* 고정 높이 제거 */
+  min-height: 80px;
+  /* 최소 높이 설정 (예시) */
+  height: auto;
+  /* 내용에 따라 높이 자동 조절 */
   position: fixed;
-  bottom: 90px; /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
+  bottom: 90px;
+  /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
   left: 50%;
   transform: translateX(-50%);
   margin-top: 60px;
@@ -435,10 +452,14 @@ body {
 
 .input-box-unlocked {
   width: 100%;
-  height: 80px; /* 초기 높이 (한 줄 정도) */
-  min-height: 80px; /* 최소 높이 */
-  max-height: 150px; /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
-  padding: 20px 90px 10px 34px; /* 상하 패딩 조절, 오른쪽 패딩 유지 */
+  height: 80px;
+  /* 초기 높이 (한 줄 정도) */
+  min-height: 80px;
+  /* 최소 높이 */
+  max-height: 150px;
+  /* 최대 높이 (스크롤 생기기 전까지 늘어날 최대 높이) */
+  padding: 20px 90px 10px 34px;
+  /* 상하 패딩 조절, 오른쪽 패딩 유지 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -448,17 +469,23 @@ body {
   font-family: "SpoqaHanSansNeo-Regular", sans-serif;
   font-size: 20px;
   font-weight: 400;
-  resize: none; /* 크기 조절 핸들 숨김 */
-  overflow-y: auto; /* 내용이 max-height 초과 시 스크롤 */
-  white-space: normal; /* 자동 줄바꿈 활성화 */
-  word-wrap: break-word; /* 단어 단위 줄바꿈 */
-  line-height: 1.4; /* 줄 간격 조정 */
-  box-sizing: border-box; /* 패딩과 테두리를 높이에 포함 */
+  resize: none;
+  /* 크기 조절 핸들 숨김 */
+  overflow-y: auto;
+  /* 내용이 max-height 초과 시 스크롤 */
+  white-space: normal;
+  /* 자동 줄바꿈 활성화 */
+  word-wrap: break-word;
+  /* 단어 단위 줄바꿈 */
+  line-height: 1.4;
+  /* 줄 간격 조정 */
+  box-sizing: border-box;
+  /* 패딩과 테두리를 높이에 포함 */
 }
 
 .input-box-unlocked::placeholder {
-  color: #a4a4a4;
-  /* padding-bottom: 50px;  */
+  color: #a4a4a4
+    /* padding-bottom: 50px;  */
 }
 
 .locked-btn,
@@ -484,20 +511,25 @@ body {
 .stop-streaming-button {
   position: absolute;
   top: 10%;
-  right: 17px; /* locked-btn, send-btn과 같은 위치 */
+  right: 17px;
+  /* locked-btn, send-btn과 같은 위치 */
   width: 60px;
   height: 60px;
   background: #8097c0;
-  color: white; /* Dark red text/icon */
+  color: white;
+  /* Dark red text/icon */
   box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
   border-radius: 30px;
   border: 1px solid #8097c0;
-  display: flex; /* Initially hidden via style="display: none;" */
+  display: flex;
+  /* Initially hidden via style="display: none;" */
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  z-index: 1002; /* Ensure it's above other buttons if they overlap */
-  font-size: 20px; /* Adjust icon size */
+  z-index: 1002;
+  /* Ensure it's above other buttons if they overlap */
+  font-size: 20px;
+  /* Adjust icon size */
   font-weight: bold;
 }
 
@@ -506,26 +538,31 @@ body {
   color: white;
   border: 1px solid #8097c0;
   box-shadow: 2px 2px 10px rgba(128, 151, 192, 0.25);
-  font-size: 20px; /* Adjust icon size */
+  font-size: 20px;
+  /* Adjust icon size */
   font-weight: bold;
   opacity: 0.9;
   transition: opacity 0.3s ease;
   cursor: pointer;
-  z-index: 1002; /* Ensure it's above other buttons if they overlap */
+  z-index: 1002;
+  /* Ensure it's above other buttons if they overlap */
 }
 
 .lock-icon {
   width: 20px;
   height: 23px;
 }
+
 .naver-icon {
   width: 12px;
   height: 15px;
 }
+
 .payment-icon {
   width: 16px;
   height: 19px;
 }
+
 .mypage-icon {
   width: 12px;
   height: 15px;
@@ -549,6 +586,7 @@ body {
   cursor: pointer;
   z-index: 2000;
 }
+
 .help-box {
   background-color: white;
   position: fixed;
@@ -557,7 +595,8 @@ body {
   border: px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 2000; /* Ensure it appears above other elements */
+  z-index: 2000;
+  /* Ensure it appears above other elements */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -573,15 +612,18 @@ body {
   visibility: hidden;
   transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
 }
+
 .help-box.visible {
   opacity: 1;
   transform: translateY(0);
   visibility: visible;
 }
+
 .help-btn:hover {
   background-color: #c7d2f3;
   transition: background-color 0.3s ease;
 }
+
 .help-box-naver {
   /* background-color: red; */
   width: max-content;
@@ -592,6 +634,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-naver-blog {
   /* background-color: red; */
   width: max-content;
@@ -602,6 +645,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-insta {
   /* background-color: red; */
   width: max-content;
@@ -612,6 +656,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-youtube {
   /* background-color: red; */
   width: max-content;
@@ -622,6 +667,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-youtube2 {
   /* background-color: red; */
   width: max-content;
@@ -632,13 +678,19 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .styled-link {
-  color: #617dae; /* 링크 색상 */
-  text-decoration: none; /* 밑줄 제거 */
+  color: #617dae;
+  /* 링크 색상 */
+  text-decoration: none;
+  /* 밑줄 제거 */
 }
+
 .styled-link:hover {
-  text-decoration: underline; /* 마우스 오버 시 밑줄 추가 */
+  text-decoration: underline;
+  /* 마우스 오버 시 밑줄 추가 */
 }
+
 footer {
   width: 100%;
   padding: 20px;
@@ -663,6 +715,7 @@ footer {
   font-size: 12px;
   font-weight: 600;
 }
+
 .copyright p {
   display: inline;
 }
@@ -733,11 +786,13 @@ footer {
     right: 10px;
     bottom: 10px;
   }
+
   .stop-streaming-button {
     width: 40px;
     height: 40px;
     right: 10px;
-    bottom: 10px; /* Adjust if needed based on other buttons */
+    bottom: 10px;
+    /* Adjust if needed based on other buttons */
     font-size: 20px;
   }
 
@@ -810,11 +865,13 @@ footer {
     right: 8px;
     bottom: 8px;
   }
+
   .stop-streaming-button {
     width: 35px;
     height: 35px;
     right: 8px;
-    bottom: 8px; /* Adjust if needed */
+    bottom: 8px;
+    /* Adjust if needed */
     font-size: 18px;
   }
 
@@ -863,7 +920,8 @@ input::placeholder {
 
 /* Loading Spinner Styles */
 .loading-spinner-overlay {
-  position: fixed; /* 화면 전체에 고정 */
+  position: fixed;
+  /* 화면 전체에 고정 */
   top: 0;
   left: 0;
   width: 100%;
@@ -871,19 +929,25 @@ input::placeholder {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1003; /* 다른 요소 위에 표시 */
-  pointer-events: none; /* 추가: 클릭 이벤트 통과 */
+  z-index: 1003;
+  /* 다른 요소 위에 표시 */
+  pointer-events: none;
+  /* 추가: 클릭 이벤트 통과 */
   opacity: 0.7;
 }
 
 .spinner {
-  border: 6px solid #dddddd; /* 밝은 회색 테두리 */
-  border-top: 6px solid #617dae; /* 파란색 테두리 (로딩 표시) */
+  border: 6px solid #dddddd;
+  /* 밝은 회색 테두리 */
+  border-top: 6px solid #617dae;
+  /* 파란색 테두리 (로딩 표시) */
   border-radius: 50%;
   width: 50px;
   height: 50px;
-  animation: spin 1s linear infinite; /* 회전 애니메이션 */
-  pointer-events: auto; /* 추가: 스피너 자체는 이벤트 수신 가능 (필요 시) */
+  animation: spin 1s linear infinite;
+  /* 회전 애니메이션 */
+  pointer-events: auto;
+  /* 추가: 스피너 자체는 이벤트 수신 가능 (필요 시) */
   opacity: 0.7;
 }
 
@@ -891,6 +955,7 @@ input::placeholder {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -972,34 +1037,42 @@ li {
 
 /* ------------아래로 스크롤 버튼 스타일------------- */
 .scroll-down-button {
-  position: absolute; /* 부모(.input-container-prompt) 기준으로 위치 설정 */
-  bottom: 100%; /* 버튼의 아래쪽 경계를 부모의 위쪽 경계에 맞춤 */
-  left: 50%; /* 가로 중앙 기준으로 설정 */
-  transform: translateX(
-    -50%
-  ); /* 요소 자체 너비의 50%만큼 왼쪽으로 이동하여 정확히 중앙 정렬 */
-  margin-bottom: 10px; /* 입력 컨테이너와의 간격 */
+  position: absolute;
+  /* 부모(.input-container-prompt) 기준으로 위치 설정 */
+  bottom: 100%;
+  /* 버튼의 아래쪽 경계를 부모의 위쪽 경계에 맞춤 */
+  left: 50%;
+  /* 가로 중앙 기준으로 설정 */
+  transform: translateX(-50%);
+  /* 요소 자체 너비의 50%만큼 왼쪽으로 이동하여 정확히 중앙 정렬 */
+  margin-bottom: 10px;
+  /* 입력 컨테이너와의 간격 */
   width: 32px;
   height: 32px;
-  background-color: rgba(
-    170,
-    185,
-    215,
-    0.7
-  ); /* 배경과 비슷하지만 살짝 진한 톤 (투명도 유지) */
+  background-color: rgba(170,
+      185,
+      215,
+      0.7);
+  /* 배경과 비슷하지만 살짝 진한 톤 (투명도 유지) */
   color: white;
   border: none;
   border-radius: 50%;
-  font-size: 24px; /* 화살표 크기 키움 (20px -> 24px) */
+  font-size: 24px;
+  /* 화살표 크기 키움 (20px -> 24px) */
   cursor: pointer;
-  display: flex; /* 기본값은 flex로 두고 JS에서 none으로 변경 */
+  display: flex;
+  /* 기본값은 flex로 두고 JS에서 none으로 변경 */
   justify-content: center;
   align-items: center;
-  z-index: 1001; /* 다른 요소 위에 표시 (input container 내부이므로 z-index 중요도 낮아짐) */
-  box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.15); /* 그림자 약간 조정 */
+  z-index: 1001;
+  /* 다른 요소 위에 표시 (input container 내부이므로 z-index 중요도 낮아짐) */
+  box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.15);
+  /* 그림자 약간 조정 */
   transition: opacity 0.3s ease, background-color 0.3s ease;
-  opacity: 0; /* 기본적으로 숨김 (JS로 제어) */
-  visibility: hidden; /* 기본적으로 숨김 */
+  opacity: 0;
+  /* 기본적으로 숨김 (JS로 제어) */
+  visibility: hidden;
+  /* 기본적으로 숨김 */
 }
 
 .scroll-down-button.visible {
@@ -1008,7 +1081,8 @@ li {
 }
 
 .scroll-down-button:hover {
-  background-color: rgba(150, 170, 200, 0.8); /* 호버 시 조금 더 진하게 */
+  background-color: rgba(150, 170, 200, 0.8);
+  /* 호버 시 조금 더 진하게 */
 }
 
 /* 미디어 쿼리 부분은 변경 없음 */
@@ -1076,7 +1150,7 @@ li {
   gap: 16px;
 }
 
-.source-list-area > div {
+.source-list-area>div {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -1088,12 +1162,15 @@ li {
 }
 
 .message-spinner {
-  border: 4px solid #dddddd; /* 밝은 회색 테두리 */
-  border-top: 4px solid #617dae; /* 파란색 테두리 (로딩 표시) */
+  border: 4px solid #dddddd;
+  /* 밝은 회색 테두리 */
+  border-top: 4px solid #617dae;
+  /* 파란색 테두리 (로딩 표시) */
   border-radius: 50%;
   width: 20px;
   height: 20px;
-  animation: spin 1s linear infinite; /* 회전 애니메이션 */
+  animation: spin 1s linear infinite;
+  /* 회전 애니메이션 */
   opacity: 0.7;
 }
 

@@ -363,6 +363,30 @@
                 sendChatMessage();
             });
             
+
+
+
+
+                //----------------- input box 글자 입력시 다른 컬러로 나오는 기능 --------------------
+                // 기본 텍스트 색상 설정
+                inputBox.style.color = '#a4a4a4'; // 입력하기 전 회색으로 설정
+                
+                // Show/hide the appropriate button based on input content and change text color
+                inputBox.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        changpleBtn.style.display = 'none';
+                        sendBtn.style.display = 'flex';
+                        this.style.color = '#47639A'; // 사용자가 텍스트를 입력하면 파란색으로 변경
+                    } else {
+                        changpleBtn.style.display = 'flex';
+                        sendBtn.style.display = 'none';
+                        this.style.color = '#a4a4a4'; // 텍스트가 없으면 다시 회색으로
+                    }
+                });
+    
+
+
+
             // Enter key press event
             inputBox.addEventListener('keyup', function(event) {
                 // Enter 키만 눌렸을 때 메시지 전송
@@ -371,6 +395,15 @@
                     event.preventDefault(); 
                     sendChatMessage();
                 }
+
+
+
+
+            
+
+
+
+
             });
             
             // Message sending function
