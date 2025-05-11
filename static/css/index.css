@@ -1,7 +1,6 @@
 @font-face {
   font-family: "SpoqaHanSansNeo-Regular";
-  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SpoqaHanSansNeo-Regular.woff")
-    format("woff");
+  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2108@1.1/SpoqaHanSansNeo-Regular.woff") format("woff");
   font-weight: normal;
   font-style: normal;
 }
@@ -30,6 +29,7 @@
   .container {
     display: none !important;
   }
+
   .mobile-message {
     display: flex;
   }
@@ -46,11 +46,9 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: hidden;
-  background: linear-gradient(
-    180deg,
-    rgba(250, 250, 250, 0.4) 19%,
-    rgba(194, 202, 225, 0.4) 95%
-  );
+  background: linear-gradient(180deg,
+      rgba(250, 250, 250, 0.4) 19%,
+      rgba(194, 202, 225, 0.4) 95%);
   /* flex-direction: column; */
 }
 
@@ -59,25 +57,29 @@ body {
   /* min-height: 100vh; */
   height: auto;
   /* position: relative; */
-  background: linear-gradient(
-    180deg,
-    rgba(250, 250, 250, 0.4) 19%,
-    rgba(194, 202, 225, 0.4) 95%
-  ); /* 배경색에 투명도 적용 */
+  background: linear-gradient(180deg,
+      rgba(250, 250, 250, 0.4) 19%,
+      rgba(194, 202, 225, 0.4) 95%);
+  /* 배경색에 투명도 적용 */
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow-y: hidden; /* Disable scrolling */
+  overflow-y: hidden;
+  /* Disable scrolling */
 }
 
 .prompt-container {
   position: relative;
   width: 1040px;
-  height: calc(100vh - 288px); /* 기존 값보다 더 많은 공간 확보 */
+  height: calc(100vh - 288px);
+  /* 기존 값보다 더 많은 공간 확보 */
   overflow-y: auto;
-  padding-bottom: 200px; /* 하단 패딩 증가 */
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  padding-bottom: 200px;
+  /* 하단 패딩 증가 */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .prompt-answer-block {
@@ -111,7 +113,8 @@ body {
   flex-direction: row;
   align-items: flex-start;
   padding-left: 10px;
-  padding-bottom: 10px; /* 하단 패딩 추가 */
+  padding-bottom: 10px;
+  /* 하단 패딩 추가 */
 }
 
 .prompt-links-cards {
@@ -119,7 +122,8 @@ body {
   height: 100px;
   border-radius: 10px;
   outline: 1px solid #8097c0;
-  margin-right: 10px; /* 오른쪽 여백 추가 */
+  margin-right: 10px;
+  /* 오른쪽 여백 추가 */
 }
 
 /* 마지막 카드의 여백 제거 */
@@ -175,18 +179,23 @@ body {
 }
 
 .free-use-count {
-  display: inline-block; /* 컨테이너를 내용물 크기에 맞게 조절 */
+  display: inline-block;
+  /* 컨테이너를 내용물 크기에 맞게 조절 */
   height: 40px;
   /* background-color: white; */
   border-radius: 10px;
   outline: 1px solid #8097c0;
-  padding: 0 4px; /* 좌우 4px 패딩 추가 */
+  padding: 0 4px;
+  /* 좌우 4px 패딩 추가 */
 }
 
 .free-use-count p {
-  line-height: 40px; /* 수직 중앙 정렬을 위해 컨테이너 높이와 동일하게 설정 */
-  white-space: nowrap; /* 텍스트를 한 줄로 유지 */
-  margin: 0; /* 기본 마진 제거 */
+  line-height: 40px;
+  /* 수직 중앙 정렬을 위해 컨테이너 높이와 동일하게 설정 */
+  white-space: nowrap;
+  /* 텍스트를 한 줄로 유지 */
+  margin: 0;
+  /* 기본 마진 제거 */
   color: #617dae;
 }
 
@@ -209,9 +218,12 @@ body {
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
   border-radius: 20px;
   text-align: right;
-  white-space: nowrap; /* 텍스트를 한 줄로 표시 */
-  overflow: hidden; /* 넘치는 텍스트 숨김 */
-  text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
+  white-space: nowrap;
+  /* 텍스트를 한 줄로 표시 */
+  overflow: hidden;
+  /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis;
+  /* 넘치는 텍스트를 ...으로 표시 */
 }
 
 .prompt-text-area p {
@@ -262,7 +274,8 @@ body {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  gap: 10px; /* 기존보다 더 좁은 간격 */
+  gap: 10px;
+  /* 기존보다 더 좁은 간격 */
   z-index: 1000;
 }
 
@@ -292,10 +305,12 @@ body {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
 }
+
 .login-btn:hover {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
 }
+
 .payment-btn:hover {
   background-color: #f5f5f5;
   transition: background-color 0.3s ease;
@@ -325,25 +340,28 @@ body {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  justify-content: flex-start; /* Changed from center to flex-start */
+  justify-content: flex-start;
+  /* Changed from center to flex-start */
   padding: 10px;
   padding-bottom: 10px;
   width: 100%;
-  height: calc(
-    100vh - 80px - 80px
-  ); /* Viewport height minus header and footer */
-  overflow: hidden; /* Prevent main content from scrolling */
+  height: calc(100vh - 80px - 80px);
+  /* Viewport height minus header and footer */
+  overflow: hidden;
+  /* Prevent main content from scrolling */
   padding-top: 10px;
   padding-bottom: 20px;
 }
 
 .main-block {
   width: 100%;
-  height: 100%; /* Take full height of parent */
+  height: 100%;
+  /* Take full height of parent */
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow-y: auto; /* Allow this area to scroll independently */
+  overflow-y: auto;
+  /* Allow this area to scroll independently */
   padding-top: 100px;
   padding-bottom: 30px;
   padding-left: 10px;
@@ -360,27 +378,33 @@ body {
   padding-bottom: 254px;
   width: 100%;
   height: calc(100vh - 80px);
-  overflow-y: hidden; /* Disable scrolling */
+  overflow-y: hidden;
+  /* Disable scrolling */
   position: relative;
 }
+
 /*-------- 좌측 패널 ---------*/
 .history-pannel-block.minimized {
   width: fit-content;
 }
+
 .history-pannel-block {
   /* background-color: red; */
   width: 200px;
-  height: calc(100vh - 120px); /* Fixed height based on viewport */
+  height: calc(100vh - 120px);
+  /* Fixed height based on viewport */
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding-left: 12px;
   padding-top: 10px;
   position: sticky;
-  top: 100px; /* Stick below header */
+  top: 100px;
+  /* Stick below header */
   /* transition: width 0.3s ease-in-out; */
   transition: opacity 0.4s ease, transform 0.3s ease, visibility 0.3s;
 }
+
 .icon-block {
   /* background-color: black; */
   /* width: fit-content; */
@@ -389,40 +413,55 @@ body {
   height: 40px;
   border-radius: 99px;
   border: none;
-  padding: 0; /* 내부 여백 제거 */
-  outline: none; /* 포커스 아웃라인 제거 */
-  cursor: pointer; /* 마우스 오버 시 커서 변경 (선택 사항) */
+  padding: 0;
+  /* 내부 여백 제거 */
+  outline: none;
+  /* 포커스 아웃라인 제거 */
+  cursor: pointer;
+  /* 마우스 오버 시 커서 변경 (선택 사항) */
   background: none;
 }
+
 .history-list-area {
   display: flex;
   flex-direction: column;
   gap: 20px;
   height: calc(100% - 40px);
   overflow-y: auto;
-  max-height: calc(100vh - 160px); /* 최대 높이 설정 */
-  padding-bottom: 40px; /* 하단 여백 추가 */
+  max-height: calc(100vh - 160px);
+  /* 최대 높이 설정 */
+  padding-bottom: 40px;
+  /* 하단 여백 추가 */
 }
+
 .history-list-area {
-  overflow-y: auto; /* 내용이 넘칠 경우 스크롤 허용 */
-  scrollbar-width: none; /* Firefox용 스크롤바 숨김 */
-  -ms-overflow-style: none; /* IE/Edge용 스크롤바 숨김 */
+  overflow-y: auto;
+  /* 내용이 넘칠 경우 스크롤 허용 */
+  scrollbar-width: none;
+  /* Firefox용 스크롤바 숨김 */
+  -ms-overflow-style: none;
+  /* IE/Edge용 스크롤바 숨김 */
 }
 
 /* Chrome, Safari, Opera 등 웹킷 기반 브라우저용 스크롤바 숨김 */
 .history-list-area::-webkit-scrollbar {
   display: none;
 }
+
 /*--- list ------*/
 .history-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  height: auto; /* 자동 높이로 변경 */
-  overflow-y: visible; /* visible로 변경하여 부모 요소의 스크롤이 작동하도록 함 */
-  width: 100%; /* 너비 100%로 설정 */
+  height: auto;
+  /* 자동 높이로 변경 */
+  overflow-y: visible;
+  /* visible로 변경하여 부모 요소의 스크롤이 작동하도록 함 */
+  width: 100%;
+  /* 너비 100%로 설정 */
 }
+
 .history-list a {
   font-size: 16px;
   font-weight: 400;
@@ -430,32 +469,44 @@ body {
   gap: 12px;
   position: sticky;
   top: 0;
-  background-color: rgba(250, 250, 250, 0.9); /* Match page background */
+  background-color: rgba(250, 250, 250, 0.9);
+  /* Match page background */
   padding: 5px 0;
   z-index: 1;
-  width: 100%; /* 너비 100%로 설정 */
+  width: 100%;
+  /* 너비 100%로 설정 */
 }
+
 .history-list p {
   display: -webkit-box;
   font-size: 14px;
   font-weight: 400;
   color: rgba(97, 125, 174, 0.7);
-  -webkit-line-clamp: 2; /* 텍스트를 2줄로 제한 */
-  -webkit-box-orient: vertical; /* 텍스트 방향 설정 */
-  overflow: hidden; /* 넘치는 텍스트 숨김 */
-  text-overflow: ellipsis; /* 넘치는 텍스트를 ...으로 표시 */
-  width: 100%; /* 너비 100%로 설정 */
-  padding: 8px 0; /* 상하 패딩 추가 */
+  -webkit-line-clamp: 2;
+  /* 텍스트를 2줄로 제한 */
+  -webkit-box-orient: vertical;
+  /* 텍스트 방향 설정 */
+  overflow: hidden;
+  /* 넘치는 텍스트 숨김 */
+  text-overflow: ellipsis;
+  /* 넘치는 텍스트를 ...으로 표시 */
+  width: 100%;
+  /* 너비 100%로 설정 */
+  padding: 8px 0;
+  /* 상하 패딩 추가 */
 }
 
 .history-item {
   height: fit-content;
-  padding: 4px; /* 패딩 값 수정 */
+  padding: 4px;
+  /* 패딩 값 수정 */
   border-radius: 8px;
   transition: all 0.2s ease;
   margin-bottom: 4px;
-  width: 100%; /* 너비 100%로 설정 */
-  cursor: pointer; /* 커서 포인터 추가 */
+  width: 100%;
+  /* 너비 100%로 설정 */
+  cursor: pointer;
+  /* 커서 포인터 추가 */
 }
 
 .history-item:hover {
@@ -467,12 +518,14 @@ body {
 
 /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
 .main-content-prompt::-webkit-scrollbar {
-  display: none; /* Hide scrollbar */
+  display: none;
+  /* Hide scrollbar */
 }
 
 /* Hide scrollbar for Firefox */
 .main-content-prompt {
-  scrollbar-width: none; /* Hide scrollbar */
+  scrollbar-width: none;
+  /* Hide scrollbar */
 }
 
 .title {
@@ -529,7 +582,8 @@ body {
   max-width: 1040px;
   height: 148px;
   position: fixed;
-  bottom: 90px; /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
+  bottom: 90px;
+  /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
   left: 50%;
   transform: translateX(-50%);
   margin-top: 60px;
@@ -559,7 +613,8 @@ body {
   width: 100%;
   height: 100%;
   padding: 31px 34px;
-  padding-right: 90px; /* 버튼 공간 확보 */
+  padding-right: 90px;
+  /* 버튼 공간 확보 */
   background: #f8f8f8;
   box-shadow: 0 20px 20px rgba(128, 151, 192, 0.1);
   border-radius: 30px;
@@ -570,22 +625,27 @@ body {
   font-size: 18px;
   font-weight: 400;
   padding-bottom: 90px;
-  overflow-y: auto; /* 내용이 높이를 초과하면 세로 스크롤바 표시 */
-  resize: none; /* 사용자가 크기 조절하는 것 방지 */
-  white-space: pre-wrap; /* 공백 및 줄바꿈 유지하며 자동 줄바꿈 */
-  word-wrap: break-word; /* 단어 단위 줄바꿈 */
+  overflow-y: auto;
+  /* 내용이 높이를 초과하면 세로 스크롤바 표시 */
+  resize: none;
+  /* 사용자가 크기 조절하는 것 방지 */
+  white-space: pre-wrap;
+  /* 공백 및 줄바꿈 유지하며 자동 줄바꿈 */
+  word-wrap: break-word;
+  /* 단어 단위 줄바꿈 */
 }
 
 .input-box-unlocked::placeholder {
-  color: #a4a4a4;
-  /* padding-bottom: 50px;  */
+  color: #a4a4a4
+    /* padding-bottom: 50px;  */
 }
 
 .locked-btn,
 .send-btn,
 .changple-btn {
   position: absolute;
-  bottom: 44px; /* 수정된 값 */
+  bottom: 44px;
+  /* 수정된 값 */
   right: 17px;
   width: 60px;
   height: 60px;
@@ -603,14 +663,17 @@ body {
   width: 20px;
   height: 23px;
 }
+
 .naver-icon {
   width: 12px;
   height: 15px;
 }
+
 .payment-icon {
   width: 16px;
   height: 19px;
 }
+
 .mypage-icon {
   width: 12px;
   height: 15px;
@@ -634,6 +697,7 @@ body {
   cursor: pointer;
   z-index: 2000;
 }
+
 .help-btn:hover {
   background-color: #c7d2f3;
   transition: background-color 0.3s ease;
@@ -646,7 +710,8 @@ body {
   border: px solid white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 2000; /* Ensure it appears above other elements */
+  z-index: 2000;
+  /* Ensure it appears above other elements */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -679,6 +744,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-naver-blog {
   /* background-color: red; */
   width: max-content;
@@ -689,6 +755,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-insta {
   /* background-color: red; */
   width: max-content;
@@ -699,6 +766,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-youtube {
   /* background-color: red; */
   width: max-content;
@@ -709,6 +777,7 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .help-box-youtube2 {
   /* background-color: red; */
   width: max-content;
@@ -719,12 +788,17 @@ body {
   align-items: center;
   gap: 8px;
 }
+
 .styled-link {
-  color: #617dae; /* 링크 색상 */
-  text-decoration: none; /* 밑줄 제거 */
+  color: #617dae;
+  /* 링크 색상 */
+  text-decoration: none;
+  /* 밑줄 제거 */
 }
+
 .styled-link:hover {
-  text-decoration: underline; /* 마우스 오버 시 밑줄 추가 */
+  text-decoration: underline;
+  /* 마우스 오버 시 밑줄 추가 */
 }
 
 footer {
@@ -741,14 +815,17 @@ footer {
   left: 0;
   z-index: 999;
 }
+
 .company-info {
   font-size: 12px;
   font-weight: 600;
 }
+
 .copyright {
   font-size: 12px;
   font-weight: 600;
 }
+
 .copyright p {
   display: inline;
 }
@@ -759,6 +836,7 @@ footer {
   text-decoration: underline;
   cursor: pointer;
 }
+
 .personal-info-link {
   color: #617dae;
 }
@@ -903,6 +981,7 @@ footer {
     width: 18px;
     height: 20px;
   }
+
   /* 
     .help-btn {
         width: 35px;
@@ -937,6 +1016,7 @@ input::placeholder {
   width: 1000px;
   height: 1000px;
 }
+
 .test p {
   font-size: 100px;
 }
