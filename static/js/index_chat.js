@@ -315,17 +315,44 @@ function renderSourceToggle(documents) {
                 <div class="source-list-item-${index + 1}">
                     <p>[${index + 1}]</p>
                     <p>
-                        <a href="${doc.source
-          }" target="_blank" style="color: #617DAE; text-decoration: none;">
+                        <a class="source-list-item-text"; href="${doc.source
+          }" target="_blank";  text-decoration: none;">
                             ${doc.title}
                         </a>
                     </p>
+
                 </div>
             `
       )
       .join("")}
         </div>
     </div>`;
+
+  //--- 출처보기 toggle 버튼 hover -------------------------------------
+  document.addEventListener('DOMContentLoaded', function () {
+    //-- btn 요소 선택
+    const sourceListItemA = document.querySelector('.source-list-item a');
+
+    //-- 마우스가 버튼 위에 올라갔을 때(mouseover)
+    sourceListItemA.addEventListener('mouseover', function () {
+      //-- 배경색 변경
+      this.style.backgroundColor = '#0366d6';
+      //-- 전환효과 추가
+      this.style.transition = 'background-color 0.3 ease';
+    });
+
+    sourceListItemA.addEventListener('mouseout', function () {
+      //-- 원래 배경색으로 보원
+      this.style.backgroundColor = 'transparent';
+    });
+  });
+
+
+
+
+
+
+
 
   // Insert the HTML
   promptContainer.insertAdjacentHTML("beforeend", sourceToggleHTML);
