@@ -1131,6 +1131,10 @@ li {
   cursor: pointer;
 }
 
+.toggle-icon:hover {
+  background-color: #e9effb;
+  /* background-color: #ffffff; */
+}
 
 
 
@@ -1162,6 +1166,18 @@ li {
 .source-list-area p {
   color: #617dae;
   margin: 0;
+  text-decoration: underline;
+}
+
+/* .source-list-item a {
+  color: #617dae;
+} */
+.source-list-item-text {
+  color: #617dae;
+}
+
+.source-list-item-text:hover {
+  color: #0366d6;
 }
 
 .message-spinner {
