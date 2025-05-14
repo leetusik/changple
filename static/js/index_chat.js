@@ -89,13 +89,11 @@ function addMessageToChat(
     // 초기에는 spinner 또는 비어있는 span을 포함하여 추가
     const botMessageHTML = `
       <br>
-      <div id="${messageId}" class="prompt-p" data-message-pk="${
-      messagePk || ""
-    }">
+      <div id="${messageId}" class="prompt-p" data-message-pk="${messagePk || ""
+      }">
         ${spinnerHTML} 
-        <span id="${contentSpanId}" ${
-      showSpinner ? 'style="display: none;"' : ""
-    }>${formattedContent}</span>
+        <span id="${contentSpanId}" ${showSpinner ? 'style="display: none;"' : ""
+      }>${formattedContent}</span>
         ${!showSpinner ? ratingHTML : ""}
       </div>
     `;
@@ -301,9 +299,10 @@ function renderSourceToggle(documents) {
     <div class="source-toggle-container">
         <div class="toggle-area">
             <button class="toggle-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#617DAE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 6 15 12 9 18"></polyline>
-                </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="17" height="10" viewBox="0 0 17 10" fill="none">
+                <path d="M15.0547 1.03223L8.05469 8.03223L1.05469 1.03223" stroke="#617DAE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+
             </button>
             <div class="toggle-text">
                 <p>출처 보기</p>
@@ -311,21 +310,20 @@ function renderSourceToggle(documents) {
         </div>
         <div class="source-list-area" style="display: none;">
             ${documents
-              .map(
-                (doc, index) => `
+      .map(
+        (doc, index) => `
                 <div class="source-list-item-${index + 1}">
                     <p>[${index + 1}]</p>
                     <p>
-                        <a href="${
-                          doc.source
-                        }" target="_blank" style="color: #617DAE; text-decoration: none;">
+                        <a href="${doc.source
+          }" target="_blank" style="color: #617DAE; text-decoration: none;">
                             ${doc.title}
                         </a>
                     </p>
                 </div>
             `
-              )
-              .join("")}
+      )
+      .join("")}
         </div>
     </div>`;
 
