@@ -418,3 +418,14 @@ graph = build_graph()
 
 def get_graph():
     return graph
+
+
+agent = graph.compile()
+
+from IPython.display import Image, display
+from langchain_core.runnables.graph import CurveStyle, MermaidDrawMethod, NodeStyles
+
+# display(Image(agent.get_graph().draw_mermaid_png()))
+with open("graph.png", "wb") as f:
+    f.write(agent.get_graph().draw_mermaid_png())
+# print("hi")
