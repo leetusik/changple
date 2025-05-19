@@ -355,6 +355,10 @@ def respond_with_docs(state: AgentState):
     3.  **출처 표시:** 반드시 URL을 포함할 것.
         [O] "...하는 것이 중요합니다.[1](https://cafe.naver.com/cjdckddus/12345)"
         [X] "..입니다.[2]"
+    4. **출처 표시 2:**
+        문장 뒤에 출처 URL 외에 별도로 출처를 표시하지 마시오.
+    
+
 
 
     {context}
