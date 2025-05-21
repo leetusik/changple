@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.postgres import PostgresSaver
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -365,7 +365,14 @@ def chat(request):
                     # Set a timeout for stream operations
                     timeout = 120  # 2 minutes timeout
                     graph = get_graph()
-                    with SqliteSaver.from_conn_string("checkpoints.sqlite") as memory:
+                    db_user = os.environ.get("POSTGRES_USER")
+                    db_password = os.environ.get("POSTGRES_PASSWORD")
+                    db_db = os.environ.get("POSTGRES_DB")
+                    db_host = os.environ.get("POSTGRES_HOST")
+                    db_port = os.environ.get("POSTGRES_PORT")
+                    DB_URI = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_db}"
+                    with PostgresSaver.from_conn_string(DB_URI) as memory:
+                        memory.setup()
                         graph = graph.compile(checkpointer=memory)
                         for chunk in graph.stream(
                             {"messages": [{"role": "user", "content": query}]},
