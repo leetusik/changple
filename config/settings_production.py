@@ -58,11 +58,12 @@ PUBLICATION_PATH = os.environ.get(
 # In a production environment, you might want to use a more robust database like PostgreSQL
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
-        "OPTIONS": {
-            "timeout": 30,  # in seconds
-        },
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "changple"),
+        "USER": os.environ.get("POSTGRES_USER", "changple"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "changple"),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
 
