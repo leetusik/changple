@@ -3,22 +3,18 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    restart: always
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    ports: # Optional: Expose to host for direct access/debugging
-      - "${POSTGRES_PORT:-5432}:5432"
-    networks:
-      - app_network
-    healthcheck: # Good practice to ensure DB is ready before apps start
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
+      - postgres_data:/var/lib/postgresql/data/ # Persists data
+    env_file:
+      - .env # This tells Docker Compose to load variables from .env for this service
+    ports:
+      - "5432:5432"
+    healthcheck: # Good to have a healthcheck
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   web:
     build: .
