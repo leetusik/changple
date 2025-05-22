@@ -132,50 +132,50 @@ echo -e "${YELLOW}Setting up PostgreSQL database backup cron job...${NC}"
 BACKUP_SCRIPT_PATH="$(pwd)/backup_postgres.sh"
 DB_BACKUP_DIR="$(pwd)/db_backups/postgres"
 
-# Create backup script
-cat << EOF > ${BACKUP_SCRIPT_PATH}
-#!/bin/bash
-# Script to backup PostgreSQL database from Docker container
-# Load .env from the script's directory or parent if not found
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="\$SCRIPT_DIR/.env"
-if [ ! -f "\$ENV_FILE" ]; then
-    ENV_FILE="\$SCRIPT_DIR/../.env" # Try parent dir
-fi
+# # Create backup script
+# cat << EOF > ${BACKUP_SCRIPT_PATH}
+# #!/bin/bash
+# # Script to backup PostgreSQL database from Docker container
+# # Load .env from the script's directory or parent if not found
+# SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+# ENV_FILE="\$SCRIPT_DIR/.env"
+# if [ ! -f "\$ENV_FILE" ]; then
+#     ENV_FILE="\$SCRIPT_DIR/../.env" # Try parent dir
+# fi
 
-if [ -f "\$ENV_FILE" ]; then
-  export \$(grep -v '^#' "\$ENV_FILE" | xargs)
-else
-  echo "Error: .env file not found for backup script at \$ENV_FILE or \$SCRIPT_DIR/../.env"
-  exit 1
-fi
+# if [ -f "\$ENV_FILE" ]; then
+#   export \$(grep -v '^#' "\$ENV_FILE" | xargs)
+# else
+#   echo "Error: .env file not found for backup script at \$ENV_FILE or \$SCRIPT_DIR/../.env"
+#   exit 1
+# fi
 
-BACKUP_DIR="${DB_BACKUP_DIR}"
-DATE=\$(date +%Y%m%d-%H%M%S)
-mkdir -p "\$BACKUP_DIR"
-# Use docker-compose exec to run pg_dump inside the db container
-# Ensure the 'db' service name and POSTGRES_USER/POSTGRES_DB are correct
-# Note: -T disables pseudo-tty allocation, good for scripting
-docker-compose -f "\$SCRIPT_DIR/docker-compose.yml" exec -T db pg_dump -U "\${POSTGRES_USER}" -d "\${POSTGRES_DB}" | gzip > "\$BACKUP_DIR/\${POSTGRES_DB}-backup-\$DATE.sql.gz"
-# Optional: Clean up old backups (e.g., older than 7 days)
-find "\$BACKUP_DIR" -name "*.sql.gz" -type f -mtime +7 -delete
-EOF
-chmod +x ${BACKUP_SCRIPT_PATH}
+# BACKUP_DIR="${DB_BACKUP_DIR}"
+# DATE=\$(date +%Y%m%d-%H%M%S)
+# mkdir -p "\$BACKUP_DIR"
+# # Use docker-compose exec to run pg_dump inside the db container
+# # Ensure the 'db' service name and POSTGRES_USER/POSTGRES_DB are correct
+# # Note: -T disables pseudo-tty allocation, good for scripting
+# docker-compose -f "\$SCRIPT_DIR/docker-compose.yml" exec -T db pg_dump -U "\${POSTGRES_USER}" -d "\${POSTGRES_DB}" | gzip > "\$BACKUP_DIR/\${POSTGRES_DB}-backup-\$DATE.sql.gz"
+# # Optional: Clean up old backups (e.g., older than 7 days)
+# find "\$BACKUP_DIR" -name "*.sql.gz" -type f -mtime +7 -delete
+# EOF
+# chmod +x ${BACKUP_SCRIPT_PATH}
 
-CRON_JOB="0 2 * * * ${BACKUP_SCRIPT_PATH}" # Backup at 2 AM daily
-(crontab -l 2>/dev/null | grep -v "${BACKUP_SCRIPT_PATH}" | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab -
-echo -e "${GREEN}PostgreSQL backup cron job set up. Backups will be in ${DB_BACKUP_DIR}${NC}"
-# --- End DB backup cron job ---
+# CRON_JOB="0 2 * * * ${BACKUP_SCRIPT_PATH}" # Backup at 2 AM daily
+# (crontab -l 2>/dev/null | grep -v "${BACKUP_SCRIPT_PATH}" | grep -v "db.sqlite3.backup"; echo "$CRON_JOB") | crontab -
+# echo -e "${GREEN}PostgreSQL backup cron job set up. Backups will be in ${DB_BACKUP_DIR}${NC}"
+# # --- End DB backup cron job ---
 
-# Schedule crawler
-echo -e "${YELLOW}Setting up crawler to run 5 minutes after deployment...${NC}"
-FUTURE_TIME=$(date -u -d "+5 minutes" "+%H %M")
-FUTURE_HOUR=$(echo $FUTURE_TIME | cut -d' ' -f1)
-FUTURE_MINUTE=$(echo $FUTURE_TIME | cut -d' ' -f2)
-docker-compose exec web python manage.py schedule_crawler start --hour $FUTURE_HOUR --minute $FUTURE_MINUTE
+# # Schedule crawler
+# echo -e "${YELLOW}Setting up crawler to run 5 minutes after deployment...${NC}"
+# FUTURE_TIME=$(date -u -d "+5 minutes" "+%H %M")
+# FUTURE_HOUR=$(echo $FUTURE_TIME | cut -d' ' -f1)
+# FUTURE_MINUTE=$(echo $FUTURE_TIME | cut -d' ' -f2)
+# docker-compose exec web python manage.py schedule_crawler start --hour $FUTURE_HOUR --minute $FUTURE_MINUTE
 
-echo -e "${GREEN}Crawler scheduled to run at $(date -u -d "+5 minutes" "+%H:%M") UTC ($(TZ=Asia/Seoul date -d "+5 minutes" "+%H:%M") KST)${NC}"
-echo -e "${GREEN}Deployment completed successfully!${NC}"
-echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
-echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
-echo -e "${YELLOW}PostgreSQL database backups will be stored in ${DB_BACKUP_DIR} daily${NC}"
+# echo -e "${GREEN}Crawler scheduled to run at $(date -u -d "+5 minutes" "+%H:%M") UTC ($(TZ=Asia/Seoul date -d "+5 minutes" "+%H:%M") KST)${NC}"
+# echo -e "${GREEN}Deployment completed successfully!${NC}"
+# echo -e "${YELLOW}Your application is now available at https://$DOMAIN${NC}"
+# echo -e "${YELLOW}NOTE: To create a superuser, run: docker-compose exec web python manage.py createsuperuser${NC}"
+# echo -e "${YELLOW}PostgreSQL database backups will be stored in ${DB_BACKUP_DIR} daily${NC}"
