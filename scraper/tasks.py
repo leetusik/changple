@@ -12,6 +12,7 @@ from chatbot.services.ingest import ingest_docs
 
 # Import crawler and ingestion/indexing functions
 from scraper.services.crawler import main as crawler_main
+from scraper.services.crawler import sync_db_with_cafe_data
 
 # from chatbot.services.whoosh_service import create_whoosh_index
 
@@ -29,6 +30,39 @@ logging.basicConfig(
     force=True,  # Force reconfiguration
 )
 logger = logging.getLogger(__name__)  # Get logger for this module
+
+
+@job("default")
+def run_only_error_scrape():
+    # Get the current job ID safely
+    current_job = get_current_job()
+    job_id = current_job.id if current_job else "unknown"
+    logger.info(f"===== JOB {job_id} START =====")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(crawler_main(only_error=True))
+    loop.close()
+
+    logger.info(f"[Job {job_id}] Crawler finished successfully.")
+    print(f"   [Job {job_id}] Crawler finished successfully.")
+
+
+@job("default")
+def run_sync_db_with_cafe_data():
+
+    # Get the current job ID safely
+    current_job = get_current_job()
+    job_id = current_job.id if current_job else "unknown"
+    logger.info(f"===== JOB {job_id} START =====")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(sync_db_with_cafe_data())
+    loop.close()
+
+    logger.info(f"[Job {job_id}] Crawler finished successfully.")
+    print(f"   [Job {job_id}] Crawler finished successfully.")
 
 
 @job("default", timeout=3600)  # Specify the queue name explicitly with 1 hour timeout

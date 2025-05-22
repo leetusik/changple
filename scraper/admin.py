@@ -54,6 +54,26 @@ class NaverCafeDataAdmin(admin.ModelAdmin):
     list_filter = (ActiveCategoryFilter, ActiveAuthorFilter, "category")
     search_fields = ("title", "content", "category", "post_id")
     list_per_page = 20
+    actions = ["enqueue_cafe_sync", "only_error_scrape"]
+
+    def enqueue_cafe_sync(self, request, queryset):
+
+        from scraper.tasks import run_sync_db_with_cafe_data
+
+        # Enqueue the RQ job
+        job = run_sync_db_with_cafe_data.delay()
+        self.message_user(request, f"Enqueued cafe sync job with ID: {job.id}")
+
+    enqueue_cafe_sync.short_description = "Enqueue Cafe Sync Job (DB ↔ Cafe)"
+
+    def only_error_scrape(self, request, queryset):
+        from scraper.tasks import run_only_error_scrape
+
+        # Enqueue the RQ job
+        job = run_only_error_scrape.delay()
+        self.message_user(request, f"Enqueded only error scraper")
+
+    only_error_scrape.short_description = "Enqueue Only Error Scraper"
 
 
 class PostStatusAdmin(admin.ModelAdmin):
