@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports: # Optional: Expose to host for direct access/debugging
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - app_network
+    healthcheck: # Good practice to ensure DB is ready before apps start
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: always
+    depends_on:
+      db: # ADDED: wait for db
+        condition: service_healthy # Wait for healthcheck
+      redis: # Keep existing dependency
+        condition: service_started # Or add healthcheck to redis too
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai,140.245.64.173}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+      # --- ADDED POSTGRES ENV VARS FOR DJANGO ---
+      - POSTGRES_HOST=db # Service name of the postgres container
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      # --- END POSTGRES ENV VARS ---
+    volumes:
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      # - ./db.sqlite3:/app/db.sqlite3 # REMOVE THIS LINE
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    command: >
+      sh -c "
+      echo 'Waiting for PostgreSQL to be ready...' &&
+      while ! nc -z db 5432; do sleep 1; done; # Alternative wait mechanism
+      echo 'PostgreSQL is up - executing command' &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000
+      --workers 9
+      --timeout 120
+      --keep-alive 65"
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    # Consider adding a simple healthcheck for redis too
+    # healthcheck:
+    #   test: ["CMD", "redis-cli", "ping"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 3
+
+  rq_worker:
+    build: .
+    restart: always
+    depends_on:
+      db: # ADDED
+        condition: service_healthy
+      redis: # Keep existing dependency
+        condition: service_started
+      web: # Keep existing dependency
+        condition: service_started # Or a more robust check if web needs to be fully up
+    command: >
+      sh -c "
+      echo 'RQ Worker: Waiting for PostgreSQL...' &&
+      while ! nc -z db 5432; do sleep 1; done;
+      echo 'RQ Worker: PostgreSQL is up - executing command' &&
+      python manage.py rqworker default high low"
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+      # --- ADDED POSTGRES ENV VARS FOR DJANGO ---
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      # --- END POSTGRES ENV VARS ---
+    volumes:
+      # - ./db.sqlite3:/app/db.sqlite3 # REMOVE THIS LINE
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+
+  rq_scheduler:
+    build: .
+    restart: always
+    depends_on:
+      db: # ADDED
+        condition: service_healthy
+      redis: # Keep existing dependency
+        condition: service_started
+      web: # Keep existing dependency
+        condition: service_started
+    command: >
+      sh -c "
+      echo 'RQ Scheduler: Waiting for PostgreSQL...' &&
+      while ! nc -z db 5432; do sleep 1; done;
+      echo 'RQ Scheduler: PostgreSQL is up - executing command' &&
+      python manage.py rqscheduler --interval 60"
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-changple.ai}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=config.settings_production
+      # --- ADDED POSTGRES ENV VARS FOR DJANGO ---
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      # --- END POSTGRES ENV VARS ---
+    volumes:
+      # - ./db.sqlite3:/app/db.sqlite3 # REMOVE THIS LINE
+      - ./chatbot/data/whoosh_index:/app/chatbot/data/whoosh_index
+      - ./logs:/app/logs
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - static_volume:/app/static_root
+      - media_volume:/app/media
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./logs:/var/log/nginx # Ensure nginx user has write permission to /var/log/nginx inside container
+    networks:
+      - app_network
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:
+  postgres_data: {} # ADDED: Define the named volume for PostgreSQL persistence
+
+networks:
+  app_network:
