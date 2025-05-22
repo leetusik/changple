@@ -54,18 +54,18 @@ PUBLICATION_PATH = os.environ.get(
     os.path.join(BASE_DIR, "chatbot", "data", "창플 출판 서적 요약.txt"),
 )
 
-# Database - using SQLite for now
-# In a production environment, you might want to use a more robust database like PostgreSQL
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "changple"),
-        "USER": os.environ.get("POSTGRES_USER", "changple"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "changple"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-    }
-}
+# # Database - using SQLite for now
+# # In a production environment, you might want to use a more robust database like PostgreSQL
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": os.environ.get("POSTGRES_DB", "changple"),
+#         "USER": os.environ.get("POSTGRES_USER", "changple"),
+#         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "changple"),
+#         "HOST": os.environ.get("POSTGRES_HOST", "db"),
+#         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+#     }
+# }
 
 # Logging settings
 LOGGING = {

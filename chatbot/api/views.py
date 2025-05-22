@@ -18,7 +18,6 @@ from langchain_core.documents import Document
 
 # from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import AIMessageChunk
-from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -367,16 +366,18 @@ def chat(request):
                     timeout = 120  # 2 minutes timeout
                     graph = get_graph()
 
-                    if settings.DEBUG:
-                        saver = SqliteSaver.from_conn_string("checkpoints.sqlite")
-                    else:
-                        db_user = os.environ.get("POSTGRES_USER")
-                        db_password = os.environ.get("POSTGRES_PASSWORD")
-                        db_db = os.environ.get("POSTGRES_DB")
-                        db_host = os.environ.get("POSTGRES_HOST")
-                        db_port = os.environ.get("POSTGRES_PORT")
-                        DB_URI = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_db}"
-                        saver = PostgresSaver.from_conn_string(DB_URI)
+                    # if settings.DEBUG:
+                    #     saver = SqliteSaver.from_conn_string("checkpoints.sqlite")
+                    # else:
+                    #     from langgraph.checkpoint.postgres import PostgresSaver
+                    #     db_user = os.environ.get("POSTGRES_USER")
+                    #     db_password = os.environ.get("POSTGRES_PASSWORD")
+                    #     db_db = os.environ.get("POSTGRES_DB")
+                    #     db_host = os.environ.get("POSTGRES_HOST")
+                    #     db_port = os.environ.get("POSTGRES_PORT")
+                    #     DB_URI = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_db}"
+                    #     saver = PostgresSaver.from_conn_string(DB_URI)
+                    saver = SqliteSaver.from_conn_string("checkpoints.sqlite")
                     with saver as memory:
                         memory.setup()
                         graph = graph.compile(checkpointer=memory)
