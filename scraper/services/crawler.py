@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import dotenv
 from asgiref.sync import sync_to_async
 from django.db import transaction
+from pinecone import Pinecone
 from playwright.async_api import Browser, BrowserContext, ElementHandle, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
@@ -430,13 +431,6 @@ class NaverCafeScraper:
         Returns:
             dict: Post data if successful, None otherwise
         """
-        # First check if post should be skipped (already saved or deleted)
-        should_skip = await self._should_skip_post(post_id)
-        if should_skip:
-            logger.info(
-                f"Post {post_id} is already marked as SAVED or DELETED, skipping"
-            )
-            return None
 
         target_url = f"{self.cafe_url}{post_id}"
         logger.info(f"Processing post_id: {post_id}")
@@ -1133,12 +1127,43 @@ class NaverCafeScraper:
             category_list,
         )
 
+    async def _get_ingested_posts_id(self, index):
+        """
+        Get all existing IDs from a Pinecone index using pagination.
+
+        Returns:
+            list of all vector IDs in the index
+        """
+
+        # Default limit is 100 per page
+        response = list(index.list())
+        temp_list = list()
+        for i in response:
+            temp_list += i
+
+        return temp_list
+
+    async def _check_if_posts_exist(self, posts_to_check: list):
+        """
+        check if the post exists
+
+        Returns:
+            list of all posts id that deleted.
+        """
+        deleted_posts = []
+        for post in posts_to_check:
+            temp = await self.scrape_post(post)
+            if temp == None:
+                deleted_posts.append(post)
+        return post
+
     async def run(
         self,
         start_id: Optional[int] = None,
         end_id: Optional[int] = None,
         batch_size: int = 100,
         only_error: bool = False,
+        delete_mode: bool = False,
     ) -> None:
         """
         Run the scraper
@@ -1210,27 +1235,44 @@ class NaverCafeScraper:
                 )
                 return
 
-            # Regular scraping workflow
-            # Determine start_post_id
-            start_post_id = await self._determine_start_id(start_id)
+            if not delete_mode:
+                # Regular scraping workflow
+                # Determine start_post_id
+                start_post_id = await self._determine_start_id(start_id)
 
-            # Determine end_post_id
-            end_post_id = await self._determine_end_id(end_id)
+                # Determine end_post_id
+                end_post_id = await self._determine_end_id(end_id)
 
-            # Get post data - pass None for allowed_categories to collect all
-            post_data = await self.scrape_posts(
-                start_post_id,
-                end_post_id=end_post_id,
-                allowed_categories=None,  # Pass None to collect all categories
-                batch_size=batch_size,
-            )
+                # Get post data - pass None for allowed_categories to collect all
+                post_data = await self.scrape_posts(
+                    start_post_id,
+                    end_post_id=end_post_id,
+                    allowed_categories=None,  # Pass None to collect all categories
+                    batch_size=batch_size,
+                )
 
-            # Check if there's any remaining data to save
-            # No need to save data again since it's already saved in batches during scraping
-            if post_data and any(post_data):
-                logger.info("Crawler finished processing all posts")
+                # Check if there's any remaining data to save
+                # No need to save data again since it's already saved in batches during scraping
+                if post_data and any(post_data):
+                    logger.info("Crawler finished processing all posts")
+                else:
+                    logger.info("No data collected")
             else:
-                logger.info("No data collected")
+                PINECONE_API_KEY = os.environ["PINECONE_API_KEY"]
+                PINECONE_INDEX_NAME = os.environ["PINECONE_INDEX_NAME"]
+                # Initialize Pinecone for filtering ids
+                pc = Pinecone(api_key=PINECONE_API_KEY)
+                index = pc.Index(PINECONE_INDEX_NAME)
+                # 1. Get all ingested post id
+                ingested_posts_id: list = await self._get_ingested_posts_id(index=index)
+                # 2. Scrape again the posts
+                deleted_posts_id: list = await self._check_if_posts_exist(
+                    posts_to_check=ingested_posts_id
+                )
+                # 3. delete ids from index
+                index.delete(ids=list(deleted_posts_id))
+                # 4. delte ids from db
+                NaverCafeData.objects.filter(post_id__in=deleted_posts_id).delete()
 
         except Exception as e:
             logger.error(f"Error during main execution: {e}")
@@ -1383,6 +1425,19 @@ async def main(start_id=None, end_id=None, batch_size=100, only_error=False):
     """
     scraper = NaverCafeScraper(cafe_url="https://cafe.naver.com/cjdckddus/")
     await scraper.run(start_id, end_id, batch_size, only_error)
+
+
+async def sync_db_with_cafe_data():
+    """
+    1. Get all ingested post id
+    2. Scrape again the posts
+    3. Update post status
+    4. Attempt delete all post_id in pinecone which post status is not saved
+    """
+    scraper = NaverCafeScraper(cafe_url="https://cafe.naver.com/cjdckddus/")
+    await scraper.run(
+        delete_mode=True,
+    )
 
 
 if __name__ == "__main__":
