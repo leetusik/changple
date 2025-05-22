@@ -10,14 +10,53 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting deployment for Changple app with PostgreSQL...${NC}"
+echo -e "${GREEN}Starting deployment for Changple app with PostgreSQL...${NC}"
 
-# Source .env to get POSTGRES_ variables for backup
+# Source .env to get POSTGRES_ variables
 if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
+    echo -e "${YELLOW}Sourcing PostgreSQL environment variables from .env...${NC}"
+    while IFS= read -r line; do
+        # Remove potential carriage return characters (e.g. if file is from Windows)
+        line="${line//$'\r'/}"
+        
+        # Skip comments (lines starting with #) and empty lines
+        if [[ "$line" =~ ^\s*# || -z "$line" ]]; then
+            continue
+        fi
+        
+        # Check if the line starts with "POSTGRES_" and contains an "="
+        if [[ "$line" == POSTGRES_*=* ]]; then
+            var_name="${line%%=*}" # Extract content before the first '='
+            # Ensure the variable name part is a valid shell identifier
+            if [[ "$var_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+                export "$line"
+            else
+                echo -e "${YELLOW}Warning: Skipped malformed line in .env (not a valid POSTGRES_ variable name): $line${NC}"
+            fi
+        fi
+    done < .env
+
+    # Verify that essential PostgreSQL variables are now set
+    # These are used later in the script (e.g., for pg_isready and backup setup)
+    if [ -z "${POSTGRES_USER}" ] || [ -z "${POSTGRES_DB}" ] || [ -z "${POSTGRES_HOST}" ] || [ -z "${POSTGRES_PORT}" ]; then
+        echo -e "${RED}Error: One or more critical PostgreSQL environment variables (POSTGRES_USER, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT) not found or not sourced from .env.${NC}"
+        echo -e "${RED}Please ensure they are correctly defined in your .env file (e.g., POSTGRES_USER=myuser).${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}PostgreSQL environment variables sourced successfully.${NC}"
 else
     echo -e "${RED}Error: .env file not found! Please create it first.${NC}"
     exit 1
 fi
+
+
+# # Source .env to get POSTGRES_ variables for backup
+# if [ -f .env ]; then
+#     export $(grep -v '^#' .env | xargs)
+# else
+#     echo -e "${RED}Error: .env file not found! Please create it first.${NC}"
+#     exit 1
+# fi
 
 # --- IMPORTANT: Docker Cleanup ---
 echo -e "${YELLOW}Stopping existing services...${NC}"
