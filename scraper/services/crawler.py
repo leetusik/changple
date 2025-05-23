@@ -1155,7 +1155,7 @@ class NaverCafeScraper:
             temp = await self.scrape_post(post)
             if temp == None:
                 deleted_posts.append(post)
-        return post
+        return deleted_posts
 
     async def run(
         self,
