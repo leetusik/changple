@@ -1272,7 +1272,11 @@ class NaverCafeScraper:
                 # 3. delete ids from index
                 index.delete(ids=list(deleted_posts_id))
                 # 4. delte ids from db
-                NaverCafeData.objects.filter(post_id__in=deleted_posts_id).delete()
+                from asgiref.sync import sync_to_async
+
+                await sync_to_async(
+                    NaverCafeData.objects.filter(post_id__in=deleted_posts_id).delete()
+                )
 
         except Exception as e:
             logger.error(f"Error during main execution: {e}")
