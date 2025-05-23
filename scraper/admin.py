@@ -63,7 +63,7 @@ class NaverCafeDataAdmin(admin.ModelAdmin):
         from scraper.tasks import run_sync_db_with_cafe_data
 
         queue = get_queue("default")
-        job = queue.enqueue(run_sync_db_with_cafe_data, timeout=36000)
+        job = queue.enqueue(run_sync_db_with_cafe_data, job_timeout=36000)
         self.message_user(request, f"Enqueued cafe sync job with ID: {job.id}")
 
     enqueue_cafe_sync.short_description = "Enqueue Cafe Sync Job (DB ↔ Cafe)"
@@ -74,7 +74,7 @@ class NaverCafeDataAdmin(admin.ModelAdmin):
         from scraper.tasks import run_only_error_scrape
 
         queue = get_queue("default")
-        job = queue.enqueue(run_only_error_scrape, timeout=36000)
+        job = queue.enqueue(run_only_error_scrape, job_timeout=36000)
         self.message_user(request, f"Enqueded only error scraper")
 
     only_error_scrape.short_description = "Enqueue Only Error Scraper"
