@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "chatbot",
     "notifications",
     "django_rq",
+    "content_uploader",
 ]
 
 # Custom User Model
@@ -312,3 +313,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Your App <noreply@yourapp.com>")
 
 # heeloo
+
+# 2. 미디어 파일 처리 설정 (대부분 이미 설정되어 있을 것입니다)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
