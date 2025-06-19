@@ -58,6 +58,8 @@ urlpatterns = [
     path("api/rating/", Rating.as_view(), name="rating_api"),
     # Privacy policy URL
     path("privacy/", privacy_policy, name="privacy_policy"),
+    # Content uploader URL
+    path("contents/", include("content_uploader.urls")),
     # Payment plan URL
     path(
         "payplan/",
