@@ -192,4 +192,5 @@ checkpoints.sqlite-shm
 checkpoints.sqlite-wal
 
 # Notion content
-media/
+media/html_content/*
+media/thumbnail_img/*
