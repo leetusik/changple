@@ -77,9 +77,9 @@ class NotionContent(models.Model):
             super().save(update_fields=['html_path', 'zip_file', 'contents_img_path'])
 
         # 4. 썸네일 파일을 최종 목적지로 이동 (ZIP 처리가 끝난 후)
-        if self.thumbnail_img_path and not self.thumbnail_img_path.name.startswith('html_content/'):
+        if self.thumbnail_img_path and not self.thumbnail_img_path.name.startswith('thumbnail_img/'):
             old_path = self.thumbnail_img_path.path
-            new_name = f'html_content/{self.id}/{os.path.basename(self.thumbnail_img_path.name)}'
+            new_name = f'thumbnail_img/{self.id}/{os.path.basename(self.thumbnail_img_path.name)}'
             new_path = os.path.join(settings.MEDIA_ROOT, new_name)
 
             os.makedirs(os.path.dirname(new_path), exist_ok=True)
@@ -135,5 +135,10 @@ class NotionContent(models.Model):
         if os.path.isdir(content_dir):
             shutil.rmtree(content_dir)
             
+        # 썸네일 이미지 디렉토리도 확인 후 삭제
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnail_img', str(self.id))
+        if os.path.isdir(thumbnail_dir):
+            shutil.rmtree(thumbnail_dir)
+
         # 부모 클래스의 delete 메소드를 호출하여 DB에서 객체 삭제
         super().delete(*args, **kwargs)

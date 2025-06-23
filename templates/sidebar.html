@@ -1,0 +1,34 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Changple Notion{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar-page-container">
+        <aside class="sidebar">
+            <button class="sidebar-toggle-btn">◀</button>
+            <div class="sidebar-content-container">
+                <!-- Images will be loaded here by JavaScript -->
+            </div>
+            <div class="sidebar-iframe-container">
+                <iframe id="content-iframe" name="content-iframe"></iframe>
+            </div>
+            <div class="sidebar-loading-indicator" style="text-align: center; display: none;">
+                <p>Loading...</p>
+            </div>
+        </aside>
+        <main class="sidebar-main-content">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

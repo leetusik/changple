@@ -5,6 +5,7 @@ app_name = "content_uploader"
 
 urlpatterns = [
     path("view/<int:content_id>/", views.view_html_content, name="view_html_content"),
+    path("api/notion-content-list/", views.notion_content_list, name="notion_content_list"),
 ]
 
 # 사용 예시

@@ -802,7 +802,7 @@ body {
 }
 
 footer {
-  width: 100%;
+  width: calc(100% - 500px);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -812,7 +812,7 @@ footer {
   text-align: center;
   position: fixed;
   bottom: 0;
-  left: 0;
+  left: 500px;
   z-index: 999;
 }
 

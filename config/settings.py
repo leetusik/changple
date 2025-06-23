@@ -115,6 +115,8 @@ MIDDLEWARE = [
     "users.middleware.NaverAuthMiddleware",
 ]
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
