@@ -92,7 +92,48 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            const iframeDoc = iframe.contentWindow.document;
+            const iframeWindow = iframe.contentWindow;
+            const iframeDoc = iframeWindow.document;
+
+            // 1. 팝업을 위한 CSS 스타일을 iframe에 동적으로 주입합니다.
+            // 사이트 테마와 어울리도록 스타일을 조정했습니다.
+            const style = iframeDoc.createElement('style');
+            style.textContent = `
+                .selection-popup {
+                    position: absolute;
+                    background-color: #617dae;
+                    color: white;
+                    border: 1px solid #47639A;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    cursor: default;
+                    box-shadow: 2px 2px 8px rgba(0,0,0,0.25);
+                    z-index: 9999;
+                    font-size: 14px;
+                    font-family: sans-serif;
+                }
+                .selection-popup button {
+                    background-color: transparent;
+                    color: white;
+                    border: none;
+                    padding: 0;
+                    margin: 0;
+                    font-size: 14px;
+                    cursor: pointer;
+                    font-family: inherit;
+                }
+                .selection-popup button:hover {
+                    text-decoration: underline;
+                }
+            `;
+            iframeDoc.head.appendChild(style);
+
+            // 2. iframe 내부에서 텍스트 선택 기능을 초기화합니다.
+            if (window.TextSelection && typeof window.TextSelection.init === 'function') {
+                window.TextSelection.init(iframeWindow);
+            }
+
+            // 3. 기존의 iframe 자동 크기 조절 로직을 실행합니다.
             const contentWidth = iframeDoc.body.scrollWidth;
             const containerWidth = iframeContainer.clientWidth;
 

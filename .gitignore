@@ -194,3 +194,5 @@ checkpoints.sqlite-wal
 # Notion content
 media/html_content/*
 media/thumbnail_img/*
+
+.cursor

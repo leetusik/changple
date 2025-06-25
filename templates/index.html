@@ -353,7 +353,6 @@
 
 
 
-
                 //----------------- input box 글자 입력시 다른 컬러로 나오는 기능 --------------------
                 // 기본 텍스트 색상 설정
                 inputBox.style.color = '#a4a4a4'; // 입력하기 전 회색으로 설정
@@ -620,5 +619,29 @@
             }
         });
         //-------------------------------------------------------------------------------
+    </script>
+    <script>
+        // 메시지 수신 및 채팅창 업데이트 로직
+        window.addEventListener('message', function(event) {
+            // 보안을 위해 특정 origin만 허용하는 것이 좋지만, 여기서는 모든 origin을 허용합니다.
+            // if (event.origin !== 'http://expected-origin.com') return;
+
+            if (event.data && event.data.type === 'STW_ADD_TO_CHAT' && typeof event.data.text === 'string') {
+                const inputBox = document.querySelector('.input-box-unlocked');
+                if (inputBox) {
+                    const selectedText = event.data.text;
+                    // 기존 텍스트가 있으면 줄바꿈 후 추가, 없으면 그냥 추가
+                    if (inputBox.value.trim().length > 0) {
+                        inputBox.value += '\n' + selectedText;
+                    } else {
+                        inputBox.value = selectedText;
+                    }
+                    // UI 업데이트 (전송 버튼 표시 등)를 위해 input 이벤트 강제 발생
+                    inputBox.dispatchEvent(new Event('input'));
+                    // 사용자가 바로 다음 입력을 할 수 있도록 포커스 설정
+                    inputBox.focus();
+                }
+            }
+        });
     </script>
 {% endblock %}
