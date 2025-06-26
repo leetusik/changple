@@ -52,11 +52,18 @@ body, html {
 }
 
 .sidebar-content-container img {
+    display: block;
     height: 100%;
     width: auto;
     object-fit: cover;
     border-radius: 4px;
     cursor: pointer;
+}
+
+.sidebar-content-container a {
+    display: block;
+    height: 100%;
+    flex-shrink: 0;
 }
 
 .sidebar-main-content {

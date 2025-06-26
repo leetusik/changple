@@ -49,7 +49,6 @@ body {
   background: linear-gradient(180deg,
       rgba(250, 250, 250, 0.4) 19%,
       rgba(194, 202, 225, 0.4) 95%);
-  /* flex-direction: column; */
 }
 
 .container {
@@ -343,7 +342,6 @@ body {
   justify-content: flex-start;
   /* Changed from center to flex-start */
   padding: 10px;
-  padding-bottom: 10px;
   width: 100%;
   height: calc(100vh - 80px - 80px);
   /* Viewport height minus header and footer */
@@ -583,7 +581,6 @@ body {
   height: 148px;
   position: fixed;
   bottom: 90px;
-  /* 120px에서 80px로 수정하여 footer와의 간격 줄임 */
   left: 50%;
   transform: translateX(-50%);
   margin-top: 60px;
@@ -814,6 +811,12 @@ footer {
   bottom: 0;
   left: 500px;
   z-index: 999;
+  transition: left 0.3s ease, width 0.3s ease;
+}
+
+.sidebar-main-content.sidebar-collapsed footer {
+    left: 0;
+    width: 100%;
 }
 
 .company-info {
