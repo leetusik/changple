@@ -181,7 +181,7 @@ uv sync                          # Install dependencies
 uv run python manage.py runserver
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
-uv run pytest                    # Run tests
+
 ```
 
 #### Agent (FastAPI)
@@ -189,7 +189,7 @@ uv run pytest                    # Run tests
 cd services/agent
 uv sync
 uv run uvicorn src.main:app --reload --port 8001
-uv run pytest
+
 ```
 
 #### Celery Worker (for scraper tasks)
@@ -273,25 +273,8 @@ feat(client): add chat history sidebar
 
 ## Testing
 
-### Python Services
+No tests are required for this project.
 
-```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=src --cov-report=html
-
-# Run specific test
-uv run pytest tests/test_api/test_chat.py -v
-```
-
-### Client (Next.js)
-
-```bash
-pnpm test           # Jest unit tests
-pnpm test:e2e       # Playwright e2e tests
-```
 
 ---
 
