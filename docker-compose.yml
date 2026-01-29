@@ -76,6 +76,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      # LangChain/LangSmith (non-secrets from config, but passed as env for SDK)
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-changple-v3}
       # Infrastructure
       - LANGGRAPH_DATABASE_URL=postgresql://${POSTGRES_USER:-changple}:${POSTGRES_PASSWORD:-changple}@postgres:5432/changple_langgraph
       - REDIS_URL=redis://redis:6379/1
