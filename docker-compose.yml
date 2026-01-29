@@ -1,5 +1,15 @@
+# =============================================================================
+# Changple AI - Base Docker Compose
+# =============================================================================
+# Shared infrastructure and service definitions.
+# Use with environment-specific overlay:
+#   Dev:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   Prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+
 services:
+  # ===========================================================================
   # Infrastructure
+  # ===========================================================================
   postgres:
     image: postgres:16-alpine
     container_name: changple-postgres
@@ -10,8 +20,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-changple}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changple}
       POSTGRES_DB: changple
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-changple}"]
       interval: 10s
@@ -24,151 +32,108 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Django Core Service
+  # ===========================================================================
+  # Application Services
+  # ===========================================================================
   core:
     build:
       context: ./services/core
       dockerfile: Dockerfile
     container_name: changple-core
-    volumes:
-      - ./services/core:/app
-      - core_media:/app/media
     environment:
-      - DJANGO_ENV=development
+      # Secrets from .env
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
       - POSTGRES_USER=${POSTGRES_USER:-changple}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - REDIS_HOST=redis
       - SOCIAL_AUTH_NAVER_KEY=${SOCIAL_AUTH_NAVER_KEY}
       - SOCIAL_AUTH_NAVER_SECRET=${SOCIAL_AUTH_NAVER_SECRET}
-      - SOCIAL_AUTH_NAVER_CALLBACK_URL=${SOCIAL_AUTH_NAVER_CALLBACK_URL:-http://localhost:8000/api/v1/auth/naver/callback/}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
-    ports:
-      - "8000:8000"
+      # Infrastructure
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=changple
+      - REDIS_HOST=redis
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # Celery Worker (with Playwright for scraping)
+  agent:
+    build:
+      context: ./services/agent
+      dockerfile: Dockerfile
+    container_name: changple-agent
+    environment:
+      # Secrets from .env
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      # Infrastructure
+      - LANGGRAPH_DATABASE_URL=postgresql://${POSTGRES_USER:-changple}:${POSTGRES_PASSWORD:-changple}@postgres:5432/changple_langgraph
+      - REDIS_URL=redis://redis:6379/1
+      - CORE_SERVICE_URL=http://core:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core:
+        condition: service_started
+
   celery:
     build:
       context: ./services/core
       dockerfile: Dockerfile.celery
     container_name: changple-celery
-    volumes:
-      - ./services/core:/app
-      - core_media:/app/media
     environment:
-      - DJANGO_ENV=development
+      # Secrets from .env
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
       - POSTGRES_USER=${POSTGRES_USER:-changple}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - REDIS_HOST=redis
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
+      # Infrastructure
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=changple
+      - REDIS_HOST=redis
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # Celery Beat Scheduler
   celery-beat:
     build:
       context: ./services/core
       dockerfile: Dockerfile.beat
     container_name: changple-celery-beat
-    volumes:
-      - ./services/core:/app
     environment:
-      - DJANGO_ENV=development
+      # Secrets from .env
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
       - POSTGRES_USER=${POSTGRES_USER:-changple}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - REDIS_HOST=redis
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
+      # Infrastructure
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=changple
+      - REDIS_HOST=redis
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # agent:
-  #   build:
-  #     context: ./services/agent
-  #     dockerfile: Dockerfile
-  #   container_name: changple-agent
-  #   volumes:
-  #     - ./services/agent/src:/app/src
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-changple}:${POSTGRES_PASSWORD:-changple}@postgres:5432/changple_langgraph
-  #     - REDIS_URL=redis://redis:6379/1
-  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
-  #     - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-  #     - PINECONE_API_KEY=${PINECONE_API_KEY}
-  #     - PINECONE_INDEX=${PINECONE_INDEX}
-  #   ports:
-  #     - "8001:8001"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-
-  # client:
-  #   build:
-  #     context: ./services/client
-  #     dockerfile: Dockerfile
-  #   container_name: changple-client
-  #   volumes:
-  #     - ./services/client:/app
-  #     - /app/node_modules
-  #     - /app/.next
-  #   environment:
-  #     - NEXT_PUBLIC_API_URL=http://localhost:8080
-  #   ports:
-  #     - "3000:3000"
-
-  # nginx:
-  #   build:
-  #     context: ./nginx
-  #     dockerfile: Dockerfile
-  #   container_name: changple-nginx
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - core
-  #     - agent
-  #     - client
-
 volumes:
   postgres_data:
   redis_data:
-  core_media:

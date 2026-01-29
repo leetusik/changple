@@ -247,6 +247,7 @@ uploads/
 # SSL Certificates (nginx)
 # ===========================================
 nginx/certs/
+nginx/ssl/
 
 # ===========================================
 # Playwright

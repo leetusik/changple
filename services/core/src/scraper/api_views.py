@@ -246,3 +246,72 @@ class BatchJobListView(APIView):
 
         serializer = BatchJobSerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+# ============================================================================
+# Internal APIs for Agent Service
+# ============================================================================
+
+
+class InternalAllowedAuthorsView(APIView):
+    """
+    Get list of active allowed authors (for Agent service).
+
+    Returns author names for Pinecone vector store filtering.
+    """
+
+    permission_classes = []  # TODO: Add service auth
+
+    def get(self, request):
+        """Return list of active author names."""
+        authors = list(
+            AllowedAuthor.objects.filter(is_active=True).values_list("name", flat=True)
+        )
+        return Response({"authors": authors})
+
+
+class InternalBrandsView(APIView):
+    """
+    Get list of GoodtoKnow brands (for Agent service).
+
+    Returns brand names and descriptions for query generation prompts.
+    """
+
+    permission_classes = []  # TODO: Add service auth
+
+    def get(self, request):
+        """Return list of brands with descriptions."""
+        from src.scraper.models import GoodtoKnowBrands
+
+        brands = GoodtoKnowBrands.objects.filter(is_goodto_know=True).values(
+            "name", "description"
+        )
+        return Response({"brands": list(brands)})
+
+
+class InternalPostContentView(APIView):
+    """
+    Get post content by post_id (for Agent service).
+
+    Returns original post title and content for document retrieval.
+    """
+
+    permission_classes = []  # TODO: Add service auth
+
+    def get(self, request, post_id):
+        """Return post title and content."""
+        try:
+            post = NaverCafeData.objects.get(post_id=post_id)
+            return Response(
+                {
+                    "post_id": post.post_id,
+                    "title": post.title,
+                    "content": post.content,
+                    "url": post.get_url(),
+                }
+            )
+        except NaverCafeData.DoesNotExist:
+            return Response(
+                {"error": "게시글을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )

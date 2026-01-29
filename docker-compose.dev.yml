@@ -1,0 +1,100 @@
+# =============================================================================
+# Changple AI - Development Overlay
+# =============================================================================
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Features:
+#   - Hot reload via volume mounts
+#   - Debug mode enabled
+#   - All ports exposed for direct access
+#   - No nginx (access services directly)
+
+services:
+  # ===========================================================================
+  # Infrastructure (expose ports for debugging)
+  # ===========================================================================
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  # ===========================================================================
+  # Core Service (Django)
+  # ===========================================================================
+  core:
+    volumes:
+      - ./services/core:/app
+      - ./config:/app/config:ro
+      - core_media:/app/media
+    environment:
+      - DJANGO_ENV=development
+      - DJANGO_DEBUG=true
+      - CONFIG_ENV=dev
+    ports:
+      - "8000:8000"
+
+  # ===========================================================================
+  # Agent Service (FastAPI)
+  # ===========================================================================
+  agent:
+    volumes:
+      - ./services/agent/src:/app/src
+      - ./config:/app/config:ro
+    environment:
+      - DEBUG=true
+      - CONFIG_ENV=dev
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
+    ports:
+      - "8001:8001"
+
+  # ===========================================================================
+  # Celery Workers
+  # ===========================================================================
+  celery:
+    volumes:
+      - ./services/core:/app
+      - ./config:/app/config:ro
+      - core_media:/app/media
+    environment:
+      - DJANGO_ENV=development
+      - CONFIG_ENV=dev
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
+
+  celery-beat:
+    volumes:
+      - ./services/core:/app
+      - ./config:/app/config:ro
+    environment:
+      - DJANGO_ENV=development
+      - CONFIG_ENV=dev
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
+
+  # ===========================================================================
+  # Client Service (Next.js) - Optional in dev
+  # ===========================================================================
+  # Uncomment to run client in Docker (or run locally with `pnpm dev`)
+  # client:
+  #   build:
+  #     context: ./services/client
+  #     dockerfile: Dockerfile.dev
+  #   container_name: changple-client
+  #   volumes:
+  #     - ./services/client:/app
+  #     - /app/node_modules
+  #     - /app/.next
+  #   environment:
+  #     - NODE_ENV=development
+  #     - NEXT_PUBLIC_CORE_URL=http://localhost:8000
+  #     - NEXT_PUBLIC_AGENT_URL=http://localhost:8001
+  #     - NEXT_PUBLIC_AGENT_WS_URL=ws://localhost:8001
+  #   ports:
+  #     - "3000:3000"
+
+volumes:
+  core_media:

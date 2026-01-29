@@ -9,6 +9,7 @@ from src.content.api_views import (
     ContentDetailView,
     ContentListView,
     ContentViewHistoryListView,
+    InternalContentAttachmentTextView,
     PreferredContentListView,
     RecommendedContentView,
     RecordContentViewView,
@@ -26,4 +27,6 @@ urlpatterns = [
     path("history/", ContentViewHistoryListView.as_view(), name="content-history"),
     path("view/", RecordContentViewView.as_view(), name="content-record-view"),
     path("attachment/", ContentAttachmentTextView.as_view(), name="content-attachment"),
+    # Internal endpoint for Agent service
+    path("internal/attachment/", InternalContentAttachmentTextView.as_view(), name="content-internal-attachment"),
 ]

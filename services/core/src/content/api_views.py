@@ -225,3 +225,60 @@ class ContentAttachmentTextView(APIView):
                 )
 
         return Response({"contents": results})
+
+
+# ============================================================================
+# Internal APIs for Agent Service
+# ============================================================================
+
+
+class InternalContentAttachmentTextView(APIView):
+    """
+    Get text content from NotionContent (for Agent service).
+
+    Same as ContentAttachmentTextView but without authentication.
+    """
+
+    permission_classes = []  # TODO: Add service auth
+
+    def post(self, request):
+        """Extract text from specified content IDs."""
+        serializer = ContentTextSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        content_ids = serializer.validated_data["content_ids"]
+        results = []
+
+        for content_id in content_ids:
+            try:
+                text = extract_text_from_notion_content(content_id)
+                content = NotionContent.objects.get(pk=content_id)
+                results.append(
+                    {
+                        "id": content_id,
+                        "title": content.title,
+                        "text": text,
+                    }
+                )
+            except NotionContent.DoesNotExist:
+                results.append(
+                    {
+                        "id": content_id,
+                        "title": None,
+                        "text": None,
+                        "error": "Content not found",
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Error extracting text from content {content_id}: {e}")
+                results.append(
+                    {
+                        "id": content_id,
+                        "title": None,
+                        "text": None,
+                        "error": str(e),
+                    }
+                )
+
+        return Response({"contents": results})
