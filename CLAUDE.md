@@ -65,15 +65,18 @@ Client (Next.js) → Nginx → Core (Django + Celery) / Agent (FastAPI)
 
 | Layer | Technology |
 |-------|------------|
-| Framework | **Next.js** + **Vercel AI SDK** |
-| Chat UI | **assistant-ui** (LangGraph compatible) |
-| Styling | **TailwindCSS** + **shadcn/ui** |
-| State | **Zustand** |
-| Data Fetching | **TanStack Query** (React Query) |
+| Framework | **Next.js 15** (App Router) |
+| UI Components | **shadcn/ui** + custom WebSocket client |
+| Styling | **TailwindCSS** (with Changple design tokens) |
+| Server State | **TanStack Query** (React Query) |
+| UI State | **Zustand** |
+| Markdown | **react-markdown** + rehype |
 | Package Manager | **pnpm** |
 | Language | TypeScript |
 
 > **UI/UX Principle**: Preserve the visual design from changple2. Reference `/templates/` and `/static/` in the old codebase. The framework changes, but the look and feel stays the same.
+
+> **Note**: We chose shadcn/ui + custom WebSocket over assistant-ui because our Agent service uses a custom WebSocket protocol (not SSE). This gives us full control over the chat implementation without protocol translation overhead.
 
 ### Core Service (`services/core/`)
 
@@ -138,7 +141,7 @@ Celery worker runs in a separate container with dedicated `Dockerfile.celery` th
 ### Frontend Migration
 
 **Before (changple2)**: Django templates + vanilla JavaScript
-**After (changple3)**: Next.js SPA with assistant-ui for chat interface
+**After (changple3)**: Next.js SPA with shadcn/ui components + custom WebSocket client
 
 > **UI/UX Guideline**: Maintain the same visual appearance as changple2. Only the framework changes (React/Next.js), not the look and feel. Reference the old templates and CSS for styling decisions.
 
@@ -308,7 +311,7 @@ SOCIAL_AUTH_NAVER_SECRET=...
 
 1. **No ASGI in Django**: Simplifies Core service. All WebSocket handled by Agent.
 
-2. **assistant-ui for chat**: LangGraph-compatible React library with streaming support.
+2. **shadcn/ui + custom WebSocket for chat**: Full control over chat UI with direct WebSocket connection to Agent service. Simpler than assistant-ui adapter pattern since our Agent uses custom WebSocket protocol (not SSE).
 
 3. **Separate Agent service**: Isolates AI/ML dependencies, enables independent scaling.
 
@@ -320,11 +323,18 @@ SOCIAL_AUTH_NAVER_SECRET=...
 
 7. **Preserve UI/UX from changple2**: Frontend migration changes only the framework (Next.js), not the visual design. Match the old look and feel.
 
+8. **Session-based auth**: Django session cookies with CSRF tokens. No JWT.
+
 ---
 
 ## Useful Links
 
-- [assistant-ui docs](https://github.com/assistant-ui/assistant-ui)
-- [Vercel AI SDK](https://ai-sdk.dev/docs/introduction)
-- [LangGraph docs](https://langchain-ai.github.io/langgraph/)
 - [shadcn/ui components](https://ui.shadcn.com/)
+- [TanStack Query](https://tanstack.com/query/latest)
+- [Zustand](https://zustand-demo.pmnd.rs/)
+- [LangGraph docs](https://langchain-ai.github.io/langgraph/)
+- [Next.js App Router](https://nextjs.org/docs/app)
+
+## Implementation Plans
+
+- [Client Service Plan](docs/plans/client-service.md) - Next.js frontend implementation details
