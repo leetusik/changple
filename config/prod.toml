@@ -1,0 +1,57 @@
+# Changple AI - Production Configuration
+# Overrides base.toml for production deployment
+
+[project]
+env = "production"
+
+# =============================================================================
+# Debug Settings
+# =============================================================================
+[debug]
+enabled = false
+log_level = "INFO"
+
+# =============================================================================
+# Core Service (Django)
+# =============================================================================
+[core]
+debug = false
+# Set these in .env or override per deployment
+# allowed_hosts = ["yourdomain.com"]
+# csrf_trusted_origins = ["https://yourdomain.com"]
+# cors_allowed_origins = ["https://yourdomain.com"]
+
+# Gunicorn settings
+[core.gunicorn]
+workers = 4
+threads = 2
+timeout = 120
+
+# =============================================================================
+# Agent Service (FastAPI)
+# =============================================================================
+[agent]
+reload = false
+log_level = "INFO"
+workers = 2
+
+# =============================================================================
+# Client Service (Next.js)
+# =============================================================================
+[client]
+# Through nginx reverse proxy
+core_url = "/api/v1"
+agent_url = "/api/v1/chat"
+agent_ws_url = "/ws"
+
+# =============================================================================
+# Nginx
+# =============================================================================
+[nginx]
+worker_processes = "auto"
+worker_connections = 1024
+client_max_body_size = "10M"
+
+# SSL settings (paths inside container)
+# ssl_certificate = "/etc/nginx/ssl/cert.pem"
+# ssl_certificate_key = "/etc/nginx/ssl/key.pem"

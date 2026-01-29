@@ -1,0 +1,81 @@
+[project]
+name = "changple-core"
+version = "3.0.0"
+description = "Changple AI v3.0 Core Service - Django REST API"
+requires-python = ">=3.12"
+dependencies = [
+    # Django & REST
+    "django>=5.1,<6.0",
+    "djangorestframework>=3.15.2",
+    "django-cors-headers>=4.7.0",
+
+    # Authentication
+    "social-auth-app-django>=5.4.3",
+    "social-auth-core>=4.5.6",
+
+    # Database
+    "psycopg[binary]>=3.2.0",
+
+    # Cache & Task Queue
+    "django-redis>=5.4.0",
+    "redis>=5.2.0",
+    "celery>=5.4.0",
+    "django-celery-beat>=2.8.0",
+
+    # Web scraping
+    "playwright>=1.50.0",
+    "beautifulsoup4>=4.12.0",
+
+    # Image processing
+    "pillow>=11.0.0",
+    "pillow-heif>=0.21.0",
+
+    # AI/ML (for ingestion)
+    "langchain>=0.3.0",
+    "langchain-google-genai>=2.1.0",
+    "langchain-openai>=0.3.0",
+    "langchain-pinecone>=0.2.0",
+    "pinecone>=6.0.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "gunicorn>=23.0.0",
+    "whitenoise>=6.8.0",
+    "html2text>=2024.2.26",
+    "requests>=2.32.0",
+
+    # OpenAPI documentation
+    "drf-spectacular>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-django>=4.8.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+    "ipython>=8.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "Q"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "src._changple.settings.development"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"
