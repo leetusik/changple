@@ -33,6 +33,7 @@
   /* Custom border radius */
   --radius-md: 12px;
   --radius-sm: 8px;
+  --radius-btn-small: 6px;
   --radius-pill: 100px;
 
   /* Transitions */
@@ -170,6 +171,7 @@
 
   .rounded-md { border-radius: var(--radius-md); }
   .rounded-sm { border-radius: var(--radius-sm); }
+  .rounded-btn-small { border-radius: var(--radius-btn-small); }
   .rounded-pill { border-radius: var(--radius-pill); }
 
   .duration-600 { transition-duration: var(--transition-sidebar); }
@@ -471,5 +473,18 @@
 @media screen and (max-width: 768px), screen and (max-height: 500px) {
   .mobile-message {
     display: flex !important;
+  }
+}
+
+/* Gradient scroll animation for Armori link */
+@keyframes gradient-scroll {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }

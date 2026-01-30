@@ -2,39 +2,23 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth, useLogout, getLoginUrl } from '@/hooks/use-auth';
-import { useState, useRef, useEffect } from 'react';
+import { useAuth, getLoginUrl } from '@/hooks/use-auth';
+import { useState } from 'react';
+import { ProfileModal, type TabType } from '@/components/profile/profile-modal';
 
 export function Header() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const logoutMutation = useLogout();
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('account');
 
   const handleLogin = () => {
     window.location.href = getLoginUrl();
   };
 
-  const handleLogout = () => {
-    logoutMutation.mutate();
-    setShowProfileModal(false);
+  const handleOpenModal = () => {
+    setActiveTab('account'); // Always open to account tab
+    setShowProfileModal(true);
   };
-
-  // Close modal when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        setShowProfileModal(false);
-      }
-    };
-
-    if (showProfileModal) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showProfileModal]);
 
   return (
     <header className="flex flex-row items-center h-[50px] w-full">
@@ -88,71 +72,27 @@ export function Header() {
         )}
 
         {/* 3-dot menu button - matching .buttonModal */}
-        <div className="relative" ref={modalRef}>
-          <button
-            onClick={() => setShowProfileModal(!showProfileModal)}
-            className="flex flex-col justify-center items-center w-9 h-9 bg-white
-              rounded-pill border-none ml-3 hover:bg-btn-hover transition-colors"
-            aria-label="메뉴"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="6" viewBox="0 0 26 6" fill="none" className="w-5 h-auto">
-              <circle cx="3" cy="2.6875" r="2.5" fill="#323232" />
-              <circle cx="13" cy="2.6875" r="2.5" fill="#323232" />
-              <circle cx="23" cy="2.6875" r="2.5" fill="#323232" />
-            </svg>
-          </button>
-
-          {/* Profile modal */}
-          {showProfileModal && (
-            <div className="absolute right-0 top-[44px] bg-white rounded-md shadow-lg border border-grey-2 p-4 min-w-[200px] z-50">
-              {isAuthenticated && user ? (
-                <>
-                  {/* Profile info */}
-                  <div className="flex items-center gap-3 mb-4 pb-4 border-b border-grey-2">
-                    <Image
-                      src={user.profile_image || '/icons/profileDefault.svg'}
-                      alt={user.nickname}
-                      width={48}
-                      height={48}
-                      className="rounded-full"
-                    />
-                    <div>
-                      <p className="font-medium text-black">{user.nickname}</p>
-                      <p className="text-sm text-grey-4">{user.email}</p>
-                    </div>
-                  </div>
-
-                  {/* Logout button */}
-                  <button
-                    onClick={handleLogout}
-                    disabled={logoutMutation.isPending}
-                    className="w-full py-2 px-4 text-sm text-grey-5 hover:bg-btn-hover
-                      rounded-pill border border-grey-3 transition-colors disabled:opacity-50"
-                  >
-                    {logoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}
-                  </button>
-
-                  {/* Footer */}
-                  <p className="mt-4 pt-4 text-xs text-grey-3 text-center border-t border-grey-2">
-                    Developed by Armori
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-grey-4 mb-3">로그인이 필요합니다</p>
-                  <button
-                    onClick={handleLogin}
-                    className="w-full py-2 px-4 text-sm text-white bg-blue-2 hover:bg-blue-3
-                      rounded-pill transition-colors"
-                  >
-                    네이버 로그인
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        <button
+          onClick={handleOpenModal}
+          className="flex flex-col justify-center items-center w-9 h-9 bg-white
+            rounded-pill border-none ml-3 hover:bg-btn-hover transition-colors"
+          aria-label="메뉴"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="6" viewBox="0 0 26 6" fill="none" className="w-5 h-auto">
+            <circle cx="3" cy="2.6875" r="2.5" fill="#323232" />
+            <circle cx="13" cy="2.6875" r="2.5" fill="#323232" />
+            <circle cx="23" cy="2.6875" r="2.5" fill="#323232" />
+          </svg>
+        </button>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
     </header>
   );
 }
