@@ -36,6 +36,7 @@ export function useAuth() {
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,
+    loginUrl: getLoginUrl(),
   };
 }
 
