@@ -27,12 +27,10 @@ services:
   core:
     volumes:
       - ./services/core:/app
-      - ./config:/app/config:ro
       - core_media:/app/media
+      - ./z_docs/data/z_data:/app/z_data:ro
     environment:
       - DJANGO_ENV=development
-      - DJANGO_DEBUG=true
-      - CONFIG_ENV=dev
     ports:
       - "8000:8000"
 
@@ -42,10 +40,8 @@ services:
   agent:
     volumes:
       - ./services/agent/src:/app/src
-      - ./config:/app/config:ro
     environment:
       - DEBUG=true
-      - CONFIG_ENV=dev
       - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
     ports:
@@ -57,21 +53,17 @@ services:
   celery:
     volumes:
       - ./services/core:/app
-      - ./config:/app/config:ro
       - core_media:/app/media
     environment:
       - DJANGO_ENV=development
-      - CONFIG_ENV=dev
       - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
 
   celery-beat:
     volumes:
       - ./services/core:/app
-      - ./config:/app/config:ro
     environment:
       - DJANGO_ENV=development
-      - CONFIG_ENV=dev
       - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
 

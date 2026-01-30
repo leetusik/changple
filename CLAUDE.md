@@ -281,28 +281,30 @@ No tests are required for this project.
 
 ---
 
-## Environment Variables
+## Configuration & Secrets
 
-Create `.env` from `.env.example`:
+The project uses a modular configuration structure with service-specific secrets.
 
+### 1. Root Infrastructure
+`/.env` (PostgreSQL credentials only)
 ```bash
-# Database
 POSTGRES_USER=changple
 POSTGRES_PASSWORD=<secure_password>
+```
 
-# Django
+### 2. Core Service
+`services/core/.env` (Django, Auth, Scraper AI keys)
+```bash
 DJANGO_SECRET_KEY=<secret>
-DJANGO_DEBUG=true
-
-# AI Services
-OPENAI_API_KEY=sk-...
-GOOGLE_API_KEY=...
-PINECONE_API_KEY=...
-PINECONE_INDEX=changple-index
-
-# OAuth
 SOCIAL_AUTH_NAVER_KEY=...
-SOCIAL_AUTH_NAVER_SECRET=...
+OPENAI_API_KEY=... # For scraper/ingestion
+```
+
+### 3. Agent Service
+`services/agent/.env` (AI Agent keys & config)
+```bash
+OPENAI_API_KEY=...
+LANGCHAIN_API_KEY=...
 ```
 
 ---
@@ -337,4 +339,5 @@ SOCIAL_AUTH_NAVER_SECRET=...
 
 ## Implementation Plans
 
+- [Django Core Migration Plan](docs/plans/django-core-migration.md)
 - [Client Service Plan](docs/plans/client-service.md) - Next.js frontend implementation details
