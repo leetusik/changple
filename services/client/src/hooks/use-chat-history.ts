@@ -14,10 +14,20 @@ async function fetchChatHistory(): Promise<PaginatedResponse<ChatSession>> {
 
 /**
  * Fetch messages for a specific session
+ * Returns empty array if session doesn't exist yet (new session)
  */
 async function fetchSessionMessages(nonce: string): Promise<ChatMessage[]> {
-  const { data } = await api.get<ChatMessage[]>(`/api/v1/chat/${nonce}/messages/`);
-  return data;
+  try {
+    // API returns { id, nonce, messages, created_at, updated_at }
+    const { data } = await api.get<{ messages: ChatMessage[] }>(`/api/v1/chat/${nonce}/messages/`);
+    return data.messages || [];
+  } catch (error: any) {
+    // Return empty array for 404 (session doesn't exist yet - this is normal for new sessions)
+    if (error.response?.status === 404) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 /**

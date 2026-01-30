@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout';
-import { ChatWelcome, ChatHistory } from '@/components/chat';
+import { ChatWelcome, ChatHistory, ChatInput } from '@/components/chat';
 import { ContentList } from '@/components/content';
 import { usePreferredContent, useRecentContent, flattenRecentContent, useAuth } from '@/hooks';
 import { useUIStore } from '@/stores/ui-store';
@@ -16,7 +16,7 @@ export default function Home() {
   const preferredQuery = usePreferredContent();
   const recentQuery = useRecentContent();
 
-  const handleExampleClick = (question: string) => {
+  const handleSendMessage = (question: string) => {
     // Navigate to chat page - question will be sent after WebSocket connects
     // Store question in sessionStorage for the chat page to pick up
     sessionStorage.setItem('pendingQuestion', question);
@@ -77,10 +77,16 @@ export default function Home() {
       showBackButton={sidebarView === 'history'}
       onBackClick={handleBackClick}
     >
-      <ChatWelcome
-        userName={user?.nickname}
-        onExampleClick={handleExampleClick}
-      />
+      <div className="flex flex-col h-full w-full">
+        <ChatWelcome
+          userName={user?.nickname}
+          onExampleClick={handleSendMessage}
+        />
+        <ChatInput
+          onSend={handleSendMessage}
+          isConnected={true}
+        />
+      </div>
     </MainLayout>
   );
 }

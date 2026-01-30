@@ -16,6 +16,7 @@ export function useChat(options: UseChatOptions = {}) {
   const { initialNonce, onSessionCreated } = options;
   const router = useRouter();
   const wsRef = useRef<ChatWebSocket | null>(null);
+  const isMountedRef = useRef(true);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -30,7 +31,9 @@ export function useChat(options: UseChatOptions = {}) {
 
   // Initialize WebSocket connection
   const connect = useCallback(() => {
-    if (wsRef.current || isConnecting) return;
+    // Only check wsRef (not isConnecting) to handle React StrictMode double-mount
+    // wsRef is properly cleared in cleanup, isConnecting state persists
+    if (wsRef.current || !isMountedRef.current) return;
 
     setIsConnecting(true);
     setError(null);
@@ -40,6 +43,7 @@ export function useChat(options: UseChatOptions = {}) {
 
     // Handle session creation
     ws.on('session_created', ({ nonce: newNonce }) => {
+      if (!isMountedRef.current) return;
       setNonce(newNonce);
       setIsConnected(true);
       setIsConnecting(false);
@@ -113,10 +117,12 @@ export function useChat(options: UseChatOptions = {}) {
 
     // Start connection
     ws.connect().catch((err) => {
+      if (!isMountedRef.current) return;
+      console.warn('[useChat] Connection failed:', err.message);
       setError('WebSocket 연결에 실패했습니다.');
       setIsConnecting(false);
     });
-  }, [initialNonce, onSessionCreated, router, isConnecting]);
+  }, [initialNonce, onSessionCreated, router]);
 
   // Disconnect WebSocket
   const disconnect = useCallback(() => {
@@ -125,10 +131,13 @@ export function useChat(options: UseChatOptions = {}) {
     setIsConnected(false);
   }, []);
 
-  // Clean up on unmount
+  // Track mounted state and clean up on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       wsRef.current?.disconnect();
+      wsRef.current = null;
     };
   }, []);
 

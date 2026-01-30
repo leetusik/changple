@@ -5,7 +5,7 @@ Authentication views for Naver OAuth.
 import logging
 
 from django.conf import settings
-from django.contrib.auth import logout
+from django.contrib.auth import login, logout
 from django.shortcuts import redirect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -65,6 +65,10 @@ class NaverCallbackView(APIView):
 
             if user and user.is_authenticated:
                 logger.info(f"User {user.id} authenticated successfully via Naver")
+                
+                # Explicitly log the user in to persist session
+                # (backend.complete() authenticates but doesn't call login() in custom views)
+                login(request, user, backend="social_core.backends.naver.NaverOAuth2")
 
                 # Redirect to frontend with success
                 frontend_url = settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL
@@ -114,8 +118,8 @@ class AuthStatusView(APIView):
 
             return Response(
                 {
-                    "authenticated": True,
+                    "is_authenticated": True,
                     "user": UserSerializer(request.user).data,
                 }
             )
-        return Response({"authenticated": False})
+        return Response({"is_authenticated": False})

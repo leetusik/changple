@@ -11,7 +11,6 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, isStreaming }: MessageListProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive or during streaming
@@ -24,13 +23,11 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
   }
 
   return (
-    <ScrollArea className="flex-1 w-full px-4">
-      <div ref={scrollRef} className="flex flex-col py-4 max-w-3xl mx-auto">
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+    <div className="flex flex-col py-4 max-w-3xl mx-auto">
+      {messages.map((message) => (
+        <MessageBubble key={message.id} message={message} />
+      ))}
+      <div ref={bottomRef} />
+    </div>
   );
 }
