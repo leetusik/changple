@@ -1,0 +1,72 @@
+{
+  "export_timestamp": "20260130_143744",
+  "chunk_size": 10000,
+  "datasets": {
+    "navercafe_data": {
+      "total_records": 40999,
+      "total_chunks": 5,
+      "chunk_size": 10000,
+      "chunks": [
+        {
+          "filename": "navercafe_data_chunk_0000_20260130_143744.json",
+          "records_count": 10000,
+          "start_id": 1,
+          "end_id": 10000,
+          "file_size_mb": 14.05
+        },
+        {
+          "filename": "navercafe_data_chunk_0001_20260130_143744.json",
+          "records_count": 10000,
+          "start_id": 10001,
+          "end_id": 20000,
+          "file_size_mb": 14.08
+        },
+        {
+          "filename": "navercafe_data_chunk_0002_20260130_143744.json",
+          "records_count": 10000,
+          "start_id": 20001,
+          "end_id": 30000,
+          "file_size_mb": 18.56
+        },
+        {
+          "filename": "navercafe_data_chunk_0003_20260130_143744.json",
+          "records_count": 10000,
+          "start_id": 30001,
+          "end_id": 40000,
+          "file_size_mb": 19.75
+        },
+        {
+          "filename": "navercafe_data_chunk_0004_20260130_143744.json",
+          "records_count": 999,
+          "start_id": 40001,
+          "end_id": 40999,
+          "file_size_mb": 3.79
+        }
+      ],
+      "status": "completed"
+    },
+    "post_status": {
+      "total_records": 53566,
+      "filename": "post_status_all_20260130_143744.json",
+      "filter": "all",
+      "file_size_mb": 10.48,
+      "status": "completed"
+    },
+    "supporting_models": {
+      "files": [
+        {
+          "model": "AllowedAuthor",
+          "filename": "allowed_authors_20260130_143744.json",
+          "records_count": 20,
+          "file_size_mb": 0.0
+        }
+      ],
+      "status": "completed"
+    }
+  },
+  "database_info": {
+    "database_type": "PostgreSQL",
+    "database_version": "PostgreSQL 16.9 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit",
+    "export_user": "changple_user"
+  }
+}

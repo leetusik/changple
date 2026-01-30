@@ -16,9 +16,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-changple}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changple}
       POSTGRES_DB: changple
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-changple}"]
@@ -46,20 +46,9 @@ services:
       context: ./services/core
       dockerfile: Dockerfile
     container_name: changple-core
-    environment:
-      # Secrets from .env
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_USER=${POSTGRES_USER:-changple}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - SOCIAL_AUTH_NAVER_KEY=${SOCIAL_AUTH_NAVER_KEY}
-      - SOCIAL_AUTH_NAVER_SECRET=${SOCIAL_AUTH_NAVER_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      # Infrastructure
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
-      - REDIS_HOST=redis
+    env_file:
+      - .env
+      - services/core/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,20 +60,9 @@ services:
       context: ./services/agent
       dockerfile: Dockerfile
     container_name: changple-agent
-    environment:
-      # Secrets from .env
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
-      # LangChain/LangSmith (non-secrets from config, but passed as env for SDK)
-      - LANGCHAIN_TRACING_V2=true
-      - LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
-      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-changple-v3}
-      # Infrastructure
-      - LANGGRAPH_DATABASE_URL=postgresql://${POSTGRES_USER:-changple}:${POSTGRES_PASSWORD:-changple}@postgres:5432/changple_langgraph
-      - REDIS_URL=redis://redis:6379/1
-      - CORE_SERVICE_URL=http://core:8000
+    env_file:
+      - .env
+      - services/agent/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,18 +76,9 @@ services:
       context: ./services/core
       dockerfile: Dockerfile.celery
     container_name: changple-celery
-    environment:
-      # Secrets from .env
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_USER=${POSTGRES_USER:-changple}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      # Infrastructure
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
-      - REDIS_HOST=redis
+    env_file:
+      - .env
+      - services/core/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,18 +90,9 @@ services:
       context: ./services/core
       dockerfile: Dockerfile.beat
     container_name: changple-celery-beat
-    environment:
-      # Secrets from .env
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-dev-key}
-      - POSTGRES_USER=${POSTGRES_USER:-changple}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changple}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      # Infrastructure
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=changple
-      - REDIS_HOST=redis
+    env_file:
+      - .env
+      - services/core/.env
     depends_on:
       postgres:
         condition: service_healthy

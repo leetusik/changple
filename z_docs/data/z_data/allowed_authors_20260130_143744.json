@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "name": "창플 미연",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 2,
+    "name": "정수대리",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 3,
+    "name": "나라과장",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 4,
+    "name": "박과장",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 5,
+    "name": "세연팀장",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 6,
+    "name": "윤현진 본부장",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 7,
+    "name": "김태용",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 8,
+    "name": "칸스",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 9,
+    "name": "키즈더웨이브",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 10,
+    "name": "동백본가 Chef",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 11,
+    "name": "동백본가",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 12,
+    "name": "명동닭튀김",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 13,
+    "name": "미락",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 14,
+    "name": "봄내농원",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 15,
+    "name": "수컷웅",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 16,
+    "name": "만달",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 17,
+    "name": "라라와케이",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 18,
+    "name": "오키나와펍 시사",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 19,
+    "name": "우주파파",
+    "author_group": "창플",
+    "is_active": true
+  },
+  {
+    "id": 20,
+    "name": "창플",
+    "author_group": "창플",
+    "is_active": true
+  }
+]
