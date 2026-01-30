@@ -26,7 +26,9 @@ class NaverLoginView(APIView):
     def get(self, request):
         """Redirect to Naver OAuth authorization page."""
         strategy = load_strategy(request)
-        backend = load_backend(strategy, "naver", redirect_uri=None)
+        backend = load_backend(
+            strategy, "naver", redirect_uri=settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
+        )
 
         # Generate the authorization URL
         auth_url = backend.auth_url()
@@ -54,7 +56,9 @@ class NaverCallbackView(APIView):
 
         try:
             strategy = load_strategy(request)
-            backend = load_backend(strategy, "naver", redirect_uri=None)
+            backend = load_backend(
+                strategy, "naver", redirect_uri=settings.SOCIAL_AUTH_NAVER_CALLBACK_URL
+            )
 
             # Complete the authentication
             user = backend.complete(request=request)

@@ -42,8 +42,6 @@ services:
       - ./services/agent/src:/app/src
     environment:
       - DEBUG=true
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
     ports:
       - "8001:8001"
 
@@ -56,16 +54,12 @@ services:
       - core_media:/app/media
     environment:
       - DJANGO_ENV=development
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
 
   celery-beat:
     volumes:
       - ./services/core:/app
     environment:
       - DJANGO_ENV=development
-      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-changple-index}
-      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT:-us-east-1}
 
   # ===========================================================================
   # Client Service (Next.js) - Optional in dev
