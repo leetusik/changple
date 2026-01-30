@@ -57,8 +57,12 @@ async def setup_checkpointer(pool: AsyncConnectionPool) -> None:
     Args:
         pool: AsyncConnectionPool instance
     """
-    checkpointer = PooledAsyncPostgresSaver(pool)
-    await checkpointer.setup()
+    # Get a connection and run setup with autocommit to allow CREATE INDEX CONCURRENTLY
+    async with pool.connection() as conn:
+        # Set autocommit mode for DDL statements like CREATE INDEX CONCURRENTLY
+        await conn.set_autocommit(True)
+        checkpointer = AsyncPostgresSaver(conn)
+        await checkpointer.setup()
     logger.info("LangGraph checkpointer tables created/verified")
 
 

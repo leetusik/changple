@@ -17,8 +17,8 @@ dependencies = [
     "langchain-openai>=1.1.7",
     "langchain-pinecone>=0.2.13",
 
-    # Vector DB (renamed from pinecone-client, requires Python 3.10+)
-    "pinecone>=8.0.0",
+    # Vector DB (must be compatible with langchain-pinecone)
+    "pinecone>=6.0.0,<8.0.0",
 
     # Database (LangGraph checkpoint only)
     "psycopg[binary]>=3.3.2",
@@ -46,6 +46,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.ruff]
 line-length = 100

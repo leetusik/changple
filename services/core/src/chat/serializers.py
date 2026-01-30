@@ -100,12 +100,29 @@ class CreateChatMessageSerializer(serializers.Serializer):
     )
 
 
+class BulkMessageSerializer(serializers.Serializer):
+    """Serializer for a message in bulk create (no session_nonce required)."""
+
+    role = serializers.ChoiceField(choices=["user", "assistant"])
+    content = serializers.CharField()
+    attached_content_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+    helpful_document_post_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+    )
+
+
 class BulkCreateMessagesSerializer(serializers.Serializer):
     """Serializer for bulk creating messages (user + assistant pair)."""
 
     session_nonce = serializers.UUIDField()
     user_id = serializers.IntegerField(required=False, allow_null=True)
     messages = serializers.ListField(
-        child=CreateChatMessageSerializer(),
+        child=BulkMessageSerializer(),
         min_length=1,
     )
