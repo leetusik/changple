@@ -22,7 +22,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--data-dir",
             type=str,
-            default="/app/z_docs/data/z_data",
+            default="/app/z_data",
             help="Data directory containing chunked JSON files",
         )
         parser.add_argument(
