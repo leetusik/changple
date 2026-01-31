@@ -16,6 +16,9 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "core"]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF settings for development
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
 # Logging
 LOGGING = {
     "version": 1,
