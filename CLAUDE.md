@@ -25,7 +25,7 @@ Key files to reference during migration:
 ## Architecture
 
 ```
-changple3/
+changple4/
 ├── services/
 │   ├── core/      # Django WAS (users, content, auth, scraper) - NO ASGI/Daphne
 │   ├── client/    # React frontend (Next.js + assistant-ui)
@@ -130,7 +130,7 @@ The Core service is now pure WSGI. All real-time chat functionality moves to Age
 ### WebSocket Migration
 
 **Before (changple2)**: Django Channels + Daphne
-**After (changple3)**: FastAPI native WebSocket in Agent service
+**After (changple4)**: FastAPI native WebSocket in Agent service
 
 ### Scraper & Background Tasks
 
@@ -141,7 +141,7 @@ Celery worker runs in a separate container with dedicated `Dockerfile.celery` th
 ### Frontend Migration
 
 **Before (changple2)**: Django templates + vanilla JavaScript
-**After (changple3)**: Next.js SPA with shadcn/ui components + custom WebSocket client
+**After (changple4)**: Next.js SPA with shadcn/ui components + custom WebSocket client
 
 > **UI/UX Guideline**: Maintain the same visual appearance as changple2. Only the framework changes (React/Next.js), not the look and feel. Reference the old templates and CSS for styling decisions.
 

@@ -1,7 +1,7 @@
 """
 Import chunked NaverCafeData and PostStatus data from backup directory.
 
-Adapted from changple2's export/import commands for changple3 deployment.
+Adapted from changple2's export/import commands for changple4 deployment.
 """
 
 import glob

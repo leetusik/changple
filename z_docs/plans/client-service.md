@@ -1,7 +1,7 @@
 # Plan: Client Service Development (Next.js Frontend)
 
 ## Objective
-Build the changple3 Client service as a Next.js SPA that preserves the exact visual design and UX from changple2 while modernizing to React.
+Build the changple4 Client service as a Next.js SPA that preserves the exact visual design and UX from changple2 while modernizing to React.
 
 ---
 
@@ -485,7 +485,7 @@ export default config;
 
 **Commands:**
 ```bash
-cd /Users/sugang/projects/personal/changple3/services/client
+cd /Users/sugang/projects/personal/changple4/services/client
 
 # Initialize Next.js
 pnpm create next-app@latest . --typescript --tailwind --app --src-dir --import-alias "@/*" --turbopack
@@ -668,11 +668,11 @@ pnpm add -D @types/node
 - `/Users/sugang/projects/personal/changple2/static/css/base.css` - Layout
 - `/Users/sugang/projects/personal/changple2/templates/chatbot/index_chat.html` - Chat HTML
 
-**From changple3 (for integration):**
-- `/Users/sugang/projects/personal/changple3/services/agent/src/schemas/chat.py` - WS types
-- `/Users/sugang/projects/personal/changple3/services/agent/src/api/websocket.py` - WS protocol
-- `/Users/sugang/projects/personal/changple3/services/core/src/chat/urls.py` - Chat APIs
-- `/Users/sugang/projects/personal/changple3/services/core/src/content/urls.py` - Content APIs
+**From changple4 (for integration):**
+- `/Users/sugang/projects/personal/changple4/services/agent/src/schemas/chat.py` - WS types
+- `/Users/sugang/projects/personal/changple4/services/agent/src/api/websocket.py` - WS protocol
+- `/Users/sugang/projects/personal/changple4/services/core/src/chat/urls.py` - Chat APIs
+- `/Users/sugang/projects/personal/changple4/services/core/src/content/urls.py` - Content APIs
 
 ---
 

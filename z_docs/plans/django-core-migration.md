@@ -1,7 +1,7 @@
 # Plan: Django Core Service Migration
 
 ## Objective
-Migrate Django from changple2 monolith to changple3 Core service (pure REST API, no templates/ASGI).
+Migrate Django from changple2 monolith to changple4 Core service (pure REST API, no templates/ASGI).
 
 ---
 
