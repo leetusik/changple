@@ -28,7 +28,7 @@ services:
     volumes:
       - ./services/core:/app
       - core_media:/app/media
-      - ./z_docs/data/z_data:/app/z_data:ro
+      - ./z_docs/data:/app/z_data:ro
     environment:
       - DJANGO_ENV=development
     ports:
