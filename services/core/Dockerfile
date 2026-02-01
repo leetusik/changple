@@ -11,6 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     netcat-traditional \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -35,8 +36,8 @@ RUN chmod +x entrypoint.sh
 RUN uv sync --no-dev
 
 # Create non-root user
-RUN useradd --create-home appuser && chown -R appuser:appuser /app
-USER appuser
+RUN useradd --create-home appuser
+# USER appuser
 
 # Expose port
 EXPOSE 8000

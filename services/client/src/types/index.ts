@@ -22,23 +22,17 @@ export interface Content {
   id: number;
   title: string;
   description: string | null;
-  thumbnail: string | null;
+  thumbnail_url: string | null;
+  is_preferred: boolean;
   uploaded_at: string;
-  view_count: number;
   // Extended fields for display
   summary?: string;
   url?: string;
-  sourceType?: 'naver_cafe' | 'notion';
 }
 
 export interface ContentDetail extends Content {
-  text: string;
-  notion_url: string | null;
-}
-
-// Alias for display components (uses summary as fallback for description)
-export type ContentItem = Content & {
-  thumbnailUrl?: string; // Alias for thumbnail
+  html_url: string | null;
+  updated_at: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -60,7 +54,7 @@ export interface ChatSession {
 
 export interface ChatMessage {
   id: number;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   created_at: string;
   attached_content_ids: number[];
@@ -69,7 +63,7 @@ export interface ChatMessage {
 
 // WebSocket message types (Client → Agent)
 export interface ClientMessage {
-  type: 'message' | 'stop_generation';
+  type: "message" | "stop_generation";
   content?: string;
   content_ids?: number[];
   user_id?: number | null;
@@ -77,25 +71,25 @@ export interface ClientMessage {
 
 // WebSocket message types (Agent → Client)
 export type AgentMessageType =
-  | 'session_created'
-  | 'status_update'
-  | 'stream_chunk'
-  | 'stream_end'
-  | 'generation_stopped'
-  | 'error';
+  | "session_created"
+  | "status_update"
+  | "stream_chunk"
+  | "stream_end"
+  | "generation_stopped"
+  | "error";
 
 export interface SessionCreatedMessage {
-  type: 'session_created';
+  type: "session_created";
   nonce: string;
 }
 
 export interface StatusUpdateMessage {
-  type: 'status_update';
+  type: "status_update";
   message: string;
 }
 
 export interface StreamChunkMessage {
-  type: 'stream_chunk';
+  type: "stream_chunk";
   content: string;
 }
 
@@ -106,17 +100,17 @@ export interface SourceDocument {
 }
 
 export interface StreamEndMessage {
-  type: 'stream_end';
+  type: "stream_end";
   source_documents: SourceDocument[];
   processed_content: string;
 }
 
 export interface GenerationStoppedMessage {
-  type: 'generation_stopped';
+  type: "generation_stopped";
 }
 
 export interface ErrorMessage {
-  type: 'error';
+  type: "error";
   message: string;
   code?: string;
 }
@@ -132,7 +126,7 @@ export type AgentMessage =
 // UI state types
 export interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   sources?: SourceDocument[];
   isStreaming?: boolean;

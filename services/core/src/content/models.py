@@ -178,6 +178,16 @@ class NotionContent(models.Model):
                         window.parent.postMessage('iframeScrollEnd', '*');
                     }
                 });
+
+                document.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'IMG') {
+                        e.preventDefault();
+                        window.parent.postMessage({
+                            type: 'openImageModal',
+                            imageUrl: e.target.src
+                        }, '*');
+                    }
+                });
             </script>
             """
             modified_content = content.replace(
@@ -296,11 +306,18 @@ class NotionContent(models.Model):
                 except Exception as e:
                     print(f"파일 추출 실패: {member.filename} -> {e}")
 
-        # Handle nested zip files
+        # Handle nested zip files (skip Notion's metadata block ZIPs)
         for root, _, files in os.walk(extract_dir):
             for file in files:
                 if file.endswith(".zip"):
+                    # Skip Notion's ExportBlock metadata files
+                    if "ExportBlock" in file or "Part-" in file:
+                        continue
+
                     inner_zip_path = os.path.join(root, file)
+                    if not os.path.exists(inner_zip_path):
+                        continue
+
                     try:
                         with zipfile.ZipFile(inner_zip_path, "r") as inner_zip:
                             inner_mapping = self._safe_extract_zip(
@@ -309,7 +326,7 @@ class NotionContent(models.Model):
                             filename_mapping.update(inner_mapping)
                         os.remove(inner_zip_path)
                     except Exception as e:
-                        print(f"내부 zip 압축 해제 실패: {file} -> {e}")
+                        print(f"⚠️  Skipped nested ZIP {file}: {e}")
 
         # Convert images
         convert_images_in_directory(extract_dir, quality=85, max_width=2048)

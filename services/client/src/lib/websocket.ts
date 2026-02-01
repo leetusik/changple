@@ -1,4 +1,4 @@
-import type { ClientMessage, AgentMessage, AgentMessageType } from '@/types';
+import type { ClientMessage, AgentMessage, AgentMessageType } from "@/types";
 
 type MessageHandler = (data: AgentMessage) => void;
 
@@ -23,35 +23,38 @@ export class ChatWebSocket {
   connect(): Promise<string> {
     // If already intentionally closed, don't attempt to connect
     if (this.isIntentionalClose) {
-      return Promise.reject(new Error('WebSocket was intentionally closed'));
+      return Promise.reject(new Error("WebSocket was intentionally closed"));
     }
 
     return new Promise((resolve, reject) => {
       // Store reject so we can call it from disconnect()
       this.connectPromiseReject = reject;
 
-      const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL ||
-        (typeof window !== 'undefined' ? `ws://${window.location.host}` : 'ws://localhost');
+      const wsBaseUrl =
+        process.env.NEXT_PUBLIC_WS_URL ||
+        (typeof window !== "undefined"
+          ? `ws://${window.location.host}`
+          : "ws://localhost");
 
       // Generate a new UUID if no nonce provided
       const sessionNonce = this.nonce || crypto.randomUUID();
       const url = `${wsBaseUrl}/ws/chat/${sessionNonce}`;
 
-      console.log('[WebSocket] Connecting to:', url);
+      console.log("[WebSocket] Connecting to:", url);
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected');
+        console.log("[WebSocket] Connected");
         this.reconnectAttempts = 0;
       };
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as AgentMessage;
-          console.log('[WebSocket] Received:', data.type);
+          console.log("[WebSocket] Received:", data.type);
 
           // First message should be session_created with nonce
-          if (data.type === 'session_created') {
+          if (data.type === "session_created") {
             this.nonce = data.nonce;
             this.connectPromiseReject = null; // Clear since we're resolving
             resolve(data.nonce);
@@ -61,23 +64,25 @@ export class ChatWebSocket {
           const handlers = this.handlers.get(data.type) || [];
           handlers.forEach((handler) => handler(data));
         } catch (error) {
-          console.error('[WebSocket] Failed to parse message:', error);
+          console.error("[WebSocket] Failed to parse message:", error);
         }
       };
 
       this.ws.onerror = (error) => {
         // Don't log error if this was an intentional close (e.g., React StrictMode cleanup)
         if (!this.isIntentionalClose) {
-          console.error('[WebSocket] Error:', error);
+          console.error("[WebSocket] Error:", error);
         }
         reject(error);
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocket] Closed:', event.code, event.reason);
+        console.log("[WebSocket] Closed:", event.code, event.reason);
         // Reject pending connect promise if connection closed before session_created
         if (this.connectPromiseReject) {
-          this.connectPromiseReject(new Error('Connection closed before session created'));
+          this.connectPromiseReject(
+            new Error("Connection closed before session created")
+          );
           this.connectPromiseReject = null;
         }
         if (!this.isIntentionalClose) {
@@ -92,17 +97,19 @@ export class ChatWebSocket {
    */
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[WebSocket] Max reconnection attempts reached');
+      console.log("[WebSocket] Max reconnection attempts reached");
       return;
     }
 
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * this.reconnectAttempts;
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    console.log(
+      `[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`
+    );
 
     setTimeout(() => {
       this.connect().catch((error) => {
-        console.error('[WebSocket] Reconnection failed:', error);
+        console.error("[WebSocket] Reconnection failed:", error);
       });
     }, delay);
   }
@@ -140,18 +147,22 @@ export class ChatWebSocket {
   send(message: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
-      console.log('[WebSocket] Sent:', message.type);
+      console.log("[WebSocket] Sent:", message.type);
     } else {
-      console.warn('[WebSocket] Cannot send - not connected');
+      console.warn("[WebSocket] Cannot send - not connected");
     }
   }
 
   /**
    * Send a chat message
    */
-  sendMessage(content: string, contentIds: number[] = [], userId?: number | null): void {
+  sendMessage(
+    content: string,
+    contentIds: number[] = [],
+    userId?: number | null
+  ): void {
     this.send({
-      type: 'message',
+      type: "message",
       content,
       content_ids: contentIds,
       user_id: userId,
@@ -162,7 +173,7 @@ export class ChatWebSocket {
    * Request to stop the current generation
    */
   stopGeneration(): void {
-    this.send({ type: 'stop_generation' });
+    this.send({ type: "stop_generation" });
   }
 
   /**
@@ -171,7 +182,7 @@ export class ChatWebSocket {
   disconnect(): void {
     this.isIntentionalClose = true;
     this.maxReconnectAttempts = 0; // Prevent reconnection
-    
+
     this.ws?.close();
     this.ws = null;
   }

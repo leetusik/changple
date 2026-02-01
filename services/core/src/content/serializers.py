@@ -24,10 +24,8 @@ class NotionContentListSerializer(serializers.ModelSerializer):
         ]
 
     def get_thumbnail_url(self, obj) -> str | None:
+        """Return relative URL for thumbnail (proxied by Next.js)."""
         if obj.thumbnail_img_path:
-            request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.thumbnail_img_path.url)
             return obj.thumbnail_img_path.url
         return None
 
@@ -52,18 +50,14 @@ class NotionContentDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_thumbnail_url(self, obj) -> str | None:
+        """Return relative URL for thumbnail (proxied by Next.js)."""
         if obj.thumbnail_img_path:
-            request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.thumbnail_img_path.url)
             return obj.thumbnail_img_path.url
         return None
 
     def get_html_url(self, obj) -> str | None:
+        """Return relative URL for HTML content (proxied by Next.js)."""
         if obj.html_path:
-            request = self.context.get("request")
-            if request:
-                return request.build_absolute_uri(obj.get_html_url())
             return obj.get_html_url()
         return None
 

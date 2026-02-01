@@ -52,3 +52,8 @@ LOGGING = {
         },
     },
 }
+
+# Allow iframes from localhost:3000 in development by removing XFrameOptionsMiddleware
+# This is necessary because the frontend (localhost:3000) embeds the backend (localhost:8000) in an iframe
+if "django.middleware.clickjacking.XFrameOptionsMiddleware" in MIDDLEWARE:
+    MIDDLEWARE.remove("django.middleware.clickjacking.XFrameOptionsMiddleware")

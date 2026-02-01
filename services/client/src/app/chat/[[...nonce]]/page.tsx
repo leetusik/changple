@@ -2,9 +2,9 @@
 
 import { use } from 'react';
 import { MainLayout } from '@/components/layout';
-import { ChatContainer } from '@/components/chat';
-import { ContentList } from '@/components/content';
-import { usePreferredContent, useRecentContent, flattenRecentContent } from '@/hooks';
+import { ChatContainer, ChatHistory } from '@/components/chat';
+import { ContentSidebar } from '@/components/content';
+import { useUIStore } from '@/stores/ui-store';
 
 interface ChatPageProps {
   params: Promise<{ nonce?: string[] }>;
@@ -13,52 +13,33 @@ interface ChatPageProps {
 export default function ChatPage({ params }: ChatPageProps) {
   const resolvedParams = use(params);
   const nonce = resolvedParams.nonce?.[0];
-
-  // Fetch content for sidebar
-  const preferredQuery = usePreferredContent();
-  const recentQuery = useRecentContent();
+  const { sidebarView, showHistory, showContentList } = useUIStore();
 
   const handleHistoryClick = () => {
-    // TODO: Open history panel
-    console.log('History clicked');
+    showHistory();
   };
 
-  // Sidebar content
-  const sidebarContent = (
-    <div className="flex flex-col w-full h-full px-1.5 overflow-y-auto overflow-x-hidden hide-scrollbar">
-      {/* Preferred content section */}
-      {preferredQuery.data && preferredQuery.data.length > 0 && (
-        <ContentList
-          title="인기 칼럼"
-          contents={preferredQuery.data}
-          isLoading={preferredQuery.isLoading}
-        />
-      )}
+  const handleBackClick = () => {
+    showContentList();
+  };
 
-      {/* Recent content section */}
-      <ContentList
-        title="최근 소식"
-        contents={flattenRecentContent(recentQuery.data)}
-        isLoading={recentQuery.isLoading}
-      />
+  // Sidebar content based on current view
+  const getSidebarContent = () => {
+    if (sidebarView === 'history') {
+      return <ChatHistory />;
+    }
+    return <ContentSidebar />;
+  };
 
-      {/* Load more button */}
-      {recentQuery.hasNextPage && (
-        <button
-          onClick={() => recentQuery.fetchNextPage()}
-          disabled={recentQuery.isFetchingNextPage}
-          className="w-full py-3 text-sm text-grey-4 hover:text-grey-5 hover:bg-grey-1 rounded-md transition-colors disabled:opacity-50"
-        >
-          {recentQuery.isFetchingNextPage ? '로딩 중...' : '더 보기'}
-        </button>
-      )}
-    </div>
-  );
+  // Show back button for history and details views
+  const showBackButton = sidebarView === 'history' || sidebarView === 'details';
 
   return (
     <MainLayout
-      sidebarContent={sidebarContent}
+      sidebarContent={getSidebarContent()}
       onHistoryClick={handleHistoryClick}
+      showBackButton={showBackButton}
+      onBackClick={handleBackClick}
     >
       <ChatContainer initialNonce={nonce} />
     </MainLayout>

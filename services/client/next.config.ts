@@ -7,7 +7,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // For Naver Cafe thumbnails and user profile images
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
       },
     ],
   },
@@ -20,6 +28,21 @@ const nextConfig: NextConfig = {
 
   // Disable x-powered-by header
   poweredByHeader: false,
+
+  // Proxy rewrites for development
+  async rewrites() {
+    const coreUrl = process.env.CORE_SERVICE_URL || 'http://localhost:8000';
+    return [
+      {
+        source: '/media/:path*',
+        destination: `${coreUrl}/media/:path*`,
+      },
+      {
+        source: '/api/v1/:path*',
+        destination: `${coreUrl}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
