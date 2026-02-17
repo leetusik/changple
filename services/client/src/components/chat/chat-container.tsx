@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ChatWelcome } from './chat-welcome';
 import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
-import { StreamingIndicator } from './streaming-indicator';
 import { useChat } from '@/hooks/use-chat';
 import { useSessionMessages } from '@/hooks/use-chat-history';
 import type { Message } from '@/types';
@@ -21,7 +20,6 @@ export function ChatContainer({ initialNonce }: ChatContainerProps) {
     isStreaming,
     statusMessage,
     error,
-    connect,
     sendMessage,
     stopGeneration,
     loadMessages,
@@ -31,25 +29,20 @@ export function ChatContainer({ initialNonce }: ChatContainerProps) {
   // Load existing messages if we have a session nonce
   const { data: existingMessages } = useSessionMessages(initialNonce || null);
 
-  // Connect on mount
+  // Handle pending question from home page navigation.
+  // Uses setTimeout(0) to defer sendMessage to the next macrotask, which
+  // survives React StrictMode's synchronous unmount/remount cycle in dev mode.
+  // Without this, StrictMode's cleanup would abort the stream mid-flight.
+  const pendingHandled = useRef(false);
   useEffect(() => {
-    connect();
-  }, [connect]);
-
-  // Handle pending question from home page navigation
-  useEffect(() => {
-    if (isConnected) {
-      // Small delay to ensure WebSocket is fully ready
-      const timer = setTimeout(() => {
-        const pendingQuestion = sessionStorage.getItem('pendingQuestion');
-        if (pendingQuestion) {
-          sessionStorage.removeItem('pendingQuestion');
-          sendMessage(pendingQuestion);
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+    if (pendingHandled.current) return;
+    const pendingQuestion = sessionStorage.getItem('pendingQuestion');
+    if (pendingQuestion) {
+      pendingHandled.current = true;
+      sessionStorage.removeItem('pendingQuestion');
+      setTimeout(() => sendMessage(pendingQuestion), 0);
     }
-  }, [isConnected, sendMessage]);
+  }, [sendMessage]);
 
   // Load existing messages when fetched
   useEffect(() => {
@@ -82,18 +75,10 @@ export function ChatContainer({ initialNonce }: ChatContainerProps) {
       {/* Messages or Welcome screen */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {hasMessages ? (
-          <MessageList messages={messages} isStreaming={isStreaming} />
+          <MessageList messages={messages} isStreaming={isStreaming} statusMessage={statusMessage} />
         ) : (
           <ChatWelcome onExampleClick={handleExampleClick} />
         )}
-      </div>
-
-      {/* Streaming indicator */}
-      <div className="flex-shrink-0">
-        <StreamingIndicator
-          statusMessage={statusMessage}
-          isStreaming={isStreaming}
-        />
       </div>
 
       {/* Input */}

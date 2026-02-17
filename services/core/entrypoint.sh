@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# Fix permissions for media directory
+# Fix permissions
 echo "Fixing permissions..."
 mkdir -p /app/media /app/staticfiles
-chown -R appuser:appuser /app/media /app/staticfiles /app/src
+chown -R appuser:appuser /app/media /app/staticfiles /app/src /app/.venv
 
 echo "Waiting for PostgreSQL..."
 while ! nc -z ${POSTGRES_HOST:-postgres} ${POSTGRES_PORT:-5432}; do

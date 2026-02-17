@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChatWebSocket } from '@/lib/websocket';
+import { streamChat, stopChatGeneration } from '@/lib/sse';
 import { useContentSelectionStore } from '@/stores/content-selection-store';
 import { useAuth } from './use-auth';
 import type { Message, SourceDocument } from '@/types';
@@ -14,13 +13,18 @@ interface UseChatOptions {
 
 export function useChat(options: UseChatOptions = {}) {
   const { initialNonce, onSessionCreated } = options;
-  const router = useRouter();
-  const wsRef = useRef<ChatWebSocket | null>(null);
   const isMountedRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
+  // Use a ref for the nonce to avoid stale closures creating duplicate nonces.
+  // The state `nonce` drives UI re-renders; the ref is the single source of truth
+  // for the actual session nonce used in network requests.
+  const nonceRef = useRef<string | null>(initialNonce || null);
+  // Ref mirror of isStreaming to avoid stale closure in sendMessage guard.
+  // This lets sendMessage have stable deps (no isStreaming), preventing
+  // unnecessary effect re-runs in consumers.
+  const isStreamingRef = useRef(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [nonce, setNonce] = useState<string | null>(initialNonce || null);
@@ -29,122 +33,47 @@ export function useChat(options: UseChatOptions = {}) {
   const { user } = useAuth();
   const selectedContentIds = useContentSelectionStore((s) => s.selectedIds);
 
-  // Initialize WebSocket connection
-  const connect = useCallback(() => {
-    // Only check wsRef (not isConnecting) to handle React StrictMode double-mount
-    // wsRef is properly cleared in cleanup, isConnecting state persists
-    if (wsRef.current || !isMountedRef.current) return;
+  // Keep streaming ref in sync
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
-    setIsConnecting(true);
-    setError(null);
+  // Ensure nonce exists (create one if needed).
+  // Uses a ref to guarantee only ONE nonce is ever created, regardless of
+  // React closure timing. URL is updated via a separate effect to avoid
+  // interfering with streaming.
+  const ensureNonce = useCallback(() => {
+    if (nonceRef.current) return nonceRef.current;
+    const newNonce = crypto.randomUUID();
+    nonceRef.current = newNonce;
+    setNonce(newNonce);
+    onSessionCreated?.(newNonce);
+    return newNonce;
+  }, [onSessionCreated]);
 
-    const ws = new ChatWebSocket(initialNonce);
-    wsRef.current = ws;
+  // Update URL when a new nonce is created (deferred from ensureNonce to avoid
+  // interfering with Next.js rendering during streaming)
+  useEffect(() => {
+    if (nonce && !initialNonce) {
+      window.history.replaceState(null, '', `/chat/${nonce}/`);
+    }
+  }, [nonce, initialNonce]);
 
-    // Handle session creation
-    ws.on('session_created', ({ nonce: newNonce }) => {
-      if (!isMountedRef.current) return;
-      setNonce(newNonce);
-      setIsConnected(true);
-      setIsConnecting(false);
-      onSessionCreated?.(newNonce);
-      // Update URL without full navigation
-      router.replace(`/chat/${newNonce}`, { scroll: false });
-    });
-
-    // Handle status updates (e.g., "검색 중...", "답변 생성 중...")
-    ws.on('status_update', ({ message }) => {
-      setStatusMessage(message);
-    });
-
-    // Handle streaming chunks
-    ws.on('stream_chunk', ({ content }) => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && last.isStreaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, content: last.content + content },
-          ];
-        }
-        return prev;
-      });
-    });
-
-    // Handle stream end
-    ws.on('stream_end', ({ processed_content, source_documents }) => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant') {
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...last,
-              content: processed_content,
-              sources: source_documents,
-              isStreaming: false,
-            },
-          ];
-        }
-        return prev;
-      });
-      setIsStreaming(false);
-      setStatusMessage(null);
-    });
-
-    // Handle generation stopped
-    ws.on('generation_stopped', () => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && last.isStreaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, isStreaming: false, content: last.content + ' (중단됨)' },
-          ];
-        }
-        return prev;
-      });
-      setIsStreaming(false);
-      setStatusMessage(null);
-    });
-
-    // Handle errors
-    ws.on('error', ({ message }) => {
-      setError(message);
-      setStatusMessage(`오류: ${message}`);
-      setIsStreaming(false);
-    });
-
-    // Start connection
-    ws.connect().catch((err) => {
-      if (!isMountedRef.current) return;
-      console.warn('[useChat] Connection failed:', err.message);
-      setError('WebSocket 연결에 실패했습니다.');
-      setIsConnecting(false);
-    });
-  }, [initialNonce, onSessionCreated, router]);
-
-  // Disconnect WebSocket
-  const disconnect = useCallback(() => {
-    wsRef.current?.disconnect();
-    wsRef.current = null;
-    setIsConnected(false);
-  }, []);
-
-  // Track mounted state and clean up on unmount
+  // Track mounted state
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      wsRef.current?.disconnect();
-      wsRef.current = null;
+      abortRef.current?.abort();
     };
   }, []);
 
-  // Send a message
+  // Send a message via SSE
   const sendMessage = useCallback(
-    (content: string) => {
-      if (!wsRef.current || isStreaming || !content.trim()) return;
+    async (content: string) => {
+      if (isStreamingRef.current || !content.trim()) return;
+
+      const sessionNonce = ensureNonce();
 
       // Add user message
       const userMessage: Message = {
@@ -168,20 +97,164 @@ export function useChat(options: UseChatOptions = {}) {
       setIsStreaming(true);
       setError(null);
 
-      // Send to WebSocket
-      wsRef.current.send({
-        type: 'message',
-        content: content.trim(),
-        content_ids: selectedContentIds,
-        user_id: user?.id || null,
-      });
+      // Create abort controller for this request
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+
+      // Track whether a terminal SSE event (end/stopped/error) was received.
+      // The finally block only resets state if none of these fired.
+      let streamCompleted = false;
+
+      try {
+        await streamChat(
+          sessionNonce,
+          content.trim(),
+          selectedContentIds,
+          user?.id || null,
+          {
+            onStatus: (data) => {
+              if (!isMountedRef.current) return;
+              setStatusMessage(data.message);
+            },
+            onChunk: (data) => {
+              if (!isMountedRef.current) return;
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant' && last.isStreaming) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: last.content + data.content },
+                  ];
+                }
+                return prev;
+              });
+            },
+            onEnd: (data) => {
+              streamCompleted = true;
+              if (!isMountedRef.current) return;
+              const sources = data.source_documents as SourceDocument[];
+              // Convert [N] citation references to markdown hyperlinks
+              let finalContent = data.processed_content;
+              if (sources && sources.length > 0) {
+                finalContent = finalContent.replace(/\[(\d+)\]/g, (match, numStr) => {
+                  const num = parseInt(numStr, 10);
+                  if (num >= 1 && num <= sources.length) {
+                    return `[\\[${num}\\]](${sources[num - 1].source})`;
+                  }
+                  return match;
+                });
+              }
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant') {
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...last,
+                      content: finalContent,
+                      sources,
+                      isStreaming: false,
+                    },
+                  ];
+                }
+                return prev;
+              });
+              setIsStreaming(false);
+              setStatusMessage(null);
+            },
+            onStopped: () => {
+              streamCompleted = true;
+              if (!isMountedRef.current) return;
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant' && last.isStreaming) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, isStreaming: false, content: last.content + ' (중단됨)' },
+                  ];
+                }
+                return prev;
+              });
+              setIsStreaming(false);
+              setStatusMessage(null);
+            },
+            onError: (data) => {
+              streamCompleted = true;
+              if (!isMountedRef.current) return;
+              setError(data.message);
+              setStatusMessage(null);
+              setIsStreaming(false);
+              // Remove empty assistant placeholder on error
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant' && !last.content) {
+                  return prev.slice(0, -1);
+                }
+                return prev;
+              });
+            },
+          },
+          abortController.signal
+        );
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        if (abortController.signal.aborted) return;
+
+        const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+        setError(errorMessage);
+        setIsStreaming(false);
+        setStatusMessage(null);
+      } finally {
+        abortRef.current = null;
+        // Safety net: only reset if no terminal SSE event was received.
+        // This prevents the finally block from interfering with onEnd/onStopped/onError state.
+        if (!streamCompleted && isMountedRef.current) {
+          setIsStreaming(false);
+          setStatusMessage(null);
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant' && last.isStreaming) {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, isStreaming: false },
+              ];
+            }
+            return prev;
+          });
+        }
+      }
     },
-    [isStreaming, selectedContentIds, user?.id]
+    [ensureNonce, selectedContentIds, user?.id]
   );
 
-  // Stop generation
-  const stopGeneration = useCallback(() => {
-    wsRef.current?.send({ type: 'stop_generation' });
+  // Stop generation - uses ref for correct nonce
+  const stopGeneration = useCallback(async () => {
+    const currentNonce = nonceRef.current;
+    if (!currentNonce) return;
+
+    // Abort the fetch first to stop reading the stream
+    abortRef.current?.abort();
+
+    // Mark streaming as stopped immediately for responsive UI
+    setIsStreaming(false);
+    setStatusMessage(null);
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === 'assistant' && last.isStreaming) {
+        return [
+          ...prev.slice(0, -1),
+          { ...last, isStreaming: false, content: last.content + ' (중단됨)' },
+        ];
+      }
+      return prev;
+    });
+
+    // Tell the server to stop (best effort)
+    try {
+      await stopChatGeneration(currentNonce);
+    } catch {
+      // Best effort
+    }
   }, []);
 
   // Clear messages (for new chat)
@@ -197,23 +270,21 @@ export function useChat(options: UseChatOptions = {}) {
   return {
     // State
     messages,
-    isConnected,
-    isConnecting,
+    isConnected: true, // SSE is connectionless (per-request)
+    isConnecting: false,
     isStreaming,
     statusMessage,
     nonce,
     error,
 
     // Actions
-    connect,
-    disconnect,
     sendMessage,
     stopGeneration,
     clearMessages,
     loadMessages,
 
     // Computed
-    canSend: isConnected && !isStreaming,
+    canSend: !isStreaming,
     hasMessages: messages.length > 0,
   };
 }

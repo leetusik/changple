@@ -8,7 +8,7 @@ import type { Content, ContentDetail, PaginatedResponse } from "@/types";
  * Fetch preferred/featured content
  */
 async function fetchPreferredContent(): Promise<Content[]> {
-  const { data } = await api.get<Content[]>("/api/v1/content/preferred/");
+  const { data } = await api.get<Content[]>("/content/preferred/");
   return data;
 }
 
@@ -19,7 +19,7 @@ async function fetchRecentContent(
   page: number
 ): Promise<PaginatedResponse<Content>> {
   const { data } = await api.get<PaginatedResponse<Content>>(
-    "/api/v1/content/columns/",
+    "/content/columns/",
     {
       params: { page },
     }
@@ -31,7 +31,7 @@ async function fetchRecentContent(
  * Fetch content detail
  */
 async function fetchContentDetail(id: number): Promise<ContentDetail> {
-  const { data } = await api.get<ContentDetail>(`/api/v1/content/${id}/`);
+  const { data } = await api.get<ContentDetail>(`/content/${id}/`);
   return data;
 }
 
@@ -42,7 +42,7 @@ async function fetchAttachment(
   contentIds: number[]
 ): Promise<{ texts: string[] }> {
   const { data } = await api.post<{ texts: string[] }>(
-    "/api/v1/content/attachment/",
+    "/content/attachment/",
     {
       content_ids: contentIds,
     }
@@ -54,7 +54,7 @@ async function fetchAttachment(
  * Record content view
  */
 async function recordContentView(id: number): Promise<void> {
-  await api.post("/api/v1/content/view/", { content_id: id });
+  await api.post("/content/view/", { content_id: id });
 }
 
 /**

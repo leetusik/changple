@@ -3,7 +3,6 @@ Pinecone vector store setup for document retrieval.
 """
 
 import logging
-import os
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
@@ -22,13 +21,10 @@ def load_embeddings() -> OpenAIEmbeddings:
     """
     settings = get_settings()
 
-    # Set API key in environment for LangChain
-    if settings.openai_api_key:
-        os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-
     return OpenAIEmbeddings(
         model=settings.embedding_model,
         chunk_size=200,
+        api_key=settings.openai_api_key,
     )
 
 
@@ -41,14 +37,11 @@ def get_vector_store() -> PineconeVectorStore:
     """
     settings = get_settings()
 
-    # Set Pinecone API key in environment
-    if settings.pinecone_api_key:
-        os.environ["PINECONE_API_KEY"] = settings.pinecone_api_key
-
     return PineconeVectorStore(
         index_name=settings.pinecone_index_name,
         embedding=load_embeddings(),
         text_key="text",
+        pinecone_api_key=settings.pinecone_api_key,
     )
 
 

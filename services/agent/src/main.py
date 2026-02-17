@@ -20,14 +20,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global resources
-_resources: dict = {}
-
-
-def get_resources() -> dict:
-    """Get global resources (pool, redis, httpx client)."""
-    return _resources
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,13 +44,13 @@ async def lifespan(app: FastAPI):
         open=False,
     )
     await pool.open()
-    _resources["pool"] = pool
+    app.state.pool = pool
     logger.info("PostgreSQL pool initialized")
 
     # Initialize Redis client
     logger.info("Initializing Redis client...")
     redis_client = redis.from_url(settings.redis_url, decode_responses=True)
-    _resources["redis"] = redis_client
+    app.state.redis = redis_client
     logger.info("Redis client initialized")
 
     # Initialize httpx client for Core API calls
@@ -68,7 +60,7 @@ async def lifespan(app: FastAPI):
         timeout=httpx.Timeout(30.0),
         limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
     )
-    _resources["httpx"] = httpx_client
+    app.state.httpx = httpx_client
     logger.info("httpx client initialized")
 
     # Setup LangGraph checkpointer tables
@@ -98,7 +90,6 @@ async def lifespan(app: FastAPI):
     await pool.close()
     logger.info("PostgreSQL pool closed")
 
-    _resources.clear()
     logger.info("Changple Agent Service shutdown complete")
 
 
@@ -112,8 +103,3 @@ app = FastAPI(
 
 # Include routers
 app.include_router(api_router)
-
-# WebSocket router
-from src.api.websocket import router as websocket_router
-
-app.include_router(websocket_router)

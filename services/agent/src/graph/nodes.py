@@ -6,17 +6,17 @@ by Core REST API calls via CoreClient.
 """
 
 import logging
-import os
 import re
 from typing import Any, Literal, TypedDict, Union, cast
 
 from langchain_core.documents import Document
-from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, AnyMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.constants import Send
 from pydantic import BaseModel
 
 from src.config import get_settings
+from src.graph.memory import get_context_messages
 from src.graph.prompts import (
     DOC_RELEVANCE_PROMPT_TEMPLATE,
     GENERATE_QUERIES_PROMPT_TEMPLATE,
@@ -50,14 +50,11 @@ def load_llm(
     """
     settings = get_settings()
 
-    # Set API key in environment for LangChain
-    if settings.google_api_key:
-        os.environ["GOOGLE_API_KEY"] = settings.google_api_key
-
     return ChatGoogleGenerativeAI(
         model=model_name or settings.default_model,
         temperature=temperature,
         disable_streaming=not streaming,
+        google_api_key=settings.google_api_key,
     )
 
 
@@ -75,7 +72,7 @@ def format_docs(docs: list[Document] | None) -> str:
         return "<documents></documents>"
 
     serialized = "\n\n".join(
-        f"{i+1}\nURL: {doc.metadata.get('source', '')}\nTitle: {doc.metadata.get('title', '')}\nContent: {doc.page_content}"
+        f"{i + 1}\nURL: {doc.metadata.get('source', '')}\nTitle: {doc.metadata.get('title', '')}\nContent: {doc.page_content}"
         for i, doc in enumerate(docs)
     )
     return f"""
@@ -107,9 +104,8 @@ async def route_query(state: AgentState, core_client: CoreClient) -> dict:
     model = load_llm(model_name="gemini-2.5-flash")
     model = model.with_structured_output(Router)
 
-    # Use last 5 messages for context while keeping memory manageable
-    trimmed_messages = state["messages"][-5:]
-    prompt = [SystemMessage(content=ROUTER_SYSTEM_PROMPT)] + trimmed_messages
+    context_messages = get_context_messages(state["messages"])
+    prompt = [SystemMessage(content=ROUTER_SYSTEM_PROMPT)] + context_messages
 
     response = cast(Router, await model.ainvoke(prompt))
     return {
@@ -158,8 +154,8 @@ async def respond_simple(state: AgentState, core_client: CoreClient) -> dict:
     """
     llm = load_llm(model_name="gemini-2.5-flash", streaming=True)
 
-    trimmed_messages = state["messages"][-5:]
-    prompt = [SystemMessage(content=SIMPLE_RESPONSE_PROMPT)] + trimmed_messages
+    context_messages = get_context_messages(state["messages"])
+    prompt = [SystemMessage(content=SIMPLE_RESPONSE_PROMPT)] + context_messages
 
     # Streaming implementation for real-time response
     chunks = []
@@ -201,9 +197,7 @@ async def generate_queries(state: AgentState, core_client: CoreClient) -> dict:
 
     # Fetch brand information via Core API
     goodto_know_brands = await core_client.get_brands_formatted()
-    prompt_content = GENERATE_QUERIES_PROMPT_TEMPLATE.format(
-        goodto_know_brands=goodto_know_brands
-    )
+    prompt_content = GENERATE_QUERIES_PROMPT_TEMPLATE.format(goodto_know_brands=goodto_know_brands)
 
     # Append user-attached content if it exists
     if user_attached_content := state.get("user_attached_content"):
@@ -211,7 +205,7 @@ async def generate_queries(state: AgentState, core_client: CoreClient) -> dict:
             user_attached_content=user_attached_content
         )
 
-    prompt = [SystemMessage(content=prompt_content)] + state["messages"][-5:]
+    prompt = [SystemMessage(content=prompt_content)] + get_context_messages(state["messages"])
     response = cast(QueryResponse, await model.ainvoke(prompt))
 
     # Get allowed authors via Core API
@@ -332,7 +326,9 @@ async def documents_handler(state: AgentState, core_client: CoreClient) -> dict:
 만약 유저의 질문에 답변하는데 도움이 되는 문서가 없다면 빈 리스트를 Return하세요.
 """
 
-    messages = [{"role": "system", "content": system_prompt}] + state["messages"][-5:]
+    messages = [{"role": "system", "content": system_prompt}] + get_context_messages(
+        state["messages"]
+    )
     response = cast(DocRelevance, await llm.ainvoke(messages))
 
     # Filter documents based on LLM relevance assessment
@@ -388,7 +384,7 @@ async def respond_with_docs(state: AgentState, core_client: CoreClient) -> dict:
 """
 
     prompt = RAG_RESPONSE_PROMPT.format(context=final_context)
-    messages = [{"role": "system", "content": prompt}] + state["messages"][-5:]
+    messages = [{"role": "system", "content": prompt}] + get_context_messages(state["messages"])
 
     # Streaming implementation for real-time RAG response
     chunks = []

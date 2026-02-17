@@ -61,67 +61,12 @@ export interface ChatMessage {
   helpful_document_post_ids: number[];
 }
 
-// WebSocket message types (Client → Agent)
-export interface ClientMessage {
-  type: "message" | "stop_generation";
-  content?: string;
-  content_ids?: number[];
-  user_id?: number | null;
-}
-
-// WebSocket message types (Agent → Client)
-export type AgentMessageType =
-  | "session_created"
-  | "status_update"
-  | "stream_chunk"
-  | "stream_end"
-  | "generation_stopped"
-  | "error";
-
-export interface SessionCreatedMessage {
-  type: "session_created";
-  nonce: string;
-}
-
-export interface StatusUpdateMessage {
-  type: "status_update";
-  message: string;
-}
-
-export interface StreamChunkMessage {
-  type: "stream_chunk";
-  content: string;
-}
-
+// Source document from agent response
 export interface SourceDocument {
   id: number;
   title: string;
   source: string;
 }
-
-export interface StreamEndMessage {
-  type: "stream_end";
-  source_documents: SourceDocument[];
-  processed_content: string;
-}
-
-export interface GenerationStoppedMessage {
-  type: "generation_stopped";
-}
-
-export interface ErrorMessage {
-  type: "error";
-  message: string;
-  code?: string;
-}
-
-export type AgentMessage =
-  | SessionCreatedMessage
-  | StatusUpdateMessage
-  | StreamChunkMessage
-  | StreamEndMessage
-  | GenerationStoppedMessage
-  | ErrorMessage;
 
 // UI state types
 export interface Message {

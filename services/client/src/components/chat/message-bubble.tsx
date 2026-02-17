@@ -36,19 +36,25 @@ export function MessageBubble({ message, userSelectedSources = [] }: MessageBubb
       {/* Message content */}
       <div className="inline-block max-w-[60%] px-6 py-2 rounded-[0_16px_16px_16px]">
         {message.isStreaming ? (
-          <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
-            <span className="loading-dots">
-              <span className="dot">.</span>
-              <span className="dot">.</span>
-              <span className="dot">.</span>
-            </span>
-          </div>
+          message.content ? (
+            <div className="markdown-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          ) : null
         ) : (
           <div className="markdown-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children, ...props }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-2 hover:underline" {...props}>
+                    {children}
+                  </a>
+                ),
+              }}
+            >
               {message.content}
             </ReactMarkdown>
           </div>

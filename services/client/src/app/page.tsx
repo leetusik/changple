@@ -13,7 +13,7 @@ export default function Home() {
   const { sidebarView, showHistory, showContentList } = useUIStore();
 
   const handleSendMessage = (question: string) => {
-    // Navigate to chat page - question will be sent after WebSocket connects
+    // Navigate to chat page - question will be sent on mount
     // Store question in sessionStorage for the chat page to pick up
     sessionStorage.setItem("pendingQuestion", question);
     router.push("/chat");

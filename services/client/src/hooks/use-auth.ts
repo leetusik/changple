@@ -8,7 +8,7 @@ import type { AuthStatus, User } from '@/types';
  * Fetch current auth status from Core service
  */
 async function fetchAuthStatus(): Promise<AuthStatus> {
-  const { data } = await api.get<AuthStatus>('/api/v1/auth/status/');
+  const { data } = await api.get<AuthStatus>('/auth/status/');
   return data;
 }
 
@@ -16,7 +16,7 @@ async function fetchAuthStatus(): Promise<AuthStatus> {
  * Logout from Core service
  */
 async function logout(): Promise<void> {
-  await api.post('/api/v1/auth/logout/');
+  await api.post('/auth/logout/');
 }
 
 /**
@@ -65,7 +65,7 @@ export function useLogout() {
  */
 export function getLoginUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  return `${baseUrl}/api/v1/auth/naver/login/`;
+  return `${baseUrl}/auth/naver/login/`;
 }
 
 /**

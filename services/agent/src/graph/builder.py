@@ -6,7 +6,6 @@ Builds the RAG workflow graph with all nodes and edges.
 
 import asyncio
 import logging
-from functools import partial
 
 import httpx
 from langgraph.graph import END, START, StateGraph

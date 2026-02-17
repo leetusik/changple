@@ -8,7 +8,7 @@ import type { ChatSession, ChatMessage, PaginatedResponse } from '@/types';
  * Fetch chat session history
  */
 async function fetchChatHistory(): Promise<PaginatedResponse<ChatSession>> {
-  const { data } = await api.get<PaginatedResponse<ChatSession>>('/api/v1/chat/history/');
+  const { data } = await api.get<PaginatedResponse<ChatSession>>('/chat/history/');
   return data;
 }
 
@@ -19,7 +19,7 @@ async function fetchChatHistory(): Promise<PaginatedResponse<ChatSession>> {
 async function fetchSessionMessages(nonce: string): Promise<ChatMessage[]> {
   try {
     // API returns { id, nonce, messages, created_at, updated_at }
-    const { data } = await api.get<{ messages: ChatMessage[] }>(`/api/v1/chat/${nonce}/messages/`);
+    const { data } = await api.get<{ messages: ChatMessage[] }>(`/chat/${nonce}/messages/`);
     return data.messages || [];
   } catch (error: any) {
     // Return empty array for 404 (session doesn't exist yet - this is normal for new sessions)
@@ -34,7 +34,7 @@ async function fetchSessionMessages(nonce: string): Promise<ChatMessage[]> {
  * Delete a chat session
  */
 async function deleteSession(nonce: string): Promise<void> {
-  await api.delete(`/api/v1/chat/${nonce}/`);
+  await api.delete(`/chat/${nonce}/`);
 }
 
 /**

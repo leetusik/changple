@@ -1,19 +1,17 @@
 """
 Celery tasks for scraper app.
+
+Thin wrappers that delegate to the pipeline orchestrator.
 """
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from celery import group, shared_task
 from django.utils import timezone
 
-from src.scraper.ingest.ingest import (
-    cleanup_pinecone_vectors,
-    get_posts_to_ingest_ids,
-    ingest_docs_chunk_sync,
-)
 from src.scraper.models import AllowedAuthor, BatchJob, NaverCafeData
+from src.scraper.pipeline import get_default_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +34,9 @@ def scheduled_scraping_task(self, batch_size: int = 100, auto_ingest: bool = Tru
 
     This task scrapes new posts from the last saved post ID to the latest.
     """
-    # Note: Scraping logic will be implemented separately
-    # This is a placeholder that triggers ingest after scraping
     logger.info(f"Starting scheduled scraping task with batch_size={batch_size}")
 
     # TODO: Implement scraping logic using Playwright
-    # For now, just trigger ingest if auto_ingest is True
 
     if auto_ingest:
         logger.info("Triggering automatic document ingestion after scraping")
@@ -64,21 +59,20 @@ def ingest_docs_task(self, *args, **kwargs):
     """
     Coordinator task for chunked document ingestion.
 
-    This task:
-    1. Cleans up Pinecone vectors
-    2. Splits documents into chunks
-    3. Processes chunks in parallel
+    Uses the pipeline orchestrator for cleanup and chunk processing.
     """
     try:
         logger.info("Starting document ingestion coordinator")
 
+        pipeline = get_default_pipeline()
+
         # Cleanup Pinecone vectors
         logger.info("Running Pinecone cleanup before chunked ingestion...")
-        cleanup_result = cleanup_pinecone_vectors()
+        cleanup_result = pipeline.cleanup()
         logger.info(f"Pinecone cleanup completed: {cleanup_result}")
 
         # Get all post IDs that need processing
-        all_post_ids = get_posts_to_ingest_ids()
+        all_post_ids = pipeline.get_item_ids_to_process()
 
         if not all_post_ids:
             logger.info("No documents to ingest after cleanup")
@@ -102,7 +96,7 @@ def ingest_docs_task(self, *args, **kwargs):
         for i in range(total_chunks):
             start_idx = i * chunk_size
             end_idx = min(start_idx + chunk_size, total_posts)
-            chunk_post_ids = all_post_ids[start_idx:end_idx]
+            chunk_post_ids = [int(pid) for pid in all_post_ids[start_idx:end_idx]]
 
             unique_task_id = f"ingest_chunk_ids_{start_idx}_{end_idx}"
             task = ingest_docs_chunk_task.s(post_ids=chunk_post_ids).set(
@@ -143,26 +137,24 @@ def ingest_docs_task(self, *args, **kwargs):
 def ingest_docs_chunk_task(
     self, offset: int = 0, limit: int = 100, post_ids: list = None
 ):
-    """
-    Celery task for ingesting a chunk of documents into Pinecone.
-    """
+    """Celery task for ingesting a chunk of documents via the pipeline."""
     try:
+        pipeline = get_default_pipeline()
+
         if post_ids:
             chunk_description = (
                 f"IDs {post_ids[:3]}...{post_ids[-3:]} ({len(post_ids)} posts)"
             )
-            logger.info(f"Starting document ingestion chunk task: {chunk_description}")
-            ingest_docs_chunk_sync(post_ids=post_ids)
+            logger.info(f"Starting chunk task: {chunk_description}")
+            pipeline.process_chunk(post_ids=post_ids)
         else:
-            logger.info(
-                f"Starting document ingestion chunk task: {offset}-{offset+limit}"
-            )
-            ingest_docs_chunk_sync(offset, limit)
+            logger.info(f"Starting chunk task: {offset}-{offset + limit}")
+            pipeline.process_chunk(offset=offset, limit=limit)
 
-        logger.info("Document ingestion chunk task completed successfully")
+        logger.info("Chunk task completed successfully")
 
     except Exception as e:
-        logger.error(f"Document ingestion chunk task failed: {e}")
+        logger.error(f"Chunk task failed: {e}")
         raise
 
 
@@ -177,20 +169,11 @@ def ingest_docs_chunk_task(
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 2, "countdown": 60},
 )
-def submit_batch_jobs_task(
-    self, batch_size: int = 100, use_batch_api: bool = True
-):
+def submit_batch_jobs_task(self, batch_size: int = 100, use_batch_api: bool = True):
     """
-    Phase 1: Submit batch jobs to provider APIs.
-
-    This task:
-    1. Scrapes new posts (if needed)
-    2. Submits summarization batch to Gemini
-    3. Creates BatchJob record for tracking
+    Phase 1: Submit batch jobs to provider APIs via the pipeline.
     """
     from django.db.models.functions import Length
-
-    from src.scraper.ingest.batch_summarize import submit_summarization_batch
 
     logger.info("Starting batch job submission task")
 
@@ -208,7 +191,7 @@ def submit_batch_jobs_task(
             author__in=active_authors,
             content_length__gt=1000,
             ingested=False,
-            summary__isnull=True,  # Only posts without summary
+            summary__isnull=True,
         )
         .order_by("post_id")[:batch_size]
     )
@@ -220,17 +203,17 @@ def submit_batch_jobs_task(
     logger.info(f"Found {len(posts)} posts for batch processing")
 
     if not use_batch_api:
-        # Fallback to regular processing
         logger.info("Using regular processing (batch API disabled)")
         ingest_docs_task.delay()
         return {"message": "Triggered regular ingestion", "posts": len(posts)}
 
-    # Submit to Gemini Batch API
+    # Submit via pipeline
+    pipeline = get_default_pipeline()
     post_ids = [p.post_id for p in posts]
-    job_name = submit_summarization_batch(posts)
+    job_name = pipeline.submit_batch(posts)
 
     if not job_name:
-        logger.error("Failed to submit Gemini batch job")
+        logger.error("Failed to submit batch job")
         return {"error": "Failed to submit batch job", "posts": len(posts)}
 
     # Create BatchJob record
@@ -259,25 +242,13 @@ def submit_batch_jobs_task(
 )
 def poll_batch_status_task(self):
     """
-    Phase 2: Poll batch job status and process results.
-
-    This task runs every 30 minutes to check:
-    1. Summarization jobs -> If complete, submit embedding batch
-    2. Embedding jobs -> If complete, ingest to Pinecone
+    Phase 2: Poll batch job status and process results via the pipeline.
     """
-    from src.scraper.ingest.batch_embed import (
-        check_embedding_batch,
-        ingest_embeddings_to_pinecone,
-        submit_embedding_batch,
-    )
-    from src.scraper.ingest.batch_summarize import (
-        check_summarization_batch,
-        process_summarization_results,
-    )
-
     logger.info("Polling batch job status")
 
-    # Check submitted/processing summarization jobs
+    pipeline = get_default_pipeline()
+
+    # Check summarization jobs
     summarize_jobs = BatchJob.objects.filter(
         job_type="summarize",
         status__in=["submitted", "processing"],
@@ -286,11 +257,11 @@ def poll_batch_status_task(self):
     for job in summarize_jobs:
         logger.info(f"Checking summarization job {job.id} ({job.job_id})")
 
-        status, results = check_summarization_batch(job.job_id)
+        status, results = pipeline.check_batch(job.job_id)
 
         if status == "completed" and results:
             logger.info(f"Summarization job {job.id} completed")
-            process_summarization_results(job, results)
+            pipeline.apply_batch_results(job, results)
 
             # Submit embedding batch
             posts = NaverCafeData.objects.filter(post_id__in=job.post_ids)
@@ -306,7 +277,7 @@ def poll_batch_status_task(self):
                     custom_ids.append(str(post.post_id))
 
             if texts:
-                batch_id = submit_embedding_batch(texts, custom_ids)
+                batch_id = pipeline.submit_embeddings(texts, custom_ids)
                 if batch_id:
                     BatchJob.objects.create(
                         job_type="embed",
@@ -322,13 +293,12 @@ def poll_batch_status_task(self):
             job.status = "failed"
             job.error_message = "Batch job failed"
             job.save()
-            logger.error(f"Summarization job {job.id} failed")
 
         elif status == "processing":
             job.status = "processing"
             job.save()
 
-    # Check submitted/processing embedding jobs
+    # Check embedding jobs
     embed_jobs = BatchJob.objects.filter(
         job_type="embed",
         status__in=["submitted", "processing"],
@@ -337,17 +307,16 @@ def poll_batch_status_task(self):
     for job in embed_jobs:
         logger.info(f"Checking embedding job {job.id} ({job.job_id})")
 
-        status, embeddings = check_embedding_batch(job.job_id)
+        status, embeddings = pipeline.check_embeddings(job.job_id)
 
         if status == "completed" and embeddings:
             logger.info(f"Embedding job {job.id} completed")
-            ingest_embeddings_to_pinecone(job, embeddings)
+            pipeline.ingest_embeddings(job, embeddings)
 
         elif status == "failed":
             job.status = "failed"
             job.error_message = "Batch job failed"
             job.save()
-            logger.error(f"Embedding job {job.id} failed")
 
         elif status == "processing":
             job.status = "processing"
@@ -383,6 +352,5 @@ def full_rescan_task(
     )
 
     # TODO: Implement scraping logic using Playwright
-    # For now, just log the request
 
     logger.info("Full rescan task completed (placeholder)")

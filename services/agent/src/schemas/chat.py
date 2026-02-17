@@ -1,68 +1,27 @@
 """
-Pydantic schemas for WebSocket chat messages.
+Pydantic schemas for chat messages (SSE events).
 """
 
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
-# Client → Agent Messages
+# Client → Agent Request
 # =============================================================================
 
 
-class ClientMessage(BaseModel):
-    """Base message from client."""
+class ChatSendRequest(BaseModel):
+    """Request body for sending a chat message."""
 
-    type: str
-
-
-class ChatMessage(ClientMessage):
-    """Chat message from client."""
-
-    type: Literal["message"] = "message"
     content: str
     content_ids: list[int] = Field(default_factory=list)
     user_id: Optional[int] = None
 
 
-class StopGenerationMessage(ClientMessage):
-    """Stop generation request from client."""
-
-    type: Literal["stop_generation"] = "stop_generation"
-
-
 # =============================================================================
-# Agent → Client Messages
+# SSE Event Models
 # =============================================================================
-
-
-class ServerMessage(BaseModel):
-    """Base message to client."""
-
-    type: str
-
-
-class SessionCreatedMessage(ServerMessage):
-    """Session created notification."""
-
-    type: Literal["session_created"] = "session_created"
-    nonce: str
-
-
-class StatusUpdateMessage(ServerMessage):
-    """Status update during processing."""
-
-    type: Literal["status_update"] = "status_update"
-    message: str
-
-
-class StreamChunkMessage(ServerMessage):
-    """Streaming chunk of response."""
-
-    type: Literal["stream_chunk"] = "stream_chunk"
-    content: str
 
 
 class SourceDocument(BaseModel):
@@ -73,23 +32,33 @@ class SourceDocument(BaseModel):
     source: str
 
 
-class StreamEndMessage(ServerMessage):
-    """End of streaming response."""
+class SSEStatusData(BaseModel):
+    """Data for status SSE event."""
 
-    type: Literal["stream_end"] = "stream_end"
+    message: str
+
+
+class SSEChunkData(BaseModel):
+    """Data for chunk SSE event."""
+
+    content: str
+
+
+class SSEEndData(BaseModel):
+    """Data for end SSE event."""
+
     source_documents: list[SourceDocument] = Field(default_factory=list)
     processed_content: str = ""
 
 
-class GenerationStoppedMessage(ServerMessage):
-    """Generation was stopped by user."""
+class SSEStoppedData(BaseModel):
+    """Data for stopped SSE event."""
 
-    type: Literal["generation_stopped"] = "generation_stopped"
+    message: str = "생성이 중단되었습니다"
 
 
-class ErrorMessage(ServerMessage):
-    """Error message."""
+class SSEErrorData(BaseModel):
+    """Data for error SSE event."""
 
-    type: Literal["error"] = "error"
     message: str
     code: Optional[str] = None

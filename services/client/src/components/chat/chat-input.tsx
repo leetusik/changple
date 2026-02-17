@@ -50,6 +50,9 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Skip if IME is composing (Korean, Japanese, Chinese input)
+    // nativeEvent.isComposing catches the composing state reliably across browsers
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
